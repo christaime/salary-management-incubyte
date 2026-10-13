@@ -1,0 +1,87 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.4'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.salary.management'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // .env support for local development
+    developmentOnly 'me.paulschwarz:springboot3-dotenv:5.0.1'
+
+    // Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Database: SQLite + Hibernate community dialect
+    implementation 'org.xerial:sqlite-jdbc:3.46.1.3'
+    implementation 'org.hibernate.orm:hibernate-community-dialects:6.5.3.Final'
+    implementation 'org.flywaydb:flyway-core'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Frontend build integration for production JAR
+// Disabled until frontend exists — will be enabled in a later commit
+def frontendDir = "$projectDir/../frontend"
+def frontendBuildDir = "$frontendDir/dist/frontend/browser"
+
+tasks.register('npmInstall', Exec) {
+    description = 'Install frontend dependencies'
+    onlyIf {
+        file(frontendDir).exists() &&
+                !file("$frontendDir/node_modules").exists()
+    }
+    workingDir frontendDir
+    commandLine 'npm', 'install'
+}
+
+tasks.register('npmBuild', Exec) {
+    description = 'Build the Angular frontend'
+    dependsOn 'npmInstall'
+    onlyIf { file(frontendDir).exists() }
+    workingDir frontendDir
+    commandLine 'npm', 'run', 'build', '--', '--configuration=production'
+}
+
+tasks.register('cleanPublic', Delete) {
+    description = 'Delete the generated public folder before copying fresh frontend assets'
+    delete "$projectDir/src/main/resources/public"
+}
+
+tasks.register('copyFrontendToPublic', Copy) {
+    description = 'Copy built Angular app into backend public resources'
+    dependsOn 'npmBuild','cleanPublic'
+    from frontendBuildDir
+    into "$projectDir/src/main/resources/public"
+    onlyIf { file(frontendBuildDir).exists() }
+}
+
+tasks.named('bootJar') {
+    dependsOn 'copyFrontendToPublic'
+}
+
+tasks.named('processResources') {
+    mustRunAfter 'copyFrontendToPublic'
+}

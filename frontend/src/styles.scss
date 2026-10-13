@@ -1,0 +1,14 @@
+/* Angular Material theme below */
+@use '@angular/material' as mat;
+
+@import "tailwindcss/utilities.css" layer(utilities);
+
+html {
+  color-scheme: light dark;
+  @include mat.theme((
+    color: mat.$magenta-palette,
+    typography: Roboto,
+    density: 0
+  ));
+}
+

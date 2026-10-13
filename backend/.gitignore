@@ -1,0 +1,15 @@
+build/
+.gradle/
+out/
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+.env.local
+!.env.example
+
+# Generated frontend bundle (copied into resources for the production JAR)
+src/main/resources/public/
