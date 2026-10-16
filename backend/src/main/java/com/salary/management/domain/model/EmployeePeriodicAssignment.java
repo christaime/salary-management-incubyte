@@ -1,15 +1,16 @@
 package com.salary.management.domain.model;
 
 import com.salary.management.common.validation.DomainValidation;
-import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.enums.EmploymentType;
-import jakarta.validation.ConstraintViolation;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 
 import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Time-bounded assignment of an employee to a country, department and role.
@@ -32,13 +33,13 @@ public final class EmployeePeriodicAssignment {
     private final LocalDate endDate;
 
     @NotNull
-    private final UUID countryId;
+    private final Country country;
 
     @NotNull
-    private final UUID departmentId;
+    private final Department department;
 
     @NotNull
-    private final UUID roleId;
+    private final Role role;
 
     @NotNull
     private final EmploymentType employmentType;
@@ -51,9 +52,9 @@ public final class EmployeePeriodicAssignment {
         this.employeeId = builder.employeeId;
         this.startDate = builder.startDate;
         this.endDate = builder.endDate;
-        this.countryId = builder.countryId;
-        this.departmentId = builder.departmentId;
-        this.roleId = builder.roleId;
+        this.country = builder.country;
+        this.department = builder.department;
+        this.role = builder.role;
         this.employmentType = builder.employmentType;
         this.inEffect = builder.inEffect;
     }
@@ -70,8 +71,16 @@ public final class EmployeePeriodicAssignment {
         return toBuilder().inEffect(newInEffect).build();
     }
 
-    public EmployeePeriodicAssignment withRoleId(UUID newRoleId) {
-        return toBuilder().roleId(newRoleId).build();
+    public EmployeePeriodicAssignment withCountry(Country newCountry) {
+        return toBuilder().country(newCountry).build();
+    }
+
+    public EmployeePeriodicAssignment withDepartment(Department newDepartment) {
+        return toBuilder().department(newDepartment).build();
+    }
+
+    public EmployeePeriodicAssignment withRole(Role newRole) {
+        return toBuilder().role(newRole).build();
     }
 
     private Builder toBuilder() {
@@ -80,9 +89,9 @@ public final class EmployeePeriodicAssignment {
                 .employeeId(this.employeeId)
                 .startDate(this.startDate)
                 .endDate(this.endDate)
-                .countryId(this.countryId)
-                .departmentId(this.departmentId)
-                .roleId(this.roleId)
+                .country(this.country)
+                .department(this.department)
+                .role(this.role)
                 .employmentType(this.employmentType)
                 .inEffect(this.inEffect);
     }
@@ -97,9 +106,9 @@ public final class EmployeePeriodicAssignment {
         private UUID employeeId;
         private LocalDate startDate;
         private LocalDate endDate;
-        private UUID countryId;
-        private UUID departmentId;
-        private UUID roleId;
+        private Country country;
+        private Department department;
+        private Role role;
         private EmploymentType employmentType;
         private Boolean inEffect;
 
@@ -123,18 +132,18 @@ public final class EmployeePeriodicAssignment {
             return this;
         }
 
-        public Builder countryId(UUID countryId) {
-            this.countryId = countryId;
+        public Builder country(Country country) {
+            this.country = country;
             return this;
         }
 
-        public Builder departmentId(UUID departmentId) {
-            this.departmentId = departmentId;
+        public Builder department(Department department) {
+            this.department = department;
             return this;
         }
 
-        public Builder roleId(UUID roleId) {
-            this.roleId = roleId;
+        public Builder role(Role role) {
+            this.role = role;
             return this;
         }
 

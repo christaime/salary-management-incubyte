@@ -1,12 +1,13 @@
 package com.salary.management.domain.model;
 
 import com.salary.management.common.validation.DomainValidationException;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -15,9 +16,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PayrollPeriodSnapshotTest {
 
+    private static PayrollPeriod aPayrollPeriod() {
+        return PayrollPeriod.builder()
+                .name("2024-01 Monthly")
+                .startDate(LocalDate.of(2024, 1, 1))
+                .endDate(LocalDate.of(2024, 1, 31))
+                .frequency(PayrollPeriodFrequency.MONTHLY)
+                .closed(false)
+                .build();
+    }
+
     private static PayrollPeriodSnapshot valid() {
         return PayrollPeriodSnapshot.builder()
-                .payrollPeriodId(UUID.randomUUID())
+                .payrollPeriod(aPayrollPeriod())
                 .status(PayrollSummaryStatus.DRAFT)
                 .warnings(List.of("Missing timesheet for 2 employees"))
                 .build();
@@ -30,13 +41,14 @@ class PayrollPeriodSnapshotTest {
         assertNotNull(snapshot.getId());
         assertEquals(PayrollSummaryStatus.DRAFT, snapshot.getStatus());
         assertEquals(1, snapshot.getWarnings().size());
+        assertEquals("2024-01 Monthly", snapshot.getPayrollPeriod().getName());
     }
 
     @Test
     @DisplayName("Empty warnings list is allowed")
     void emptyWarningsAllowed() {
         PayrollPeriodSnapshot snapshot = PayrollPeriodSnapshot.builder()
-                .payrollPeriodId(UUID.randomUUID())
+                .payrollPeriod(aPayrollPeriod())
                 .status(PayrollSummaryStatus.VALIDATED)
                 .warnings(List.of())
                 .build();
@@ -48,15 +60,15 @@ class PayrollPeriodSnapshotTest {
     @DisplayName("Null warnings defaults to empty list")
     void nullWarningsDefaultsToEmpty() {
         PayrollPeriodSnapshot snapshot = PayrollPeriodSnapshot.builder()
-                .payrollPeriodId(UUID.randomUUID())
+                .payrollPeriod(aPayrollPeriod())
                 .status(PayrollSummaryStatus.DRAFT)
                 .build();
         assertEquals(0, snapshot.getWarnings().size());
     }
 
     @Test
-    @DisplayName("Missing payrollPeriodId is rejected")
-    void missingPayrollPeriodIdRejected() {
+    @DisplayName("Missing payrollPeriod is rejected")
+    void missingPayrollPeriodRejected() {
         assertThrows(DomainValidationException.class, () -> PayrollPeriodSnapshot.builder()
                 .status(PayrollSummaryStatus.DRAFT)
                 .warnings(List.of())
@@ -67,7 +79,7 @@ class PayrollPeriodSnapshotTest {
     @DisplayName("Missing status is rejected")
     void missingStatusRejected() {
         assertThrows(DomainValidationException.class, () -> PayrollPeriodSnapshot.builder()
-                .payrollPeriodId(UUID.randomUUID())
+                .payrollPeriod(aPayrollPeriod())
                 .warnings(List.of())
                 .build());
     }

@@ -2,10 +2,12 @@ package com.salary.management.domain.model;
 
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,12 +17,34 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PayrollPeriodEarnerRankingTest {
 
+    private static PayrollPeriod aPayrollPeriod() {
+        return PayrollPeriod.builder()
+                .name("2024-01 Monthly")
+                .startDate(LocalDate.of(2024, 1, 1))
+                .endDate(LocalDate.of(2024, 1, 31))
+                .frequency(PayrollPeriodFrequency.MONTHLY)
+                .closed(false)
+                .build();
+    }
+
+    private static Country aCountry() {
+        return Country.builder().isoCode("FR").name("France").currencyCode("EUR").build();
+    }
+
+    private static Department aDepartment() {
+        return Department.builder().name("Engineering").build();
+    }
+
+    private static Role aRole() {
+        return Role.builder().name("Engineer").build();
+    }
+
     private static PayrollPeriodEarnerRanking valid() {
         return PayrollPeriodEarnerRanking.builder()
-                .payrollPeriodId(UUID.randomUUID())
-                .countryId(UUID.randomUUID())
-                .departmentId(UUID.randomUUID())
-                .roleId(UUID.randomUUID())
+                .payrollPeriod(aPayrollPeriod())
+                .country(aCountry())
+                .department(aDepartment())
+                .role(aRole())
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
                 .employeeId(UUID.randomUUID())
@@ -36,6 +60,9 @@ class PayrollPeriodEarnerRankingTest {
         assertEquals(EarnerRankingDirection.TOP, ranking.getDirection());
         assertEquals(1, ranking.getRank());
         assertEquals(new BigDecimal("12500.00"), ranking.getAmount());
+        assertEquals("FR", ranking.getCountry().getIsoCode());
+        assertEquals("Engineering", ranking.getDepartment().getName());
+        assertEquals("Engineer", ranking.getRole().getName());
     }
 
     @Test
@@ -43,10 +70,10 @@ class PayrollPeriodEarnerRankingTest {
     void rankBelowOneRejected() {
         assertThrows(DomainValidationException.class,
                 () -> PayrollPeriodEarnerRanking.builder()
-                        .payrollPeriodId(UUID.randomUUID())
-                        .countryId(UUID.randomUUID())
-                        .departmentId(UUID.randomUUID())
-                        .roleId(UUID.randomUUID())
+                        .payrollPeriod(aPayrollPeriod())
+                        .country(aCountry())
+                        .department(aDepartment())
+                        .role(aRole())
                         .direction(EarnerRankingDirection.TOP)
                         .rank(0)
                         .employeeId(UUID.randomUUID())
@@ -59,10 +86,10 @@ class PayrollPeriodEarnerRankingTest {
     void rankAboveFiveRejected() {
         assertThrows(DomainValidationException.class,
                 () -> PayrollPeriodEarnerRanking.builder()
-                        .payrollPeriodId(UUID.randomUUID())
-                        .countryId(UUID.randomUUID())
-                        .departmentId(UUID.randomUUID())
-                        .roleId(UUID.randomUUID())
+                        .payrollPeriod(aPayrollPeriod())
+                        .country(aCountry())
+                        .department(aDepartment())
+                        .role(aRole())
                         .direction(EarnerRankingDirection.BOTTOM)
                         .rank(6)
                         .employeeId(UUID.randomUUID())
@@ -75,10 +102,10 @@ class PayrollPeriodEarnerRankingTest {
     void negativeAmountRejected() {
         assertThrows(DomainValidationException.class,
                 () -> PayrollPeriodEarnerRanking.builder()
-                        .payrollPeriodId(UUID.randomUUID())
-                        .countryId(UUID.randomUUID())
-                        .departmentId(UUID.randomUUID())
-                        .roleId(UUID.randomUUID())
+                        .payrollPeriod(aPayrollPeriod())
+                        .country(aCountry())
+                        .department(aDepartment())
+                        .role(aRole())
                         .direction(EarnerRankingDirection.TOP)
                         .rank(2)
                         .employeeId(UUID.randomUUID())
@@ -91,10 +118,25 @@ class PayrollPeriodEarnerRankingTest {
     void missingDirectionRejected() {
         assertThrows(DomainValidationException.class,
                 () -> PayrollPeriodEarnerRanking.builder()
-                        .payrollPeriodId(UUID.randomUUID())
-                        .countryId(UUID.randomUUID())
-                        .departmentId(UUID.randomUUID())
-                        .roleId(UUID.randomUUID())
+                        .payrollPeriod(aPayrollPeriod())
+                        .country(aCountry())
+                        .department(aDepartment())
+                        .role(aRole())
+                        .rank(1)
+                        .employeeId(UUID.randomUUID())
+                        .amount(BigDecimal.TEN)
+                        .build());
+    }
+
+    @Test
+    @DisplayName("Missing country is rejected")
+    void missingCountryRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> PayrollPeriodEarnerRanking.builder()
+                        .payrollPeriod(aPayrollPeriod())
+                        .department(aDepartment())
+                        .role(aRole())
+                        .direction(EarnerRankingDirection.TOP)
                         .rank(1)
                         .employeeId(UUID.randomUUID())
                         .amount(BigDecimal.TEN)

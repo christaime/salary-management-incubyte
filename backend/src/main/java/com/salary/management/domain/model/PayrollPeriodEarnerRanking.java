@@ -22,16 +22,16 @@ public final class PayrollPeriodEarnerRanking {
     private final UUID id;
 
     @NotNull
-    private final UUID payrollPeriodId;
+    private final PayrollPeriod payrollPeriod;
 
     @NotNull
-    private final UUID countryId;
+    private final Country country;
 
     @NotNull
-    private final UUID departmentId;
+    private final Department department;
 
     @NotNull
-    private final UUID roleId;
+    private final Role role;
 
     @NotNull
     private final EarnerRankingDirection direction;
@@ -50,10 +50,10 @@ public final class PayrollPeriodEarnerRanking {
 
     private PayrollPeriodEarnerRanking(Builder builder) {
         this.id = builder.id;
-        this.payrollPeriodId = builder.payrollPeriodId;
-        this.countryId = builder.countryId;
-        this.departmentId = builder.departmentId;
-        this.roleId = builder.roleId;
+        this.payrollPeriod = builder.payrollPeriod;
+        this.country = builder.country;
+        this.department = builder.department;
+        this.role = builder.role;
         this.direction = builder.direction;
         this.rank = builder.rank;
         this.employeeId = builder.employeeId;
@@ -75,10 +75,10 @@ public final class PayrollPeriodEarnerRanking {
     private Builder toBuilder() {
         return new Builder()
                 .id(this.id)
-                .payrollPeriodId(this.payrollPeriodId)
-                .countryId(this.countryId)
-                .departmentId(this.departmentId)
-                .roleId(this.roleId)
+                .payrollPeriod(this.payrollPeriod)
+                .country(this.country)
+                .department(this.department)
+                .role(this.role)
                 .direction(this.direction)
                 .rank(this.rank)
                 .employeeId(this.employeeId)
@@ -89,10 +89,10 @@ public final class PayrollPeriodEarnerRanking {
     public static final class Builder {
 
         private UUID id;
-        private UUID payrollPeriodId;
-        private UUID countryId;
-        private UUID departmentId;
-        private UUID roleId;
+        private PayrollPeriod payrollPeriod;
+        private Country country;
+        private Department department;
+        private Role role;
         private EarnerRankingDirection direction;
         private Integer rank;
         private UUID employeeId;
@@ -103,23 +103,23 @@ public final class PayrollPeriodEarnerRanking {
             return this;
         }
 
-        public Builder payrollPeriodId(UUID payrollPeriodId) {
-            this.payrollPeriodId = payrollPeriodId;
+        public Builder payrollPeriod(PayrollPeriod payrollPeriod) {
+            this.payrollPeriod = payrollPeriod;
             return this;
         }
 
-        public Builder countryId(UUID countryId) {
-            this.countryId = countryId;
+        public Builder country(Country country) {
+            this.country = country;
             return this;
         }
 
-        public Builder departmentId(UUID departmentId) {
-            this.departmentId = departmentId;
+        public Builder department(Department department) {
+            this.department = department;
             return this;
         }
 
-        public Builder roleId(UUID roleId) {
-            this.roleId = roleId;
+        public Builder role(Role role) {
+            this.role = role;
             return this;
         }
 

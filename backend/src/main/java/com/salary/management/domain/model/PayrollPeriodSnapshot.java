@@ -19,7 +19,7 @@ public final class PayrollPeriodSnapshot {
     private final UUID id;
 
     @NotNull
-    private final UUID payrollPeriodId;
+    private final PayrollPeriod payrollPeriod;
 
     @NotNull
     private final PayrollSummaryStatus status;
@@ -29,7 +29,7 @@ public final class PayrollPeriodSnapshot {
 
     private PayrollPeriodSnapshot(Builder builder) {
         this.id = builder.id;
-        this.payrollPeriodId = builder.payrollPeriodId;
+        this.payrollPeriod = builder.payrollPeriod;
         this.status = builder.status;
         this.warnings = builder.warnings == null ? List.of() : List.copyOf(builder.warnings);
     }
@@ -46,10 +46,14 @@ public final class PayrollPeriodSnapshot {
         return toBuilder().warnings(newWarnings).build();
     }
 
+    public PayrollPeriodSnapshot withPayrollPeriod(PayrollPeriod newPayrollPeriod) {
+        return toBuilder().payrollPeriod(newPayrollPeriod).build();
+    }
+
     private Builder toBuilder() {
         return new Builder()
                 .id(this.id)
-                .payrollPeriodId(this.payrollPeriodId)
+                .payrollPeriod(this.payrollPeriod)
                 .status(this.status)
                 .warnings(this.warnings);
     }
@@ -58,7 +62,7 @@ public final class PayrollPeriodSnapshot {
     public static final class Builder {
 
         private UUID id;
-        private UUID payrollPeriodId;
+        private PayrollPeriod payrollPeriod;
         private PayrollSummaryStatus status;
         private List<String> warnings;
 
@@ -67,8 +71,8 @@ public final class PayrollPeriodSnapshot {
             return this;
         }
 
-        public Builder payrollPeriodId(UUID payrollPeriodId) {
-            this.payrollPeriodId = payrollPeriodId;
+        public Builder payrollPeriod(PayrollPeriod payrollPeriod) {
+            this.payrollPeriod = payrollPeriod;
             return this;
         }
 

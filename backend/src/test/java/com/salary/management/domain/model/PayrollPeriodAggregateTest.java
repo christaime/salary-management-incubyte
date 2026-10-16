@@ -1,12 +1,13 @@
 package com.salary.management.domain.model;
 
 import com.salary.management.common.validation.DomainValidationException;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.values.Amounts;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.UUID;
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -25,12 +26,34 @@ class PayrollPeriodAggregateTest {
                 .build();
     }
 
+    private static PayrollPeriod aPayrollPeriod() {
+        return PayrollPeriod.builder()
+                .name("2024-01 Monthly")
+                .startDate(LocalDate.of(2024, 1, 1))
+                .endDate(LocalDate.of(2024, 1, 31))
+                .frequency(PayrollPeriodFrequency.MONTHLY)
+                .closed(false)
+                .build();
+    }
+
+    private static Country aCountry() {
+        return Country.builder().isoCode("FR").name("France").currencyCode("EUR").build();
+    }
+
+    private static Department aDepartment() {
+        return Department.builder().name("Engineering").build();
+    }
+
+    private static Role aRole() {
+        return Role.builder().name("Engineer").build();
+    }
+
     private static PayrollPeriodAggregate valid() {
         return PayrollPeriodAggregate.builder()
-                .payrollPeriodId(UUID.randomUUID())
-                .countryId(UUID.randomUUID())
-                .departmentId(UUID.randomUUID())
-                .roleId(UUID.randomUUID())
+                .payrollPeriod(aPayrollPeriod())
+                .country(aCountry())
+                .department(aDepartment())
+                .role(aRole())
                 .originalAmounts(amounts("USD"))
                 .referenceAmounts(amounts("EUR"))
                 .employeeCount(10)
@@ -45,16 +68,19 @@ class PayrollPeriodAggregateTest {
         assertEquals(10, aggregate.getEmployeeCount());
         assertEquals("USD", aggregate.getOriginalAmounts().getCurrency());
         assertEquals("EUR", aggregate.getReferenceAmounts().getCurrency());
+        assertEquals("FR", aggregate.getCountry().getIsoCode());
+        assertEquals("Engineering", aggregate.getDepartment().getName());
+        assertEquals("Engineer", aggregate.getRole().getName());
     }
 
     @Test
     @DisplayName("Zero employee count is allowed")
     void zeroEmployeeCountAllowed() {
         PayrollPeriodAggregate aggregate = PayrollPeriodAggregate.builder()
-                .payrollPeriodId(UUID.randomUUID())
-                .countryId(UUID.randomUUID())
-                .departmentId(UUID.randomUUID())
-                .roleId(UUID.randomUUID())
+                .payrollPeriod(aPayrollPeriod())
+                .country(aCountry())
+                .department(aDepartment())
+                .role(aRole())
                 .originalAmounts(amounts("USD"))
                 .referenceAmounts(amounts("EUR"))
                 .employeeCount(0)
@@ -66,10 +92,10 @@ class PayrollPeriodAggregateTest {
     @DisplayName("Negative employee count is rejected")
     void negativeEmployeeCountRejected() {
         assertThrows(DomainValidationException.class, () -> PayrollPeriodAggregate.builder()
-                .payrollPeriodId(UUID.randomUUID())
-                .countryId(UUID.randomUUID())
-                .departmentId(UUID.randomUUID())
-                .roleId(UUID.randomUUID())
+                .payrollPeriod(aPayrollPeriod())
+                .country(aCountry())
+                .department(aDepartment())
+                .role(aRole())
                 .originalAmounts(amounts("USD"))
                 .referenceAmounts(amounts("EUR"))
                 .employeeCount(-1)
@@ -80,10 +106,23 @@ class PayrollPeriodAggregateTest {
     @DisplayName("Missing originalAmounts is rejected")
     void missingOriginalAmountsRejected() {
         assertThrows(DomainValidationException.class, () -> PayrollPeriodAggregate.builder()
-                .payrollPeriodId(UUID.randomUUID())
-                .countryId(UUID.randomUUID())
-                .departmentId(UUID.randomUUID())
-                .roleId(UUID.randomUUID())
+                .payrollPeriod(aPayrollPeriod())
+                .country(aCountry())
+                .department(aDepartment())
+                .role(aRole())
+                .referenceAmounts(amounts("EUR"))
+                .employeeCount(1)
+                .build());
+    }
+
+    @Test
+    @DisplayName("Missing country is rejected")
+    void missingCountryRejected() {
+        assertThrows(DomainValidationException.class, () -> PayrollPeriodAggregate.builder()
+                .payrollPeriod(aPayrollPeriod())
+                .department(aDepartment())
+                .role(aRole())
+                .originalAmounts(amounts("USD"))
                 .referenceAmounts(amounts("EUR"))
                 .employeeCount(1)
                 .build());

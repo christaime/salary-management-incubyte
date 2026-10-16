@@ -15,14 +15,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EmployeePeriodicAssignmentTest {
 
+    private static Country aCountry() {
+        return Country.builder().isoCode("FR").name("France").currencyCode("EUR").build();
+    }
+
+    private static Department aDepartment() {
+        return Department.builder().name("Engineering").build();
+    }
+
+    private static Role aRole() {
+        return Role.builder().name("Engineer").build();
+    }
+
     private static EmployeePeriodicAssignment valid() {
         return EmployeePeriodicAssignment.builder()
                 .employeeId(UUID.randomUUID())
                 .startDate(LocalDate.of(2024, 1, 1))
                 .endDate(LocalDate.of(2024, 12, 31))
-                .countryId(UUID.randomUUID())
-                .departmentId(UUID.randomUUID())
-                .roleId(UUID.randomUUID())
+                .country(aCountry())
+                .department(aDepartment())
+                .role(aRole())
                 .employmentType(EmploymentType.FULL_TIME)
                 .inEffect(true)
                 .build();
@@ -36,6 +48,9 @@ class EmployeePeriodicAssignmentTest {
         assertEquals(LocalDate.of(2024, 1, 1), assignment.getStartDate());
         assertEquals(LocalDate.of(2024, 12, 31), assignment.getEndDate());
         assertEquals(EmploymentType.FULL_TIME, assignment.getEmploymentType());
+        assertEquals("FR", assignment.getCountry().getIsoCode());
+        assertEquals("Engineering", assignment.getDepartment().getName());
+        assertEquals("Engineer", assignment.getRole().getName());
     }
 
     @Test
@@ -44,14 +59,13 @@ class EmployeePeriodicAssignmentTest {
         EmployeePeriodicAssignment assignment = EmployeePeriodicAssignment.builder()
                 .employeeId(UUID.randomUUID())
                 .startDate(LocalDate.of(2024, 1, 1))
-                .countryId(UUID.randomUUID())
-                .departmentId(UUID.randomUUID())
-                .roleId(UUID.randomUUID())
+                .country(aCountry())
+                .department(aDepartment())
+                .role(aRole())
                 .employmentType(EmploymentType.CONTRACTOR)
                 .inEffect(true)
                 .build();
         assertNotNull(assignment.getId());
-        assertEquals(LocalDate.of(2024, 1, 1), assignment.getStartDate());
         assertEquals(null, assignment.getEndDate());
     }
 
@@ -63,9 +77,9 @@ class EmployeePeriodicAssignmentTest {
                         .employeeId(UUID.randomUUID())
                         .startDate(LocalDate.of(2024, 6, 1))
                         .endDate(LocalDate.of(2024, 6, 1))
-                        .countryId(UUID.randomUUID())
-                        .departmentId(UUID.randomUUID())
-                        .roleId(UUID.randomUUID())
+                        .country(aCountry())
+                        .department(aDepartment())
+                        .role(aRole())
                         .employmentType(EmploymentType.FULL_TIME)
                         .inEffect(true)
                         .build());
@@ -77,9 +91,51 @@ class EmployeePeriodicAssignmentTest {
         assertThrows(DomainValidationException.class,
                 () -> EmployeePeriodicAssignment.builder()
                         .startDate(LocalDate.of(2024, 1, 1))
-                        .countryId(UUID.randomUUID())
-                        .departmentId(UUID.randomUUID())
-                        .roleId(UUID.randomUUID())
+                        .country(aCountry())
+                        .department(aDepartment())
+                        .role(aRole())
+                        .employmentType(EmploymentType.FULL_TIME)
+                        .inEffect(true)
+                        .build());
+    }
+
+    @Test
+    @DisplayName("Missing country is rejected")
+    void missingCountryRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> EmployeePeriodicAssignment.builder()
+                        .employeeId(UUID.randomUUID())
+                        .startDate(LocalDate.of(2024, 1, 1))
+                        .department(aDepartment())
+                        .role(aRole())
+                        .employmentType(EmploymentType.FULL_TIME)
+                        .inEffect(true)
+                        .build());
+    }
+
+    @Test
+    @DisplayName("Missing department is rejected")
+    void missingDepartmentRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> EmployeePeriodicAssignment.builder()
+                        .employeeId(UUID.randomUUID())
+                        .startDate(LocalDate.of(2024, 1, 1))
+                        .country(aCountry())
+                        .role(aRole())
+                        .employmentType(EmploymentType.FULL_TIME)
+                        .inEffect(true)
+                        .build());
+    }
+
+    @Test
+    @DisplayName("Missing role is rejected")
+    void missingRoleRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> EmployeePeriodicAssignment.builder()
+                        .employeeId(UUID.randomUUID())
+                        .startDate(LocalDate.of(2024, 1, 1))
+                        .country(aCountry())
+                        .department(aDepartment())
                         .employmentType(EmploymentType.FULL_TIME)
                         .inEffect(true)
                         .build());
@@ -92,9 +148,9 @@ class EmployeePeriodicAssignmentTest {
                 () -> EmployeePeriodicAssignment.builder()
                         .employeeId(UUID.randomUUID())
                         .startDate(LocalDate.of(2024, 1, 1))
-                        .countryId(UUID.randomUUID())
-                        .departmentId(UUID.randomUUID())
-                        .roleId(UUID.randomUUID())
+                        .country(aCountry())
+                        .department(aDepartment())
+                        .role(aRole())
                         .inEffect(true)
                         .build());
     }
@@ -128,5 +184,18 @@ class EmployeePeriodicAssignmentTest {
         assertNotSame(original, updated);
         assertEquals(true, original.getInEffect());
         assertEquals(false, updated.getInEffect());
+    }
+
+    @Test
+    @DisplayName("withRole returns a new instance with updated role")
+    void withRoleTransition() {
+        EmployeePeriodicAssignment original = valid();
+        Role newRole = Role.builder().name("Senior Engineer").build();
+
+        EmployeePeriodicAssignment updated = original.withRole(newRole);
+
+        assertNotSame(original, updated);
+        assertEquals("Engineer", original.getRole().getName());
+        assertEquals("Senior Engineer", updated.getRole().getName());
     }
 }
