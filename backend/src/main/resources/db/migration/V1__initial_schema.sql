@@ -119,12 +119,21 @@ CREATE INDEX idx_assignment_dates
 
 -- ---------------------------------------------------------------------------
 -- payroll_summaries
+--
+-- employee_id and payroll_period_id are the target of @ManyToOne associations on the entity;
+-- the columns keep their original names. employee_periodic_assignment_id is a plain UUID, and
+-- the assignment's country, department, role, and employment type are denormalized into the
+-- summary so filtering by assignment attributes does not require a join.
 -- ---------------------------------------------------------------------------
 CREATE TABLE payroll_summaries (
     id                                TEXT PRIMARY KEY,
     employee_id                       TEXT NOT NULL,
     payroll_period_id                 TEXT NOT NULL,
     employee_periodic_assignment_id   TEXT NOT NULL,
+    assignment_country_id             TEXT NOT NULL,
+    assignment_department_id          TEXT NOT NULL,
+    assignment_role_id                TEXT NOT NULL,
+    assignment_employment_type        TEXT NOT NULL,
     base                              TEXT NOT NULL,
     variable                          TEXT NOT NULL,
     allowances                        TEXT NOT NULL,
@@ -140,37 +149,54 @@ CREATE TABLE payroll_summaries (
         FOREIGN KEY (payroll_period_id) REFERENCES payroll_periods (id),
     CONSTRAINT fk_summary_assignment
         FOREIGN KEY (employee_periodic_assignment_id)
-            REFERENCES employee_periodic_assignments (id)
+            REFERENCES employee_periodic_assignments (id),
+    CONSTRAINT fk_summary_assignment_country
+        FOREIGN KEY (assignment_country_id) REFERENCES countries (id),
+    CONSTRAINT fk_summary_assignment_department
+        FOREIGN KEY (assignment_department_id) REFERENCES departments (id),
+    CONSTRAINT fk_summary_assignment_role
+        FOREIGN KEY (assignment_role_id) REFERENCES roles (id)
 );
 
 CREATE INDEX idx_payroll_summary_employee ON payroll_summaries (employee_id);
 CREATE INDEX idx_payroll_summary_payroll_period ON payroll_summaries (payroll_period_id);
+CREATE INDEX idx_payroll_summary_assignment ON payroll_summaries (employee_periodic_assignment_id);
 CREATE INDEX idx_payroll_summary_status ON payroll_summaries (status);
+CREATE INDEX idx_payroll_summary_assignment_country
+    ON payroll_summaries (assignment_country_id);
+CREATE INDEX idx_payroll_summary_assignment_department
+    ON payroll_summaries (assignment_department_id);
+CREATE INDEX idx_payroll_summary_assignment_role
+    ON payroll_summaries (assignment_role_id);
+CREATE INDEX idx_payroll_summary_assignment_employment_type
+    ON payroll_summaries (assignment_employment_type);
+CREATE INDEX idx_payroll_summary_period_start
+    ON payroll_summaries (payroll_period_id, status);
 
 -- ---------------------------------------------------------------------------
 -- payroll_period_aggregates
 -- ---------------------------------------------------------------------------
 CREATE TABLE payroll_period_aggregates (
-    id                     TEXT PRIMARY KEY,
-    payroll_period_id      TEXT NOT NULL,
-    status                 TEXT NOT NULL,
-    country_id             TEXT NOT NULL,
-    department_id          TEXT NOT NULL,
-    role_id                TEXT NOT NULL,
-    employment_type        TEXT NOT NULL,
-    original_base          TEXT NOT NULL,
-    original_variable      TEXT NOT NULL,
-    original_allowances    TEXT NOT NULL,
-    original_employer_taxes TEXT NOT NULL,
-    original_total         TEXT NOT NULL,
-    original_currency      TEXT NOT NULL,
-    reference_base         TEXT NOT NULL,
-    reference_variable     TEXT NOT NULL,
-    reference_allowances   TEXT NOT NULL,
+    id                       TEXT PRIMARY KEY,
+    payroll_period_id        TEXT NOT NULL,
+    status                   TEXT NOT NULL,
+    country_id               TEXT NOT NULL,
+    department_id            TEXT NOT NULL,
+    role_id                  TEXT NOT NULL,
+    employment_type          TEXT NOT NULL,
+    original_base            TEXT NOT NULL,
+    original_variable        TEXT NOT NULL,
+    original_allowances      TEXT NOT NULL,
+    original_employer_taxes  TEXT NOT NULL,
+    original_total           TEXT NOT NULL,
+    original_currency        TEXT NOT NULL,
+    reference_base           TEXT NOT NULL,
+    reference_variable       TEXT NOT NULL,
+    reference_allowances     TEXT NOT NULL,
     reference_employer_taxes TEXT NOT NULL,
-    reference_total        TEXT NOT NULL,
-    reference_currency     TEXT NOT NULL,
-    employee_count         INTEGER NOT NULL,
+    reference_total          TEXT NOT NULL,
+    reference_currency       TEXT NOT NULL,
+    employee_count           INTEGER NOT NULL,
     CONSTRAINT uk_payroll_period_aggregate_group
         UNIQUE (payroll_period_id, country_id, department_id, role_id, employment_type),
     CONSTRAINT fk_aggregate_payroll_period
