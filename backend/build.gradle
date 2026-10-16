@@ -37,11 +37,15 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.30'
     annotationProcessor 'org.projectlombok:lombok:1.18.30'
 
-    // ─── Logging ───────────────────────────────────────────────
+    // Logging
     implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
 
-    // ─── Domain Validators ────────────────────────────────────────────
+    // Domain Validators
     implementation 'jakarta.validation:jakarta.validation-api:3.0.2'
+
+    // MapStruct
+    implementation 'org.mapstruct:mapstruct:1.5.5.Final'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
 
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
