@@ -1,5 +1,6 @@
 package com.salary.management.domain.model.values;
 
+import com.salary.management.common.validation.DomainValidationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -57,7 +58,7 @@ class AmountsTest {
     @Test
     @DisplayName("Explicit total differing from the computed sum is rejected")
     void explicitMismatchedTotalIsRejected() {
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+        DomainValidationException ex = assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("1000"))
                         .variable(new BigDecimal("200"))
@@ -68,7 +69,7 @@ class AmountsTest {
                         .build());
 
         assertEquals(
-                "Validation failed: total must equal the sum of base, variable, allowances and employerTaxes",
+                "Validation failed on 1 field(s)",
                 ex.getMessage());
     }
 
@@ -89,7 +90,7 @@ class AmountsTest {
     @Test
     @DisplayName("Negative base amount is rejected")
     void negativeAmountIsRejected() {
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("-1"))
                         .currency("USD")
@@ -99,7 +100,7 @@ class AmountsTest {
     @Test
     @DisplayName("Blank currency is rejected")
     void blankCurrencyIsRejected() {
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("10"))
                         .currency("  ")
@@ -109,7 +110,7 @@ class AmountsTest {
     @Test
     @DisplayName("Null currency is rejected")
     void nullCurrencyIsRejected() {
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("10"))
                         .currency(null)
@@ -119,13 +120,13 @@ class AmountsTest {
     @Test
     @DisplayName("Currency must be exactly three characters")
     void currencyMustBeExactlyThreeChars() {
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("10"))
                         .currency("US")
                         .build());
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("10"))
                         .currency("USDX")
@@ -201,7 +202,7 @@ class AmountsTest {
     void withBaseRejectsInvalidInput() {
         Amounts original = validAmounts();
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(DomainValidationException.class,
                 () -> original.withBase(new BigDecimal("-5")));
     }
 
@@ -210,7 +211,7 @@ class AmountsTest {
     void withCurrencyRejectsInvalidInput() {
         Amounts original = validAmounts();
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(DomainValidationException.class,
                 () -> original.withCurrency("US"));
     }
 }
