@@ -9,7 +9,7 @@ import java.util.UUID;
 /** Persistence port for {@link PayrollPeriodAggregate} rows. */
 public interface PayrollPeriodAggregateRepository {
 
-    List<PayrollPeriodAggregate> saveAll(List<PayrollPeriodAggregate> aggregates);
+    void saveAll(List<PayrollPeriodAggregate> aggregates);
 
     List<PayrollPeriodAggregate> findByPayrollPeriodId(UUID payrollPeriodId);
 

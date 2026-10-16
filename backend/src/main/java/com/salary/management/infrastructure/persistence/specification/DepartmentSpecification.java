@@ -1,0 +1,33 @@
+package com.salary.management.infrastructure.persistence.specification;
+
+import com.salary.management.domain.repository.criteria.DepartmentCriteria;
+import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/** Builds JPA specifications for {@link DepartmentEntity} from {@link DepartmentCriteria}. */
+public final class DepartmentSpecification {
+
+    /**
+     * Builds a specification from the criteria's filters. Returns a conjunction when no
+     * filter is set.
+     *
+     * @param criteria source criteria
+     * @return specification
+     */
+    public static Specification<DepartmentEntity> build(DepartmentCriteria criteria) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (criteria.keyword() != null && !criteria.keyword().isBlank()) {
+                String pattern = "%" + criteria.keyword().toLowerCase() + "%";
+                predicates.add(cb.like(cb.lower(root.get("name")), pattern));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+}

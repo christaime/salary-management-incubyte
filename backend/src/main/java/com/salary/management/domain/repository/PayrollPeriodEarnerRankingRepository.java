@@ -9,7 +9,7 @@ import java.util.UUID;
 /** Persistence port for {@link PayrollPeriodEarnerRanking} rows. */
 public interface PayrollPeriodEarnerRankingRepository {
 
-    List<PayrollPeriodEarnerRanking> saveAll(List<PayrollPeriodEarnerRanking> rankings);
+    void saveAll(List<PayrollPeriodEarnerRanking> rankings);
 
     List<PayrollPeriodEarnerRanking> findByPayrollPeriodId(UUID payrollPeriodId);
 

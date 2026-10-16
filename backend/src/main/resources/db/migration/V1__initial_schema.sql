@@ -1,11 +1,10 @@
 -- Milestone 2: initial schema for the salary management backend.
 --
--- UUID columns are TEXT. Dates are TEXT in ISO-8601 (YYYY-MM-DD). Enum values are TEXT
+-- UUID columns are TEXT. Dates are TEXT. Booleans are BOOLEAN. Enum values are TEXT
 -- and match the Java enum constant names, because the entities use @Enumerated(STRING).
 --
--- Monetary columns are TEXT, not REAL. SQLite REAL is IEEE-754 binary floating point and
--- would silently lose precision on money; TEXT stores the exact BigDecimal decimal string
--- and round-trips it verbatim.
+-- Monetary columns are NUMERIC(38, 2). This matches Hibernate's default mapping for
+-- BigDecimal, so schema validation passes without extra annotations.
 --
 -- Foreign keys are declared for documentation only. SQLite does not enforce them unless
 -- PRAGMA foreign_keys = ON is set per connection; that is planned for a later milestone.
@@ -67,7 +66,7 @@ CREATE TABLE currency_rates (
     id                       TEXT PRIMARY KEY,
     currency_code            TEXT NOT NULL,
     reference_currency_code  TEXT NOT NULL,
-    rate                     TEXT NOT NULL,
+    rate                     NUMERIC(38, 2) NOT NULL,
     CONSTRAINT uk_currency_rate_pair UNIQUE (currency_code, reference_currency_code)
 );
 
@@ -80,7 +79,7 @@ CREATE TABLE payroll_periods (
     start_date  TEXT NOT NULL,
     end_date    TEXT NOT NULL,
     frequency   TEXT NOT NULL,
-    closed      INTEGER NOT NULL,
+    closed      BOOLEAN NOT NULL,
     CONSTRAINT uk_payroll_period_name UNIQUE (name)
 );
 
@@ -99,7 +98,7 @@ CREATE TABLE employee_periodic_assignments (
     department_id    TEXT NOT NULL,
     role_id          TEXT NOT NULL,
     employment_type  TEXT NOT NULL,
-    in_effect        INTEGER NOT NULL,
+    in_effect        BOOLEAN NOT NULL,
     CONSTRAINT fk_assignment_employee
         FOREIGN KEY (employee_id) REFERENCES employees (id),
     CONSTRAINT fk_assignment_country
@@ -119,11 +118,6 @@ CREATE INDEX idx_assignment_dates
 
 -- ---------------------------------------------------------------------------
 -- payroll_summaries
---
--- employee_id and payroll_period_id are the target of @ManyToOne associations on the entity;
--- the columns keep their original names. employee_periodic_assignment_id is a plain UUID, and
--- the assignment's country, department, role, and employment type are denormalized into the
--- summary so filtering by assignment attributes does not require a join.
 -- ---------------------------------------------------------------------------
 CREATE TABLE payroll_summaries (
     id                                TEXT PRIMARY KEY,
@@ -134,11 +128,11 @@ CREATE TABLE payroll_summaries (
     assignment_department_id          TEXT NOT NULL,
     assignment_role_id                TEXT NOT NULL,
     assignment_employment_type        TEXT NOT NULL,
-    base                              TEXT NOT NULL,
-    variable                          TEXT NOT NULL,
-    allowances                        TEXT NOT NULL,
-    employer_taxes                    TEXT NOT NULL,
-    total                             TEXT NOT NULL,
+    base                              NUMERIC(38, 2) NOT NULL,
+    variable                          NUMERIC(38, 2) NOT NULL,
+    allowances                        NUMERIC(38, 2) NOT NULL,
+    employer_taxes                    NUMERIC(38, 2) NOT NULL,
+    total                             NUMERIC(38, 2) NOT NULL,
     currency                          TEXT NOT NULL,
     status                            TEXT NOT NULL,
     CONSTRAINT uk_payroll_summary_employee_period
@@ -184,17 +178,17 @@ CREATE TABLE payroll_period_aggregates (
     department_id            TEXT NOT NULL,
     role_id                  TEXT NOT NULL,
     employment_type          TEXT NOT NULL,
-    original_base            TEXT NOT NULL,
-    original_variable        TEXT NOT NULL,
-    original_allowances      TEXT NOT NULL,
-    original_employer_taxes  TEXT NOT NULL,
-    original_total           TEXT NOT NULL,
+    original_base            NUMERIC(38, 2) NOT NULL,
+    original_variable        NUMERIC(38, 2) NOT NULL,
+    original_allowances      NUMERIC(38, 2) NOT NULL,
+    original_employer_taxes  NUMERIC(38, 2) NOT NULL,
+    original_total           NUMERIC(38, 2) NOT NULL,
     original_currency        TEXT NOT NULL,
-    reference_base           TEXT NOT NULL,
-    reference_variable       TEXT NOT NULL,
-    reference_allowances     TEXT NOT NULL,
-    reference_employer_taxes TEXT NOT NULL,
-    reference_total          TEXT NOT NULL,
+    reference_base           NUMERIC(38, 2) NOT NULL,
+    reference_variable       NUMERIC(38, 2) NOT NULL,
+    reference_allowances     NUMERIC(38, 2) NOT NULL,
+    reference_employer_taxes NUMERIC(38, 2) NOT NULL,
+    reference_total          NUMERIC(38, 2) NOT NULL,
     reference_currency       TEXT NOT NULL,
     employee_count           INTEGER NOT NULL,
     CONSTRAINT uk_payroll_period_aggregate_group
@@ -228,7 +222,7 @@ CREATE TABLE payroll_period_earner_rankings (
     direction         TEXT NOT NULL,
     rank              INTEGER NOT NULL,
     employee_id       TEXT NOT NULL,
-    amount            TEXT NOT NULL,
+    amount            NUMERIC(38, 2) NOT NULL,
     CONSTRAINT uk_payroll_period_earner_ranking_group
         UNIQUE (payroll_period_id, country_id, department_id, role_id,
                 employment_type, direction, rank),

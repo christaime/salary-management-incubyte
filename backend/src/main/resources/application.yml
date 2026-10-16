@@ -16,6 +16,9 @@ spring:
     properties:
       hibernate:
         format_sql: ${JPA_FORMAT_SQL:true}
+        type:
+          preferred_uuid_jdbc_type: VARCHAR # Tell Hibernate to store UUIDs as text (is coherent with the actual flyway migration sql scripts)
+          #preferred_big_decimal_jdbc_type: VARCHAR
 
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
