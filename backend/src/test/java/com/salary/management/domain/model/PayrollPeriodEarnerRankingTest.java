@@ -2,161 +2,212 @@ package com.salary.management.domain.model;
 
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
+import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
+import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/** Tests for {@link PayrollPeriodEarnerRanking}. */
 class PayrollPeriodEarnerRankingTest {
 
-    private static PayrollPeriod aPayrollPeriod() {
-        return PayrollPeriod.builder()
-                .name("2024-01 Monthly")
-                .startDate(LocalDate.of(2024, 1, 1))
-                .endDate(LocalDate.of(2024, 1, 31))
-                .frequency(PayrollPeriodFrequency.MONTHLY)
-                .closed(false)
-                .build();
+    @Test
+    @DisplayName("valid build succeeds and generates an id")
+    void validBuildSucceedsAndGeneratesId() {
+        PayrollPeriodEarnerRanking ranking = valid().build();
+
+        assertNotNull(ranking.getId());
+        assertEquals(1, ranking.getRank());
+        assertEquals(PayrollSummaryStatus.DRAFT, ranking.getStatus());
+        assertEquals(EmploymentType.FULL_TIME, ranking.getEmploymentType());
     }
 
-    private static Country aCountry() {
-        return Country.builder().isoCode("FR").name("France").currencyCode("EUR").build();
+    @Test
+    @DisplayName("null payrollPeriod is rejected")
+    void nullPayrollPeriodIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().payrollPeriod(null).build());
     }
 
-    private static Department aDepartment() {
-        return Department.builder().name("Engineering").build();
+    @Test
+    @DisplayName("null status is rejected")
+    void nullStatusIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().status(null).build());
     }
 
-    private static Role aRole() {
-        return Role.builder().name("Engineer").build();
+    @Test
+    @DisplayName("null country is rejected")
+    void nullCountryIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().country(null).build());
     }
 
-    private static PayrollPeriodEarnerRanking valid() {
+    @Test
+    @DisplayName("null department is rejected")
+    void nullDepartmentIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().department(null).build());
+    }
+
+    @Test
+    @DisplayName("null role is rejected")
+    void nullRoleIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().role(null).build());
+    }
+
+    @Test
+    @DisplayName("null employmentType is rejected")
+    void nullEmploymentTypeIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().employmentType(null).build());
+    }
+
+    @Test
+    @DisplayName("null direction is rejected")
+    void nullDirectionIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().direction(null).build());
+    }
+
+    @Test
+    @DisplayName("null rank is rejected")
+    void nullRankIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().rank(null).build());
+    }
+
+    @Test
+    @DisplayName("rank below 1 is rejected")
+    void rankBelowOneIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().rank(0).build());
+    }
+
+    @Test
+    @DisplayName("rank above 5 is rejected")
+    void rankAboveFiveIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().rank(6).build());
+    }
+
+    @Test
+    @DisplayName("null employee is rejected")
+    void nullEmployeeIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().employee(null).build());
+    }
+
+    @Test
+    @DisplayName("null amount is rejected")
+    void nullAmountIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().amount(null).build());
+    }
+
+    @Test
+    @DisplayName("negative amount is rejected")
+    void negativeAmountIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().amount(new BigDecimal("-0.01")).build());
+    }
+
+    @Test
+    @DisplayName("withAmount returns a new instance with the same id")
+    void withAmountReturnsNewInstanceWithSameId() {
+        PayrollPeriodEarnerRanking original = valid().build();
+        PayrollPeriodEarnerRanking updated = original.withAmount(new BigDecimal("9999.99"));
+
+        assertNotSame(original, updated);
+        assertEquals(original.getId(), updated.getId());
+        assertEquals(0, original.getAmount().compareTo(new BigDecimal("5000.00")));
+        assertEquals(0, updated.getAmount().compareTo(new BigDecimal("9999.99")));
+    }
+
+    @Test
+    @DisplayName("withStatus returns a new instance with the same id")
+    void withStatusReturnsNewInstanceWithSameId() {
+        PayrollPeriodEarnerRanking original = valid().build();
+        PayrollPeriodEarnerRanking updated = original.withStatus(PayrollSummaryStatus.VALIDATED);
+
+        assertNotSame(original, updated);
+        assertEquals(original.getId(), updated.getId());
+        assertEquals(PayrollSummaryStatus.DRAFT, original.getStatus());
+        assertEquals(PayrollSummaryStatus.VALIDATED, updated.getStatus());
+    }
+
+    @Test
+    @DisplayName("happy path with realistic values")
+    void happyPathWithRealisticValues() {
+        PayrollPeriodEarnerRanking ranking = valid().build();
+
+        assertEquals("FR", ranking.getCountry().getIsoCode());
+        assertEquals("Engineering", ranking.getDepartment().getName());
+        assertEquals("Senior Engineer", ranking.getRole().getName());
+        assertEquals(EmploymentType.FULL_TIME, ranking.getEmploymentType());
+        assertEquals(EarnerRankingDirection.TOP, ranking.getDirection());
+        assertEquals(1, ranking.getRank());
+        assertEquals("EMP-0001", ranking.getEmployee().getMatricule());
+    }
+
+    private PayrollPeriodEarnerRanking.Builder valid() {
         return PayrollPeriodEarnerRanking.builder()
                 .payrollPeriod(aPayrollPeriod())
+                .status(PayrollSummaryStatus.DRAFT)
                 .country(aCountry())
                 .department(aDepartment())
                 .role(aRole())
+                .employmentType(EmploymentType.FULL_TIME)
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
-                .employeeId(UUID.randomUUID())
-                .amount(new BigDecimal("12500.00"))
+                .employee(anEmployee())
+                .amount(new BigDecimal("5000.00"));
+    }
+
+    private Country aCountry() {
+        return Country.builder()
+                .isoCode("FR")
+                .name("France")
+                .currencyCode("EUR")
                 .build();
     }
 
-    @Test
-    @DisplayName("Valid ranking entry is constructed and id is generated")
-    void validConstruction() {
-        PayrollPeriodEarnerRanking ranking = valid();
-        assertNotNull(ranking.getId());
-        assertEquals(EarnerRankingDirection.TOP, ranking.getDirection());
-        assertEquals(1, ranking.getRank());
-        assertEquals(new BigDecimal("12500.00"), ranking.getAmount());
-        assertEquals("FR", ranking.getCountry().getIsoCode());
-        assertEquals("Engineering", ranking.getDepartment().getName());
-        assertEquals("Engineer", ranking.getRole().getName());
+    private Department aDepartment() {
+        return Department.builder()
+                .name("Engineering")
+                .build();
     }
 
-    @Test
-    @DisplayName("Rank below 1 is rejected")
-    void rankBelowOneRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> PayrollPeriodEarnerRanking.builder()
-                        .payrollPeriod(aPayrollPeriod())
-                        .country(aCountry())
-                        .department(aDepartment())
-                        .role(aRole())
-                        .direction(EarnerRankingDirection.TOP)
-                        .rank(0)
-                        .employeeId(UUID.randomUUID())
-                        .amount(BigDecimal.TEN)
-                        .build());
+    private Role aRole() {
+        return Role.builder()
+                .name("Senior Engineer")
+                .build();
     }
 
-    @Test
-    @DisplayName("Rank above 5 is rejected")
-    void rankAboveFiveRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> PayrollPeriodEarnerRanking.builder()
-                        .payrollPeriod(aPayrollPeriod())
-                        .country(aCountry())
-                        .department(aDepartment())
-                        .role(aRole())
-                        .direction(EarnerRankingDirection.BOTTOM)
-                        .rank(6)
-                        .employeeId(UUID.randomUUID())
-                        .amount(BigDecimal.TEN)
-                        .build());
+    private Employee anEmployee() {
+        return Employee.builder()
+                .matricule("EMP-0001")
+                .name("Ada Lovelace")
+                .email("ada@example.com")
+                .build();
     }
 
-    @Test
-    @DisplayName("Negative amount is rejected")
-    void negativeAmountRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> PayrollPeriodEarnerRanking.builder()
-                        .payrollPeriod(aPayrollPeriod())
-                        .country(aCountry())
-                        .department(aDepartment())
-                        .role(aRole())
-                        .direction(EarnerRankingDirection.TOP)
-                        .rank(2)
-                        .employeeId(UUID.randomUUID())
-                        .amount(new BigDecimal("-1"))
-                        .build());
-    }
-
-    @Test
-    @DisplayName("Missing direction is rejected")
-    void missingDirectionRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> PayrollPeriodEarnerRanking.builder()
-                        .payrollPeriod(aPayrollPeriod())
-                        .country(aCountry())
-                        .department(aDepartment())
-                        .role(aRole())
-                        .rank(1)
-                        .employeeId(UUID.randomUUID())
-                        .amount(BigDecimal.TEN)
-                        .build());
-    }
-
-    @Test
-    @DisplayName("Missing country is rejected")
-    void missingCountryRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> PayrollPeriodEarnerRanking.builder()
-                        .payrollPeriod(aPayrollPeriod())
-                        .department(aDepartment())
-                        .role(aRole())
-                        .direction(EarnerRankingDirection.TOP)
-                        .rank(1)
-                        .employeeId(UUID.randomUUID())
-                        .amount(BigDecimal.TEN)
-                        .build());
-    }
-
-    @Test
-    @DisplayName("withRank returns a new instance and re-validates")
-    void withRankTransition() {
-        PayrollPeriodEarnerRanking original = valid();
-        PayrollPeriodEarnerRanking updated = original.withRank(2);
-
-        assertNotSame(original, updated);
-        assertEquals(1, original.getRank());
-        assertEquals(2, updated.getRank());
-    }
-
-    @Test
-    @DisplayName("withRank rejects a rank outside 1..5")
-    void withRankRejectsInvalid() {
-        assertThrows(DomainValidationException.class, () -> valid().withRank(6));
+    private PayrollPeriod aPayrollPeriod() {
+        return PayrollPeriod.builder()
+                .name("September 2026")
+                .startDate(LocalDate.of(2026, 9, 1))
+                .endDate(LocalDate.of(2026, 9, 30))
+                .frequency(PayrollPeriodFrequency.MONTHLY)
+                .closed(false)
+                .build();
     }
 }

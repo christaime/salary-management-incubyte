@@ -2,6 +2,8 @@ package com.salary.management.domain.model;
 
 import com.salary.management.common.validation.DomainValidation;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
+import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -12,8 +14,8 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * A single entry in the top or bottom earner ranking of a payroll period,
- * scoped to a (country, department, role) combination.
+ * One entry in the top or bottom earner ranking of a payroll period, scoped to a
+ * (country, department, role, employment type) combination.
  */
 @Getter
 public final class PayrollPeriodEarnerRanking {
@@ -25,6 +27,9 @@ public final class PayrollPeriodEarnerRanking {
     private final PayrollPeriod payrollPeriod;
 
     @NotNull
+    private final PayrollSummaryStatus status;
+
+    @NotNull
     private final Country country;
 
     @NotNull
@@ -32,6 +37,9 @@ public final class PayrollPeriodEarnerRanking {
 
     @NotNull
     private final Role role;
+
+    @NotNull
+    private final EmploymentType employmentType;
 
     @NotNull
     private final EarnerRankingDirection direction;
@@ -42,7 +50,7 @@ public final class PayrollPeriodEarnerRanking {
     private final Integer rank;
 
     @NotNull
-    private final UUID employeeId;
+    private final Employee employee;
 
     @NotNull
     @PositiveOrZero
@@ -51,12 +59,14 @@ public final class PayrollPeriodEarnerRanking {
     private PayrollPeriodEarnerRanking(Builder builder) {
         this.id = builder.id;
         this.payrollPeriod = builder.payrollPeriod;
+        this.status = builder.status;
         this.country = builder.country;
         this.department = builder.department;
         this.role = builder.role;
+        this.employmentType = builder.employmentType;
         this.direction = builder.direction;
         this.rank = builder.rank;
-        this.employeeId = builder.employeeId;
+        this.employee = builder.employee;
         this.amount = builder.amount;
     }
 
@@ -64,24 +74,38 @@ public final class PayrollPeriodEarnerRanking {
         return new Builder();
     }
 
-    public PayrollPeriodEarnerRanking withRank(int newRank) {
-        return toBuilder().rank(newRank).build();
-    }
-
+    /**
+     * Returns a new ranking entry with the given amount.
+     *
+     * @param newAmount new amount, must be non-negative
+     * @return new validated ranking entry
+     */
     public PayrollPeriodEarnerRanking withAmount(BigDecimal newAmount) {
         return toBuilder().amount(newAmount).build();
+    }
+
+    /**
+     * Returns a new ranking entry with the given status.
+     *
+     * @param newStatus new status
+     * @return new validated ranking entry
+     */
+    public PayrollPeriodEarnerRanking withStatus(PayrollSummaryStatus newStatus) {
+        return toBuilder().status(newStatus).build();
     }
 
     private Builder toBuilder() {
         return new Builder()
                 .id(this.id)
                 .payrollPeriod(this.payrollPeriod)
+                .status(this.status)
                 .country(this.country)
                 .department(this.department)
                 .role(this.role)
+                .employmentType(this.employmentType)
                 .direction(this.direction)
                 .rank(this.rank)
-                .employeeId(this.employeeId)
+                .employee(this.employee)
                 .amount(this.amount);
     }
 
@@ -90,12 +114,14 @@ public final class PayrollPeriodEarnerRanking {
 
         private UUID id;
         private PayrollPeriod payrollPeriod;
+        private PayrollSummaryStatus status;
         private Country country;
         private Department department;
         private Role role;
+        private EmploymentType employmentType;
         private EarnerRankingDirection direction;
         private Integer rank;
-        private UUID employeeId;
+        private Employee employee;
         private BigDecimal amount;
 
         public Builder id(UUID id) {
@@ -105,6 +131,11 @@ public final class PayrollPeriodEarnerRanking {
 
         public Builder payrollPeriod(PayrollPeriod payrollPeriod) {
             this.payrollPeriod = payrollPeriod;
+            return this;
+        }
+
+        public Builder status(PayrollSummaryStatus status) {
+            this.status = status;
             return this;
         }
 
@@ -123,6 +154,11 @@ public final class PayrollPeriodEarnerRanking {
             return this;
         }
 
+        public Builder employmentType(EmploymentType employmentType) {
+            this.employmentType = employmentType;
+            return this;
+        }
+
         public Builder direction(EarnerRankingDirection direction) {
             this.direction = direction;
             return this;
@@ -133,8 +169,8 @@ public final class PayrollPeriodEarnerRanking {
             return this;
         }
 
-        public Builder employeeId(UUID employeeId) {
-            this.employeeId = employeeId;
+        public Builder employee(Employee employee) {
+            this.employee = employee;
             return this;
         }
 

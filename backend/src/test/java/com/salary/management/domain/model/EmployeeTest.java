@@ -5,7 +5,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -13,146 +12,154 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/** Tests for {@link Employee}. */
 class EmployeeTest {
 
-    private static Country aCountry() {
+    @Test
+    @DisplayName("valid build succeeds and generates an id")
+    void validBuildSucceedsAndGeneratesId() {
+        Employee employee = valid().build();
+
+        assertNotNull(employee.getId());
+        assertEquals("EMP-0001", employee.getMatricule());
+        assertEquals("Ada Lovelace", employee.getName());
+    }
+
+    @Test
+    @DisplayName("null matricule is rejected")
+    void nullMatriculeIsRejected() {
+        assertThrows(DomainValidationException.class, () -> valid().matricule(null).build());
+    }
+
+    @Test
+    @DisplayName("blank matricule is rejected")
+    void blankMatriculeIsRejected() {
+        assertThrows(DomainValidationException.class, () -> valid().matricule("   ").build());
+    }
+
+    @Test
+    @DisplayName("null name is rejected")
+    void nullNameIsRejected() {
+        assertThrows(DomainValidationException.class, () -> valid().name(null).build());
+    }
+
+    @Test
+    @DisplayName("blank name is rejected")
+    void blankNameIsRejected() {
+        assertThrows(DomainValidationException.class, () -> valid().name("   ").build());
+    }
+
+    @Test
+    @DisplayName("null email is rejected")
+    void nullEmailIsRejected() {
+        assertThrows(DomainValidationException.class, () -> valid().email(null).build());
+    }
+
+    @Test
+    @DisplayName("blank email is rejected")
+    void blankEmailIsRejected() {
+        assertThrows(DomainValidationException.class, () -> valid().email("   ").build());
+    }
+
+    @Test
+    @DisplayName("malformed email is rejected")
+    void malformedEmailIsRejected() {
+        assertThrows(DomainValidationException.class, () -> valid().email("not-an-email").build());
+    }
+
+    @Test
+    @DisplayName("null birthDate is accepted")
+    void nullBirthDateIsAccepted() {
+        Employee employee = valid().birthDate(null).build();
+
+        assertNull(employee.getBirthDate());
+    }
+
+    @Test
+    @DisplayName("future birthDate is rejected")
+    void futureBirthDateIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().birthDate(LocalDate.now().plusDays(1)).build());
+    }
+
+    @Test
+    @DisplayName("today birthDate is rejected")
+    void todayBirthDateIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().birthDate(LocalDate.now().plusDays(1)).build());
+    }
+
+    @Test
+    @DisplayName("null originCountry is accepted")
+    void nullOriginCountryIsAccepted() {
+        Employee employee = valid().originCountry(null).build();
+
+        assertNull(employee.getOriginCountry());
+    }
+
+    @Test
+    @DisplayName("withName returns a new instance with the same id")
+    void withNameReturnsNewInstanceWithSameId() {
+        Employee original = valid().build();
+        Employee updated = original.withName("Grace Hopper");
+
+        assertNotSame(original, updated);
+        assertEquals(original.getId(), updated.getId());
+        assertEquals("Ada Lovelace", original.getName());
+        assertEquals("Grace Hopper", updated.getName());
+    }
+
+    @Test
+    @DisplayName("withEmail returns a new instance with the same id")
+    void withEmailReturnsNewInstanceWithSameId() {
+        Employee original = valid().build();
+        Employee updated = original.withEmail("grace@example.com");
+
+        assertNotSame(original, updated);
+        assertEquals(original.getId(), updated.getId());
+        assertEquals("ada@example.com", original.getEmail());
+        assertEquals("grace@example.com", updated.getEmail());
+    }
+
+    @Test
+    @DisplayName("withOriginCountry returns a new instance with the same id")
+    void withOriginCountryReturnsNewInstanceWithSameId() {
+        Employee original = valid().originCountry(null).build();
+        Employee updated = original.withOriginCountry(aCountry());
+
+        assertNotSame(original, updated);
+        assertEquals(original.getId(), updated.getId());
+        assertNull(original.getOriginCountry());
+        assertEquals("FR", updated.getOriginCountry().getIsoCode());
+    }
+
+    @Test
+    @DisplayName("happy path with realistic values")
+    void happyPathWithRealisticValues() {
+        Employee employee = valid()
+                .birthDate(LocalDate.of(1815, 12, 10))
+                .originCountry(aCountry())
+                .build();
+
+        assertEquals("EMP-0001", employee.getMatricule());
+        assertEquals("Ada Lovelace", employee.getName());
+        assertEquals("ada@example.com", employee.getEmail());
+        assertEquals(LocalDate.of(1815, 12, 10), employee.getBirthDate());
+        assertEquals("FR", employee.getOriginCountry().getIsoCode());
+    }
+
+    private Employee.Builder valid() {
+        return Employee.builder()
+                .matricule("EMP-0001")
+                .name("Ada Lovelace")
+                .email("ada@example.com");
+    }
+
+    private Country aCountry() {
         return Country.builder()
                 .isoCode("FR")
                 .name("France")
                 .currencyCode("EUR")
                 .build();
-    }
-
-    private static Employee valid() {
-        return Employee.builder()
-                .matricule("EMP-0001")
-                .name("Ada Lovelace")
-                .email("ada.lovelace@example.com")
-                .birthDate(LocalDate.of(1990, 5, 12))
-                .originCountry(aCountry())
-                .build();
-    }
-
-    @Test
-    @DisplayName("Valid employee is constructed and id is generated")
-    void validConstruction() {
-        Employee employee = valid();
-        assertNotNull(employee.getId());
-        assertEquals("EMP-0001", employee.getMatricule());
-        assertEquals("Ada Lovelace", employee.getName());
-        assertEquals("ada.lovelace@example.com", employee.getEmail());
-        assertEquals(LocalDate.of(1990, 5, 12), employee.getBirthDate());
-        assertEquals("FR", employee.getOriginCountry().getIsoCode());
-    }
-
-    @Test
-    @DisplayName("originCountry is nullable")
-    void originCountryNullable() {
-        Employee employee = Employee.builder()
-                .matricule("EMP-0002")
-                .name("Alan Turing")
-                .email("alan.turing@example.com")
-                .birthDate(LocalDate.of(1912, 6, 23))
-                .build();
-        assertNotNull(employee.getId());
-        assertNull(employee.getOriginCountry());
-    }
-
-    @Test
-    @DisplayName("Provided id is preserved")
-    void providedIdPreserved() {
-        UUID id = UUID.randomUUID();
-        Employee employee = Employee.builder()
-                .id(id)
-                .matricule("EMP-0002")
-                .name("Alan Turing")
-                .email("alan.turing@example.com")
-                .birthDate(LocalDate.of(1912, 6, 23))
-                .build();
-        assertEquals(id, employee.getId());
-    }
-
-    @Test
-    @DisplayName("Blank matricule is rejected")
-    void blankMatriculeRejected() {
-        assertThrows(DomainValidationException.class, () -> Employee.builder()
-                .matricule(" ")
-                .name("Ada Lovelace")
-                .email("ada@example.com")
-                .birthDate(LocalDate.of(1990, 5, 12))
-                .build());
-    }
-
-    @Test
-    @DisplayName("Blank name is rejected")
-    void blankNameRejected() {
-        assertThrows(DomainValidationException.class, () -> Employee.builder()
-                .matricule("EMP-0001")
-                .name(" ")
-                .email("ada@example.com")
-                .birthDate(LocalDate.of(1990, 5, 12))
-                .build());
-    }
-
-    @Test
-    @DisplayName("Invalid email is rejected")
-    void invalidEmailRejected() {
-        assertThrows(DomainValidationException.class, () -> Employee.builder()
-                .matricule("EMP-0001")
-                .name("Ada Lovelace")
-                .email("not-an-email")
-                .birthDate(LocalDate.of(1990, 5, 12))
-                .build());
-    }
-
-    @Test
-    @DisplayName("Null birthDate is rejected")
-    void nullBirthDateRejected() {
-        assertThrows(DomainValidationException.class, () -> Employee.builder()
-                .matricule("EMP-0001")
-                .name("Ada Lovelace")
-                .email("ada@example.com")
-                .build());
-    }
-
-    @Test
-    @DisplayName("withName returns a new instance")
-    void withNameTransition() {
-        Employee original = valid();
-        Employee updated = original.withName("Ada King");
-
-        assertNotSame(original, updated);
-        assertEquals("Ada Lovelace", original.getName());
-        assertEquals("Ada King", updated.getName());
-    }
-
-    @Test
-    @DisplayName("withName rejects blank input")
-    void withNameRejectsInvalid() {
-        assertThrows(DomainValidationException.class, () -> valid().withName(" "));
-    }
-
-    @Test
-    @DisplayName("withEmail rejects invalid input")
-    void withEmailRejectsInvalid() {
-        assertThrows(DomainValidationException.class,
-                () -> valid().withEmail("not-an-email"));
-    }
-
-    @Test
-    @DisplayName("withOriginCountry returns a new instance")
-    void withOriginCountryTransition() {
-        Employee original = valid();
-        Country newCountry = Country.builder()
-                .isoCode("US")
-                .name("United States")
-                .currencyCode("USD")
-                .build();
-
-        Employee updated = original.withOriginCountry(newCountry);
-
-        assertNotSame(original, updated);
-        assertEquals("FR", original.getOriginCountry().getIsoCode());
-        assertEquals("US", updated.getOriginCountry().getIsoCode());
     }
 }

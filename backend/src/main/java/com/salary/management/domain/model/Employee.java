@@ -1,12 +1,16 @@
 package com.salary.management.domain.model;
 
 import com.salary.management.common.validation.DomainValidation;
+import com.salary.management.common.validation.ValidationError;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -31,7 +35,6 @@ public final class Employee {
     @Email
     private final String email;
 
-    @NotNull
     private final LocalDate birthDate;
 
     private final Country originCountry;
@@ -115,8 +118,17 @@ public final class Employee {
             if (this.id == null) {
                 this.id = UUID.randomUUID();
             }
+            List<ValidationError> extraErrors = new ArrayList<>();
+            if (birthDate != null && birthDate.atStartOfDay().toLocalDate().isAfter(LocalDate.now())) {
+                extraErrors.add(new ValidationError(
+                        "birthDate",
+                        "DateOrder",
+                        "birthDate must be in the past",
+                        Map.of()
+                ));
+            }
             Employee employee = new Employee(this);
-            DomainValidation.validate(employee);
+            DomainValidation.validate(employee, extraErrors);
             return employee;
         }
     }
