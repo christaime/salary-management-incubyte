@@ -160,12 +160,14 @@ class PayrollPeriodAggregateTest {
 
     private Department aDepartment() {
         return Department.builder()
+                .code("ENG")
                 .name("Engineering")
                 .build();
     }
 
     private Role aRole() {
         return Role.builder()
+                .code("SSWE")
                 .name("Senior Engineer")
                 .build();
     }

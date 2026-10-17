@@ -254,12 +254,12 @@ class PayrollPeriodRepositoryAdapterTest {
                 VALUES ('44444444-4444-4444-4444-444444444444', 'FR', 'France', 'EUR')
                 """).executeUpdate();
         entityManager.createNativeQuery("""
-                INSERT INTO departments (id, name)
-                VALUES ('55555555-5555-5555-5555-555555555555', 'Engineering')
+                INSERT INTO departments (id, code, name)
+                VALUES ('55555555-5555-5555-5555-555555555555', 'ENG', 'Engineering')
                 """).executeUpdate();
         entityManager.createNativeQuery("""
-                INSERT INTO roles (id, name)
-                VALUES ('66666666-6666-6666-6666-666666666666', 'Engineer')
+                INSERT INTO roles (id, code, name)
+                VALUES ('66666666-6666-6666-6666-666666666666', 'SWE', 'Engineer')
                 """).executeUpdate();
         entityManager.createNativeQuery("""
                 INSERT INTO payroll_period_aggregates

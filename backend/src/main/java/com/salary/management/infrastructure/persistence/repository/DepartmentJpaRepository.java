@@ -33,6 +33,22 @@ public interface DepartmentJpaRepository
     boolean existsByName(String name);
 
     /**
+     * Finds a department by code.
+     *
+     * @param code department code
+     * @return matching department, or empty
+     */
+    Optional<DepartmentEntity> findByCode(String code);
+
+    /**
+     * Returns whether a department with the given code exists.
+     *
+     * @param code department code
+     * @return {@code true} when present
+     */
+    boolean existsByCode(String code);
+
+    /**
      * Returns whether any periodic assignment uses this department.
      *
      * @param departmentId department identifier

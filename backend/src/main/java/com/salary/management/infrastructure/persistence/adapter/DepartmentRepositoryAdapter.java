@@ -44,6 +44,16 @@ public class DepartmentRepositoryAdapter implements DepartmentRepository {
     }
 
     @Override
+    public boolean existsByName(String name) {
+        return jpaRepository.existsByName(name);
+    }
+
+    @Override
+    public boolean existsByCode(String code) {
+        return jpaRepository.existsByCode(code);
+    }
+
+    @Override
     public List<Department> list(DepartmentCriteria criteria) {
         Sort sort = CriteriaUtils.toSpringSort(criteria);
         List<DepartmentEntity> entities = jpaRepository.findAll(
@@ -57,11 +67,6 @@ public class DepartmentRepositoryAdapter implements DepartmentRepository {
                 DepartmentSpecification.build(criteria),
                 CriteriaUtils.toPageable(criteria));
         return toDataPage(page);
-    }
-
-    @Override
-    public boolean existsByName(String name) {
-        return jpaRepository.existsByName(name);
     }
 
     @Override

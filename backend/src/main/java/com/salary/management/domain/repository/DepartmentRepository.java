@@ -17,11 +17,13 @@ public interface DepartmentRepository {
 
     Optional<Department> findByName(String name);
 
+    boolean existsByName(String name);
+
+    boolean existsByCode(String code);
+
     List<Department> list(DepartmentCriteria criteria);
 
     DataPage<Department> page(DepartmentCriteria criteria);
-
-    boolean existsByName(String name);
 
     void deleteById(UUID id);
 }

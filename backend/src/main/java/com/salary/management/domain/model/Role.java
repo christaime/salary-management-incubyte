@@ -18,11 +18,16 @@ public final class Role {
     private final UUID id;
 
     @NotBlank
+    @Size(min = 2, max = 10)
+    private final String code;
+
+    @NotBlank
     @Size(min = 2, max = 100)
     private final String name;
 
     private Role(Builder builder) {
         this.id = builder.id;
+        this.code = builder.code;
         this.name = builder.name;
     }
 
@@ -35,17 +40,23 @@ public final class Role {
     }
 
     private Builder toBuilder() {
-        return new Builder().id(this.id).name(this.name);
+        return new Builder().id(this.id).code(this.code).name(this.name);
     }
 
     /** Hand-written builder validating the composed {@code Role}. */
     public static final class Builder {
 
         private UUID id;
+        private String code;
         private String name;
 
         public Builder id(UUID id) {
             this.id = id;
+            return this;
+        }
+
+        public Builder code(String code) {
+            this.code = code;
             return this;
         }
 

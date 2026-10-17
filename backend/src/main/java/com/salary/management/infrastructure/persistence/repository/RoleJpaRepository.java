@@ -32,6 +32,22 @@ public interface RoleJpaRepository
     boolean existsByName(String name);
 
     /**
+     * Finds a role by code.
+     *
+     * @param code role code
+     * @return matching role, or empty
+     */
+    Optional<RoleEntity> findByCode(String code);
+
+    /**
+     * Returns whether a role with the given code exists.
+     *
+     * @param code role code
+     * @return {@code true} when present
+     */
+    boolean existsByCode(String code);
+
+    /**
      * Returns whether any periodic assignment uses this role.
      *
      * @param roleId role identifier

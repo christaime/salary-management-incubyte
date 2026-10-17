@@ -5,13 +5,13 @@ INSERT INTO countries (id, iso_code, name, currency_code) VALUES
     ('11111111-1111-1111-1111-111111111111', 'FR', 'France', 'EUR'),
     ('22222222-2222-2222-2222-222222222222', 'DE', 'Germany', 'EUR');
 
-INSERT INTO departments (id, name) VALUES
-    ('33333333-3333-3333-3333-333333333333', 'Engineering'),
-    ('44444444-4444-4444-4444-444444444444', 'Finance');
+INSERT INTO departments (id, code, name) VALUES
+    ('33333333-3333-3333-3333-333333333333', 'ENG', 'Engineering'),
+    ('44444444-4444-4444-4444-444444444444', 'FIN', 'Finance');
 
-INSERT INTO roles (id, name) VALUES
-    ('55555555-5555-5555-5555-555555555555', 'Engineer'),
-    ('66666666-6666-6666-6666-666666666666', 'Manager');
+INSERT INTO roles (id, code, name) VALUES
+    ('55555555-5555-5555-5555-555555555555', 'SWE', 'Engineer'),
+    ('66666666-6666-6666-6666-666666666666', 'MGR', 'Manager');
 
 INSERT INTO employees (id, matricule, name, email, birth_date, origin_country_id) VALUES
     ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',

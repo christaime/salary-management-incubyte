@@ -17,11 +17,13 @@ public interface RoleRepository {
 
     Optional<Role> findByName(String name);
 
+    boolean existsByName(String name);
+
+    boolean existsByCode(String code);
+
     List<Role> list(RoleCriteria criteria);
 
     DataPage<Role> page(RoleCriteria criteria);
-
-    boolean existsByName(String name);
 
     void deleteById(UUID id);
 }

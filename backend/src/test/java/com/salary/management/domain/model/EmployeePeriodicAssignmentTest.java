@@ -20,11 +20,11 @@ class EmployeePeriodicAssignmentTest {
     }
 
     private static Department aDepartment() {
-        return Department.builder().name("Engineering").build();
+        return Department.builder().code("ENG").name("Engineering").build();
     }
 
     private static Role aRole() {
-        return Role.builder().name("Engineer").build();
+        return Role.builder().code("SWE").name("Engineer").build();
     }
 
     private static EmployeePeriodicAssignment valid() {
@@ -190,7 +190,7 @@ class EmployeePeriodicAssignmentTest {
     @DisplayName("withRole returns a new instance with updated role")
     void withRoleTransition() {
         EmployeePeriodicAssignment original = valid();
-        Role newRole = Role.builder().name("Senior Engineer").build();
+        Role newRole = Role.builder().code("SSWE").name("Senior Engineer").build();
 
         EmployeePeriodicAssignment updated = original.withRole(newRole);
 

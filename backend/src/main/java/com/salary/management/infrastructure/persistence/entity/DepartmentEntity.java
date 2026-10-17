@@ -23,7 +23,10 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "departments",
-        uniqueConstraints = @UniqueConstraint(name = "uk_department_name", columnNames = "name")
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_department_code", columnNames = "code"),
+                @UniqueConstraint(name = "uk_department_name", columnNames = "name")
+        }
 )
 @Getter
 @Setter
@@ -35,6 +38,10 @@ public class DepartmentEntity {
     @Id
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
+
+    /** Stable identifier; domain allows 2 to 10 characters. */
+    @Column(name = "code", nullable = false, length = 10)
+    private String code;
 
     @Column(name = "name", nullable = false, length = 100)
     private String name;

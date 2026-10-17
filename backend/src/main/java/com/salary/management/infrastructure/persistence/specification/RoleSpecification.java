@@ -24,7 +24,17 @@ public final class RoleSpecification {
 
             if (criteria.keyword() != null && !criteria.keyword().isBlank()) {
                 String pattern = "%" + criteria.keyword().toLowerCase() + "%";
-                predicates.add(cb.like(cb.lower(root.get("name")), pattern));
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("name")), pattern),
+                        cb.like(cb.lower(root.get("code")), pattern)
+                ));
+            }
+
+            if (criteria.code() != null && !criteria.code().isBlank()) {
+                predicates.add(cb.equal(
+                        cb.upper(root.get("code")),
+                        criteria.code().toUpperCase()
+                ));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

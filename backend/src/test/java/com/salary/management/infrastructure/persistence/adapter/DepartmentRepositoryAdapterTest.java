@@ -50,6 +50,7 @@ class DepartmentRepositoryAdapterTest {
     @DisplayName("save then findById returns the persisted department")
     void saveThenFindByIdReturnsPersistedDepartment() {
         Department department = Department.builder()
+                .code("MKT")
                 .name("Marketing")
                 .build();
 
@@ -61,6 +62,7 @@ class DepartmentRepositoryAdapterTest {
 
         assertTrue(found.isPresent());
         assertEquals(department.getId(), found.get().getId());
+        assertEquals("MKT", found.get().getCode());
         assertEquals("Marketing", found.get().getName());
     }
 
@@ -69,6 +71,7 @@ class DepartmentRepositoryAdapterTest {
     void saveOnExistingIdUpdatesRow() {
         Department existing = Department.builder()
                 .id(FINANCE)
+                .code("FIN")
                 .name("Finance")
                 .build();
         Department renamed = existing.withName("Financial Services");
@@ -80,6 +83,7 @@ class DepartmentRepositoryAdapterTest {
         Optional<Department> found = adapter.findById(FINANCE);
 
         assertTrue(found.isPresent());
+        assertEquals("FIN", found.get().getCode());
         assertEquals("Financial Services", found.get().getName());
     }
 
@@ -98,6 +102,7 @@ class DepartmentRepositoryAdapterTest {
 
         assertTrue(found.isPresent());
         assertEquals(FINANCE, found.get().getId());
+        assertEquals("FIN", found.get().getCode());
     }
 
     @Test
@@ -111,6 +116,14 @@ class DepartmentRepositoryAdapterTest {
     void existsByNameReflectsStoredRows() {
         assertTrue(adapter.existsByName("Human Resources"));
         assertFalse(adapter.existsByName("Legal"));
+    }
+
+    @Test
+    @DisplayName("existsByCode reflects the stored rows")
+    void existsByCodeReflectsStoredRows() {
+        assertTrue(adapter.existsByCode("ENG"));
+        assertTrue(adapter.existsByCode("FIN"));
+        assertFalse(adapter.existsByCode("LGL"));
     }
 
     @Test
@@ -130,8 +143,50 @@ class DepartmentRepositoryAdapterTest {
     }
 
     @Test
-    @DisplayName("list filters by keyword")
-    void listFiltersByKeyword() {
+    @DisplayName("list sorts by code when requested")
+    void listSortsByCode() {
+        DepartmentCriteria criteria = DepartmentCriteria.builder()
+                .sortBy("code")
+                .sortDirection(SortDirection.ASC)
+                .build();
+
+        List<Department> result = adapter.list(criteria);
+
+        assertEquals(3, result.size());
+        assertEquals("ENG", result.get(0).getCode());
+        assertEquals("FIN", result.get(1).getCode());
+        assertEquals("HR", result.get(2).getCode());
+    }
+
+    @Test
+    @DisplayName("list filters by code")
+    void listFiltersByCode() {
+        DepartmentCriteria criteria = DepartmentCriteria.builder()
+                .code("FIN")
+                .build();
+
+        List<Department> result = adapter.list(criteria);
+
+        assertEquals(1, result.size());
+        assertEquals("Finance", result.get(0).getName());
+    }
+
+    @Test
+    @DisplayName("list code filter is case-insensitive")
+    void listCodeFilterIsCaseInsensitive() {
+        DepartmentCriteria criteria = DepartmentCriteria.builder()
+                .code("fin")
+                .build();
+
+        List<Department> result = adapter.list(criteria);
+
+        assertEquals(1, result.size());
+        assertEquals("FIN", result.get(0).getCode());
+    }
+
+    @Test
+    @DisplayName("list filters by keyword matching a name")
+    void listFiltersByKeywordMatchingName() {
         DepartmentCriteria criteria = DepartmentCriteria.builder()
                 .keyword("fin")
                 .build();
@@ -140,6 +195,20 @@ class DepartmentRepositoryAdapterTest {
 
         assertEquals(1, result.size());
         assertEquals("Finance", result.get(0).getName());
+    }
+
+    @Test
+    @DisplayName("list filters by keyword matching a code")
+    void listFiltersByKeywordMatchingCode() {
+        DepartmentCriteria criteria = DepartmentCriteria.builder()
+                .keyword("hr")
+                .build();
+
+        List<Department> result = adapter.list(criteria);
+
+        assertEquals(1, result.size());
+        assertEquals("HR", result.get(0).getCode());
+        assertEquals("Human Resources", result.get(0).getName());
     }
 
     @Test
@@ -201,14 +270,13 @@ class DepartmentRepositoryAdapterTest {
     @Test
     @DisplayName("deleteById throws when the department is referenced")
     void deleteByIdThrowsWhenReferenced() {
-        // Seed an assignment that references ENGINEERING through department_id.
         entityManager.createNativeQuery("""
                 INSERT INTO countries (id, iso_code, name, currency_code)
                 VALUES ('44444444-4444-4444-4444-444444444444', 'FR', 'France', 'EUR')
                 """).executeUpdate();
         entityManager.createNativeQuery("""
-                INSERT INTO roles (id, name)
-                VALUES ('55555555-5555-5555-5555-555555555555', 'Engineer')
+                INSERT INTO roles (id, code, name)
+                VALUES ('55555555-5555-5555-5555-555555555555', 'SWE', 'Engineer')
                 """).executeUpdate();
         entityManager.createNativeQuery("""
                 INSERT INTO employees (id, matricule, name, email, birth_date, origin_country_id)
@@ -239,6 +307,7 @@ class DepartmentRepositoryAdapterTest {
     @DisplayName("save generates and persists a fresh id")
     void savePersistsFreshId() {
         Department department = Department.builder()
+                .code("LGL")
                 .name("Legal")
                 .build();
 

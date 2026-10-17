@@ -140,7 +140,8 @@ class PayrollPeriodAggregateRepositoryAdapterTest {
                         LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
                 .status(PayrollSummaryStatus.DRAFT)
                 .country(country(FR))
-                .department(Department.builder().id(missing).name("Missing").build())
+                .department(Department.builder()
+                        .id(missing).code("MSS").name("Missing").build())
                 .role(role())
                 .employmentType(EmploymentType.FULL_TIME)
                 .originalAmounts(amounts("EUR"))
@@ -161,7 +162,7 @@ class PayrollPeriodAggregateRepositoryAdapterTest {
                 .status(PayrollSummaryStatus.DRAFT)
                 .country(country(FR))
                 .department(department())
-                .role(Role.builder().id(missing).name("Missing").build())
+                .role(Role.builder().id(missing).code("MSS").name("Missing").build())
                 .employmentType(EmploymentType.FULL_TIME)
                 .originalAmounts(amounts("EUR"))
                 .referenceAmounts(amounts("EUR"))
@@ -311,6 +312,7 @@ class PayrollPeriodAggregateRepositoryAdapterTest {
     private Department department() {
         return Department.builder()
                 .id(ENGINEERING)
+                .code("ENG")
                 .name("Engineering")
                 .build();
     }
@@ -318,6 +320,7 @@ class PayrollPeriodAggregateRepositoryAdapterTest {
     private Role role() {
         return Role.builder()
                 .id(ENGINEER)
+                .code("SWE")
                 .name("Engineer")
                 .build();
     }

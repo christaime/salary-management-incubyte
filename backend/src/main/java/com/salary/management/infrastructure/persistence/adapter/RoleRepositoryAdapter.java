@@ -44,6 +44,16 @@ public class RoleRepositoryAdapter implements RoleRepository {
     }
 
     @Override
+    public boolean existsByName(String name) {
+        return jpaRepository.existsByName(name);
+    }
+
+    @Override
+    public boolean existsByCode(String code) {
+        return jpaRepository.existsByCode(code);
+    }
+
+    @Override
     public List<Role> list(RoleCriteria criteria) {
         Sort sort = CriteriaUtils.toSpringSort(criteria);
         List<RoleEntity> entities = jpaRepository.findAll(
@@ -57,11 +67,6 @@ public class RoleRepositoryAdapter implements RoleRepository {
                 RoleSpecification.build(criteria),
                 CriteriaUtils.toPageable(criteria));
         return toDataPage(page);
-    }
-
-    @Override
-    public boolean existsByName(String name) {
-        return jpaRepository.existsByName(name);
     }
 
     @Override

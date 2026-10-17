@@ -264,12 +264,12 @@ class EmployeeRepositoryAdapterTest {
     void deleteByIdThrowsWhenReferenced() {
         // Seed an assignment that references ADA through employee_id.
         entityManager.createNativeQuery("""
-                INSERT INTO departments (id, name)
-                VALUES ('55555555-5555-5555-5555-555555555555', 'Engineering')
+                INSERT INTO departments (id, code, name)
+                VALUES ('55555555-5555-5555-5555-555555555555', 'ENG', 'Engineering')
                 """).executeUpdate();
         entityManager.createNativeQuery("""
-                INSERT INTO roles (id, name)
-                VALUES ('66666666-6666-6666-6666-666666666666', 'Engineer')
+                INSERT INTO roles (id, code, name)
+                VALUES ('66666666-6666-6666-6666-666666666666', 'SWE', 'Engineer')
                 """).executeUpdate();
         entityManager.createNativeQuery("""
                 INSERT INTO employee_periodic_assignments

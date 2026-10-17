@@ -8,9 +8,10 @@ import java.util.Set;
 /** Criteria for querying roles. */
 public final class RoleCriteria implements Criteria {
 
-    private static final Set<String> SORTABLE_FIELDS = Set.of("name");
+    private static final Set<String> SORTABLE_FIELDS = Set.of("code", "name");
 
     private final String keyword;
+    private final String code;
     private final String sortBy;
     private final SortDirection sortDirection;
     private final int page;
@@ -18,6 +19,7 @@ public final class RoleCriteria implements Criteria {
 
     private RoleCriteria(Builder builder) {
         this.keyword = builder.keyword;
+        this.code = builder.code;
         this.sortBy = builder.sortBy;
         this.sortDirection = builder.sortDirection;
         this.page = builder.page;
@@ -29,12 +31,21 @@ public final class RoleCriteria implements Criteria {
     }
 
     /**
-     * Free-text filter matched against {@code name}, or {@code null}.
+     * Free-text filter matched against {@code name} and {@code code}, or {@code null}.
      *
      * @return keyword filter
      */
     public String keyword() {
         return keyword;
+    }
+
+    /**
+     * Exact-match filter on {@code code}, or {@code null}.
+     *
+     * @return code filter
+     */
+    public String code() {
+        return code;
     }
 
     @Override
@@ -76,6 +87,7 @@ public final class RoleCriteria implements Criteria {
     public static final class Builder {
 
         private String keyword;
+        private String code;
         private String sortBy;
         private SortDirection sortDirection;
         private int page;
@@ -83,6 +95,11 @@ public final class RoleCriteria implements Criteria {
 
         public Builder keyword(String keyword) {
             this.keyword = keyword;
+            return this;
+        }
+
+        public Builder code(String code) {
+            this.code = code;
             return this;
         }
 

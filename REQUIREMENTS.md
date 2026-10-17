@@ -133,12 +133,16 @@ matches how reports work and removes a step from the common query.
 ### Reference data
 
 - **Country** — ISO code, name, currency code
-- **Department** — id, name (canonical list)
-- **Role** — id, name (canonical list)
+- **Department** — id, `code`, name (canonical list)
+- **Role** — id, `code`, name (canonical list)
 - **PayrollPeriod** — name, start date, end date, frequency, snapshot status
   (`NOT_COMPUTED`, `DRAFT`, `VALIDATED`)
 - **CurrencyRate** — the current rate per currency pair against the reference
   currency
+
+Department and Role each carry a stable `code` alongside their display `name`.
+The code is unique and does not change; the name is a label that may be
+updated. Codes are what integration pipelines match on.
 
 **Rationale — why departments and roles are canonical lists.**
 In the spreadsheet, department and role names are free text, so grouping is

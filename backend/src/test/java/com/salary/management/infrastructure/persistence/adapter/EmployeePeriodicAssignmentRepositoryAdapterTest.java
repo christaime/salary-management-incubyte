@@ -307,6 +307,7 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
     private Department department(UUID id) {
         return Department.builder()
                 .id(id)
+                .code("PLC")
                 .name("Placeholder")
                 .build();
     }
@@ -314,6 +315,7 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
     private Role role(UUID id) {
         return Role.builder()
                 .id(id)
+                .code("PLC")
                 .name("Placeholder")
                 .build();
     }

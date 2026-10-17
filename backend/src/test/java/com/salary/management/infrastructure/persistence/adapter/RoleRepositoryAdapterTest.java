@@ -50,6 +50,7 @@ class RoleRepositoryAdapterTest {
     @DisplayName("save then findById returns the persisted role")
     void saveThenFindByIdReturnsPersistedRole() {
         Role role = Role.builder()
+                .code("DSN")
                 .name("Designer")
                 .build();
 
@@ -61,6 +62,7 @@ class RoleRepositoryAdapterTest {
 
         assertTrue(found.isPresent());
         assertEquals(role.getId(), found.get().getId());
+        assertEquals("DSN", found.get().getCode());
         assertEquals("Designer", found.get().getName());
     }
 
@@ -69,6 +71,7 @@ class RoleRepositoryAdapterTest {
     void saveOnExistingIdUpdatesRow() {
         Role existing = Role.builder()
                 .id(MANAGER)
+                .code("MGR")
                 .name("Manager")
                 .build();
         Role renamed = existing.withName("Senior Manager");
@@ -80,6 +83,7 @@ class RoleRepositoryAdapterTest {
         Optional<Role> found = adapter.findById(MANAGER);
 
         assertTrue(found.isPresent());
+        assertEquals("MGR", found.get().getCode());
         assertEquals("Senior Manager", found.get().getName());
     }
 
@@ -98,6 +102,7 @@ class RoleRepositoryAdapterTest {
 
         assertTrue(found.isPresent());
         assertEquals(MANAGER, found.get().getId());
+        assertEquals("MGR", found.get().getCode());
     }
 
     @Test
@@ -111,6 +116,14 @@ class RoleRepositoryAdapterTest {
     void existsByNameReflectsStoredRows() {
         assertTrue(adapter.existsByName("Analyst"));
         assertFalse(adapter.existsByName("Architect"));
+    }
+
+    @Test
+    @DisplayName("existsByCode reflects the stored rows")
+    void existsByCodeReflectsStoredRows() {
+        assertTrue(adapter.existsByCode("SWE"));
+        assertTrue(adapter.existsByCode("MGR"));
+        assertFalse(adapter.existsByCode("ARC"));
     }
 
     @Test
@@ -130,8 +143,50 @@ class RoleRepositoryAdapterTest {
     }
 
     @Test
-    @DisplayName("list filters by keyword")
-    void listFiltersByKeyword() {
+    @DisplayName("list sorts by code when requested")
+    void listSortsByCode() {
+        RoleCriteria criteria = RoleCriteria.builder()
+                .sortBy("code")
+                .sortDirection(SortDirection.ASC)
+                .build();
+
+        List<Role> result = adapter.list(criteria);
+
+        assertEquals(3, result.size());
+        assertEquals("ANL", result.get(0).getCode());
+        assertEquals("MGR", result.get(1).getCode());
+        assertEquals("SWE", result.get(2).getCode());
+    }
+
+    @Test
+    @DisplayName("list filters by code")
+    void listFiltersByCode() {
+        RoleCriteria criteria = RoleCriteria.builder()
+                .code("MGR")
+                .build();
+
+        List<Role> result = adapter.list(criteria);
+
+        assertEquals(1, result.size());
+        assertEquals("Manager", result.get(0).getName());
+    }
+
+    @Test
+    @DisplayName("list code filter is case-insensitive")
+    void listCodeFilterIsCaseInsensitive() {
+        RoleCriteria criteria = RoleCriteria.builder()
+                .code("mgr")
+                .build();
+
+        List<Role> result = adapter.list(criteria);
+
+        assertEquals(1, result.size());
+        assertEquals("MGR", result.get(0).getCode());
+    }
+
+    @Test
+    @DisplayName("list filters by keyword matching a name")
+    void listFiltersByKeywordMatchingName() {
         RoleCriteria criteria = RoleCriteria.builder()
                 .keyword("man")
                 .build();
@@ -140,6 +195,20 @@ class RoleRepositoryAdapterTest {
 
         assertEquals(1, result.size());
         assertEquals("Manager", result.get(0).getName());
+    }
+
+    @Test
+    @DisplayName("list filters by keyword matching a code")
+    void listFiltersByKeywordMatchingCode() {
+        RoleCriteria criteria = RoleCriteria.builder()
+                .keyword("anl")
+                .build();
+
+        List<Role> result = adapter.list(criteria);
+
+        assertEquals(1, result.size());
+        assertEquals("ANL", result.get(0).getCode());
+        assertEquals("Analyst", result.get(0).getName());
     }
 
     @Test
@@ -201,14 +270,13 @@ class RoleRepositoryAdapterTest {
     @Test
     @DisplayName("deleteById throws when the role is referenced")
     void deleteByIdThrowsWhenReferenced() {
-        // Seed an assignment that references ENGINEER through role_id.
         entityManager.createNativeQuery("""
                 INSERT INTO countries (id, iso_code, name, currency_code)
                 VALUES ('44444444-4444-4444-4444-444444444444', 'FR', 'France', 'EUR')
                 """).executeUpdate();
         entityManager.createNativeQuery("""
-                INSERT INTO departments (id, name)
-                VALUES ('55555555-5555-5555-5555-555555555555', 'Engineering')
+                INSERT INTO departments (id, code, name)
+                VALUES ('55555555-5555-5555-5555-555555555555', 'ENG', 'Engineering')
                 """).executeUpdate();
         entityManager.createNativeQuery("""
                 INSERT INTO employees (id, matricule, name, email, birth_date, origin_country_id)
@@ -239,6 +307,7 @@ class RoleRepositoryAdapterTest {
     @DisplayName("save generates and persists a fresh id")
     void savePersistsFreshId() {
         Role role = Role.builder()
+                .code("ARC")
                 .name("Architect")
                 .build();
 

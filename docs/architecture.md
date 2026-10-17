@@ -94,8 +94,8 @@ change detection.
 | Entity | Purpose |
 | :--- | :--- |
 | **Country** | ISO code, name, currency code |
-| **Department** | Canonical department list |
-| **Role** | Canonical role list |
+| **Department** | Canonical department list (stable `code` + display `name`) |
+| **Role** | Canonical role list (stable `code` + display `name`) |
 | **Employee** | Identity: matricule, name, email, birth date, origin country |
 | **EmployeePeriodicAssignment** | Where and as what an employee worked, over a span of time |
 | **PayrollPeriod** | Named date range with a frequency and a closed flag |
@@ -134,6 +134,22 @@ change detection.
 | email | String | Required |
 | birthDate | LocalDate | Required |
 | originCountry | Country | Nullable |
+
+### Field detail — Department
+
+| Field | Type | Constraint |
+| :--- | :--- | :--- |
+| id | UUID | PK |
+| code | String | Unique, required, 2..10 chars |
+| name | String | Unique, required, 2..100 chars |
+
+### Field detail — Role
+
+| Field | Type | Constraint |
+| :--- | :--- | :--- |
+| id | UUID | PK |
+| code | String | Unique, required, 2..10 chars |
+| name | String | Unique, required, 2..100 chars |
 
 ### Field detail — EmployeePeriodicAssignment
 
@@ -246,7 +262,10 @@ per table.
 ## Key Constraints
 
 - `Country.isoCode` unique
-- `Department.name` and `Role.name` unique
+- `Department.code` unique
+- `Role.code` unique
+- `Department.name` unique
+- `Role.name` unique
 - `Employee.matricule` unique
 - `PayrollPeriod.name` unique
 - `PayrollPeriod.startDate` before `PayrollPeriod.endDate`

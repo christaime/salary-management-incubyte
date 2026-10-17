@@ -27,18 +27,26 @@ CREATE INDEX idx_country_name ON countries (name);
 -- ---------------------------------------------------------------------------
 CREATE TABLE departments (
     id    TEXT PRIMARY KEY,
+    code  TEXT NOT NULL,
     name  TEXT NOT NULL,
+    CONSTRAINT uk_department_code UNIQUE (code),
     CONSTRAINT uk_department_name UNIQUE (name)
 );
+
+CREATE INDEX idx_department_code ON departments (code);
 
 -- ---------------------------------------------------------------------------
 -- roles
 -- ---------------------------------------------------------------------------
 CREATE TABLE roles (
     id    TEXT PRIMARY KEY,
+    code  TEXT NOT NULL,
     name  TEXT NOT NULL,
+    CONSTRAINT uk_role_code UNIQUE (code),
     CONSTRAINT uk_role_name UNIQUE (name)
 );
+
+CREATE INDEX idx_role_code ON roles (code);
 
 -- ---------------------------------------------------------------------------
 -- employees
