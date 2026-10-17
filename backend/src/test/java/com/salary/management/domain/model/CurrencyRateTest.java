@@ -77,4 +77,43 @@ class CurrencyRateTest {
         assertThrows(DomainValidationException.class,
                 () -> valid().withRate(BigDecimal.ZERO));
     }
+
+    @Test
+    @DisplayName("referenceAmount defaults to 1 when omitted")
+    void referenceAmountDefaultsToOne() {
+        CurrencyRate rate = valid();
+        assertNotNull(rate.getReferenceAmount());
+        assertEquals(0, rate.getReferenceAmount().compareTo(BigDecimal.ONE));
+    }
+
+    @Test
+    @DisplayName("Explicit referenceAmount is preserved")
+    void explicitReferenceAmountPreserved() {
+        CurrencyRate rate = CurrencyRate.builder()
+                .currencyCode("JPY")
+                .referenceCurrencyCode("USD")
+                .referenceAmount(new BigDecimal("100"))
+                .rate(new BigDecimal("0.65"))
+                .build();
+        assertEquals(0, rate.getReferenceAmount().compareTo(new BigDecimal("100")));
+    }
+
+    @Test
+    @DisplayName("Non-positive referenceAmount is rejected")
+    void nonPositiveReferenceAmountRejected() {
+        assertThrows(DomainValidationException.class, () -> CurrencyRate.builder()
+                .currencyCode("USD").referenceCurrencyCode("EUR")
+                .referenceAmount(BigDecimal.ZERO).rate(BigDecimal.ONE).build());
+        assertThrows(DomainValidationException.class, () -> CurrencyRate.builder()
+                .currencyCode("USD").referenceCurrencyCode("EUR")
+                .referenceAmount(new BigDecimal("-1")).rate(BigDecimal.ONE).build());
+    }
+
+    @Test
+    @DisplayName("currency and reference must differ")
+    void sameCurrencyRejected() {
+        assertThrows(DomainValidationException.class, () -> CurrencyRate.builder()
+                .currencyCode("USD").referenceCurrencyCode("USD")
+                .rate(BigDecimal.ONE).build());
+    }
 }

@@ -2,14 +2,17 @@ package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.common.pagination.SortDirection;
+import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.CurrencyRate;
 import com.salary.management.domain.repository.criteria.CurrencyRateCriteria;
 import com.salary.management.infrastructure.persistence.repository.CurrencyRateJpaRepository;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +23,8 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Integration tests for {@link CurrencyRateRepositoryAdapter}. */
@@ -31,8 +35,10 @@ class CurrencyRateRepositoryAdapterTest {
 
     private static final UUID EUR_USD =
             UUID.fromString("11111111-1111-1111-1111-111111111111");
-    private static final UUID USD_EUR =
+    private static final UUID GBP_USD =
             UUID.fromString("22222222-2222-2222-2222-222222222222");
+    private static final UUID CAD_USD =
+            UUID.fromString("33333333-3333-3333-3333-333333333333");
 
     @Autowired
     private CurrencyRateRepositoryAdapter adapter;
@@ -43,16 +49,20 @@ class CurrencyRateRepositoryAdapterTest {
     @Autowired
     private EntityManager entityManager;
 
+    // -----------------------------------------------------------------------
+    // saveAll (replace-all)
+    // -----------------------------------------------------------------------
+
     @Test
-    @DisplayName("save then findById returns the persisted rate")
-    void saveThenFindByIdReturnsPersistedRate() {
+    @DisplayName("saveAll persists the batch and findById returns each row")
+    void saveAllPersistsBatchAndFindByIdReturnsIt() {
         CurrencyRate rate = CurrencyRate.builder()
                 .currencyCode("CHF")
                 .referenceCurrencyCode("EUR")
                 .rate(new BigDecimal("1.05"))
                 .build();
 
-        adapter.save(rate);
+        adapter.saveAll(List.of(rate));
         entityManager.flush();
         entityManager.clear();
 
@@ -63,28 +73,116 @@ class CurrencyRateRepositoryAdapterTest {
         assertEquals("CHF", found.get().getCurrencyCode());
         assertEquals("EUR", found.get().getReferenceCurrencyCode());
         assertEquals(0, found.get().getRate().compareTo(new BigDecimal("1.05")));
+        assertEquals(0, found.get().getReferenceAmount().compareTo(BigDecimal.ONE));
     }
 
     @Test
-    @DisplayName("save on an existing id updates the row")
-    void saveOnExistingIdUpdatesRow() {
-        CurrencyRate existing = CurrencyRate.builder()
-                .id(EUR_USD)
-                .currencyCode("EUR")
+    @DisplayName("saveAll replaces every stored row, not appends")
+    void saveAllReplacesExistingRows() {
+        CurrencyRate chf = CurrencyRate.builder()
+                .currencyCode("CHF")
                 .referenceCurrencyCode("USD")
-                .rate(new BigDecimal("1.08"))
+                .rate(new BigDecimal("0.89"))
                 .build();
-        CurrencyRate updated = existing.withRate(new BigDecimal("1.10"));
 
-        adapter.save(updated);
+        adapter.saveAll(List.of(chf));
         entityManager.flush();
         entityManager.clear();
 
-        Optional<CurrencyRate> found = adapter.findById(EUR_USD);
-
-        assertTrue(found.isPresent());
-        assertEquals(0, found.get().getRate().compareTo(new BigDecimal("1.10")));
+        assertEquals(1, jpaRepository.count());
+        assertEquals("CHF", jpaRepository.findAll().get(0).getCurrencyCode());
     }
+
+    @Test
+    @DisplayName("saveAll rejects an empty batch and leaves stored rows untouched")
+    void saveAllRejectsEmptyBatch() {
+        assertThrows(DataIntegrityViolationException.class,
+                () -> adapter.saveAll(List.of()));
+        entityManager.flush();
+
+        assertEquals(3, jpaRepository.count());
+    }
+
+    @Test
+    @DisplayName("saveAll rejects a batch that mixes reference currencies")
+    void saveAllRejectsMixedReferenceCurrencies() {
+        CurrencyRate usdRef = CurrencyRate.builder()
+                .currencyCode("CHF").referenceCurrencyCode("USD")
+                .rate(new BigDecimal("0.89")).build();
+        CurrencyRate eurRef = CurrencyRate.builder()
+                .currencyCode("CHF").referenceCurrencyCode("EUR")
+                .rate(new BigDecimal("0.92")).build();
+
+        assertThrows(DataIntegrityViolationException.class,
+                () -> adapter.saveAll(List.of(usdRef, eurRef)));
+
+        entityManager.flush();
+        assertEquals(3, jpaRepository.count());
+    }
+
+    @Test
+    @DisplayName("saveAll persists every row when the batch shares one reference currency")
+    void saveAllPersistsConsistentBatch() {
+        CurrencyRate chf = CurrencyRate.builder()
+                .currencyCode("CHF").referenceCurrencyCode("USD")
+                .rate(new BigDecimal("0.89")).build();
+        CurrencyRate jpy = CurrencyRate.builder()
+                .currencyCode("JPY").referenceCurrencyCode("USD")
+                .rate(new BigDecimal("148.00")).build();
+
+        List<CurrencyRate> saved = adapter.saveAll(List.of(chf, jpy));
+        entityManager.flush();
+
+        assertEquals(2, saved.size());
+        assertEquals(2, jpaRepository.count());
+    }
+
+    // -----------------------------------------------------------------------
+    // deleteAll
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("deleteAll clears the table so a new reference currency can be established")
+    void deleteAllClearsTableAndAllowsNewReference() {
+        adapter.deleteAll();
+        entityManager.flush();
+
+        assertEquals(0, jpaRepository.count());
+        assertNull(adapter.getReferenceCurrencyCode());
+
+        CurrencyRate eurBased = CurrencyRate.builder()
+                .currencyCode("USD").referenceCurrencyCode("EUR")
+                .rate(new BigDecimal("1.07")).build();
+        adapter.saveAll(List.of(eurBased));
+        entityManager.flush();
+
+        assertEquals(1, jpaRepository.count());
+        assertEquals("EUR", adapter.getReferenceCurrencyCode());
+    }
+
+    // -----------------------------------------------------------------------
+    // getReferenceCurrencyCode
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getReferenceCurrencyCode returns the shared reference of the stored rows")
+    void getReferenceCurrencyCodeReturnsStoredReference() {
+        assertEquals("USD", adapter.getReferenceCurrencyCode());
+    }
+
+    @Test
+    @DisplayName("getReferenceCurrencyCode returns null when the table is empty")
+    void getReferenceCurrencyCodeReturnsNullWhenEmpty() {
+        adapter.deleteAll();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertNull(adapter.getReferenceCurrencyCode());
+    }
+
+    // -----------------------------------------------------------------------
+    // reads
+    // -----------------------------------------------------------------------
 
     @Test
     @DisplayName("findById returns empty for a missing id")
@@ -98,17 +196,17 @@ class CurrencyRateRepositoryAdapterTest {
     @DisplayName("findByCurrencyCodeAndReferenceCurrencyCode returns the matching rate")
     void findByCurrencyPairReturnsMatchingRate() {
         Optional<CurrencyRate> found =
-                adapter.findByCurrencyCodeAndReferenceCurrencyCode("USD", "EUR");
+                adapter.findByCurrencyCodeAndReferenceCurrencyCode("EUR", "USD");
 
         assertTrue(found.isPresent());
-        assertEquals(USD_EUR, found.get().getId());
+        assertEquals(EUR_USD, found.get().getId());
     }
 
     @Test
     @DisplayName("findByCurrencyCodeAndReferenceCurrencyCode returns empty when unknown")
     void findByCurrencyPairReturnsEmptyWhenUnknown() {
         assertTrue(adapter
-                .findByCurrencyCodeAndReferenceCurrencyCode("JPY", "EUR")
+                .findByCurrencyCodeAndReferenceCurrencyCode("JPY", "USD")
                 .isEmpty());
     }
 
@@ -123,9 +221,9 @@ class CurrencyRateRepositoryAdapterTest {
         List<CurrencyRate> result = adapter.list(criteria);
 
         assertEquals(3, result.size());
-        assertEquals("EUR", result.get(0).getCurrencyCode());
-        assertEquals("GBP", result.get(1).getCurrencyCode());
-        assertEquals("USD", result.get(2).getCurrencyCode());
+        assertEquals("CAD", result.get(0).getCurrencyCode());
+        assertEquals("EUR", result.get(1).getCurrencyCode());
+        assertEquals("GBP", result.get(2).getCurrencyCode());
     }
 
     @Test
@@ -177,16 +275,18 @@ class CurrencyRateRepositoryAdapterTest {
         assertTrue(page.last());
     }
 
+    // -----------------------------------------------------------------------
+    // deleteById
+    // -----------------------------------------------------------------------
+
     @Test
     @DisplayName("deleteById removes the row")
     void deleteByIdRemovesRow() {
-        UUID gbpEur = UUID.fromString("33333333-3333-3333-3333-333333333333");
-
-        adapter.deleteById(gbpEur);
+        adapter.deleteById(CAD_USD);
         entityManager.flush();
         entityManager.clear();
 
-        assertFalse(jpaRepository.existsById(gbpEur));
+        assertFalse(jpaRepository.existsById(CAD_USD));
     }
 
     @Test
@@ -199,18 +299,37 @@ class CurrencyRateRepositoryAdapterTest {
         assertEquals(3, jpaRepository.count());
     }
 
+    // -----------------------------------------------------------------------
+    // database triggers (bypass the adapter on purpose)
+    // -----------------------------------------------------------------------
+
     @Test
-    @DisplayName("save generates and persists a fresh id")
-    void savePersistsFreshId() {
-        CurrencyRate rate = CurrencyRate.builder()
-                .currencyCode("CAD")
-                .referenceCurrencyCode("EUR")
-                .rate(new BigDecimal("0.68"))
-                .build();
+    @DisplayName("trigger rejects a direct INSERT with a mixed reference currency")
+    void triggerRejectsDirectInsertWithMixedReference() {
+        assertThrows(PersistenceException.class, () -> {
+            entityManager
+                    .createNativeQuery("INSERT INTO currency_rates "
+                            + "(id, currency_code, reference_currency_code, "
+                            + "reference_amount, rate) VALUES "
+                            + "('aaaaaaaa-0000-0000-0000-000000000001', "
+                            + "'CHF', 'EUR', 1, 1.05)")
+                    .executeUpdate();
+            entityManager.flush();
+        });
+    }
 
-        assertNotNull(rate.getId());
-        adapter.save(rate);
-
-        assertTrue(jpaRepository.existsById(rate.getId()));
+    @Test
+    @DisplayName("trigger rejects a direct INSERT with a self-paired currency")
+    void triggerRejectsDirectInsertWithSelfPair() {
+        assertThrows(PersistenceException.class, () -> {
+            entityManager
+                    .createNativeQuery("INSERT INTO currency_rates "
+                            + "(id, currency_code, reference_currency_code, "
+                            + "reference_amount, rate) VALUES "
+                            + "('aaaaaaaa-0000-0000-0000-000000000002', "
+                            + "'CHF', 'CHF', 1, 1.00)")
+                    .executeUpdate();
+            entityManager.flush();
+        });
     }
 }

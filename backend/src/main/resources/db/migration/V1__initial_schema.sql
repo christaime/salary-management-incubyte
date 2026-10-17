@@ -69,14 +69,74 @@ CREATE INDEX idx_employee_name ON employees (name);
 
 -- ---------------------------------------------------------------------------
 -- currency_rates
+-- A row is a sentence: reference_amount reference_currency_code = rate
+-- currency_code. Example: (1, 'USD', 583.51, 'XAF') reads "1 USD = 583.51 XAF".
+--
+-- reference_amount is a real column, not an assumption: today every seeded row
+-- has 1, but a row such as (100, 'JPY', 0.65, 'USD') = "100 JPY = 0.65 USD"
+-- needs no schema change. Conversion always divides by reference_amount:
+--   amount_in_currency_code = amount_in_reference * rate / reference_amount
+--
+-- Invariant: at any moment, every row in this table carries the same
+-- reference_currency_code. It is the system's single reference currency.
+-- The table is empty, or all rows agree. Changing the reference currency
+-- requires DELETE all rows, then INSERT with the new reference.
+-- Enforced by two triggers below, in addition to the adapter-level check.
 -- ---------------------------------------------------------------------------
 CREATE TABLE currency_rates (
     id                       TEXT PRIMARY KEY,
     currency_code            TEXT NOT NULL,
     reference_currency_code  TEXT NOT NULL,
+    reference_amount         NUMERIC(38, 2) NOT NULL,
     rate                     NUMERIC(38, 2) NOT NULL,
-    CONSTRAINT uk_currency_rate_pair UNIQUE (currency_code, reference_currency_code)
+    CONSTRAINT uk_currency_rate_pair UNIQUE (currency_code, reference_currency_code),
+    CONSTRAINT ck_currency_rate_reference_amount_positive CHECK (reference_amount > 0),
+    CONSTRAINT ck_currency_rate_rate_positive CHECK (rate > 0)
 );
+
+-- ---------------------------------------------------------------------------
+-- Single-reference-currency triggers.
+-- Reject any write that would leave the table with two different
+-- reference_currency_code values. The table being empty is always allowed,
+-- so the first INSERT after a full DELETE establishes the new reference.
+-- ---------------------------------------------------------------------------
+CREATE TRIGGER trg_currency_rate_single_reference_insert
+BEFORE INSERT ON currency_rates
+FOR EACH ROW
+WHEN EXISTS (
+    SELECT 1 FROM currency_rates
+    WHERE reference_currency_code <> NEW.reference_currency_code
+)
+BEGIN
+    SELECT RAISE(ABORT, 'currency_rates must use a single reference currency');
+END;
+
+CREATE TRIGGER trg_currency_rate_single_reference_update
+BEFORE UPDATE OF reference_currency_code ON currency_rates
+FOR EACH ROW
+WHEN EXISTS (
+    SELECT 1 FROM currency_rates
+    WHERE reference_currency_code <> NEW.reference_currency_code
+)
+BEGIN
+    SELECT RAISE(ABORT, 'currency_rates must use a single reference currency');
+END;
+
+CREATE TRIGGER trg_currency_rate_no_self_pair_insert
+BEFORE INSERT ON currency_rates
+FOR EACH ROW
+WHEN NEW.currency_code = NEW.reference_currency_code
+BEGIN
+    SELECT RAISE(ABORT, 'currency_rates must not pair a currency with itself');
+END;
+
+CREATE TRIGGER trg_currency_rate_no_self_pair_update
+BEFORE UPDATE OF currency_code, reference_currency_code ON currency_rates
+FOR EACH ROW
+WHEN NEW.currency_code = NEW.reference_currency_code
+BEGIN
+    SELECT RAISE(ABORT, 'currency_rates must not pair a currency with itself');
+END;
 
 -- ---------------------------------------------------------------------------
 -- payroll_periods
