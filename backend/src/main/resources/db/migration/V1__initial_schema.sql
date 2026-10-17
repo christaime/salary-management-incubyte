@@ -148,7 +148,8 @@ CREATE TABLE payroll_periods (
     end_date    TEXT NOT NULL,
     frequency   TEXT NOT NULL,
     closed      BOOLEAN NOT NULL,
-    CONSTRAINT uk_payroll_period_name UNIQUE (name)
+    CONSTRAINT uk_payroll_period_name UNIQUE (name),
+    CONSTRAINT ck_payroll_period_dates CHECK (start_date < end_date)
 );
 
 CREATE INDEX idx_payroll_period_name ON payroll_periods (name);
@@ -174,7 +175,9 @@ CREATE TABLE employee_periodic_assignments (
     CONSTRAINT fk_assignment_department
         FOREIGN KEY (department_id) REFERENCES departments (id),
     CONSTRAINT fk_assignment_role
-        FOREIGN KEY (role_id) REFERENCES roles (id)
+        FOREIGN KEY (role_id) REFERENCES roles (id),
+    CONSTRAINT ck_assignment_dates
+        CHECK (end_date IS NULL OR start_date < end_date)
 );
 
 CREATE INDEX idx_assignment_employee ON employee_periodic_assignments (employee_id);
@@ -217,7 +220,9 @@ CREATE TABLE payroll_summaries (
     CONSTRAINT fk_summary_assignment_department
         FOREIGN KEY (assignment_department_id) REFERENCES departments (id),
     CONSTRAINT fk_summary_assignment_role
-        FOREIGN KEY (assignment_role_id) REFERENCES roles (id)
+        FOREIGN KEY (assignment_role_id) REFERENCES roles (id),
+    CONSTRAINT ck_payroll_summary_total
+        CHECK (total = base + variable + allowances + employer_taxes)
 );
 
 CREATE INDEX idx_payroll_summary_employee ON payroll_summaries (employee_id);
@@ -234,6 +239,7 @@ CREATE INDEX idx_payroll_summary_assignment_employment_type
     ON payroll_summaries (assignment_employment_type);
 CREATE INDEX idx_payroll_summary_period_start
     ON payroll_summaries (payroll_period_id, status);
+
 
 -- ---------------------------------------------------------------------------
 -- payroll_period_aggregates
@@ -268,13 +274,20 @@ CREATE TABLE payroll_period_aggregates (
     CONSTRAINT fk_aggregate_department
         FOREIGN KEY (department_id) REFERENCES departments (id),
     CONSTRAINT fk_aggregate_role
-        FOREIGN KEY (role_id) REFERENCES roles (id)
+        FOREIGN KEY (role_id) REFERENCES roles (id),
+    CONSTRAINT ck_aggregate_original_total
+        CHECK (original_total =
+               original_base + original_variable + original_allowances + original_employer_taxes),
+    CONSTRAINT ck_aggregate_reference_total
+        CHECK (reference_total =
+               reference_base + reference_variable + reference_allowances + reference_employer_taxes)
 );
 
 CREATE INDEX idx_payroll_period_aggregate_payroll_period
     ON payroll_period_aggregates (payroll_period_id);
 CREATE INDEX idx_payroll_period_aggregate_group
     ON payroll_period_aggregates (country_id, department_id, role_id, employment_type);
+
 
 -- ---------------------------------------------------------------------------
 -- payroll_period_earner_rankings
