@@ -30,21 +30,29 @@ public interface ReportDataRepository {
             ReportEffectiveFilters filters);
 
     /**
-     * Returns, per group, the amounts of the {@code TOP} and {@code BOTTOM} rank-1 ranking
-     * entries across the given periods, with optional selection filters.
+     * Returns, per group, the minimum and maximum reference amounts of the ranking
+     * population across the given periods.
+     *
+     * <p>Reads the ranking rows only, and converts each row's original amount to the given
+     * reference currency: {@code original * reference_amount / rate}, with identity for the
+     * reference currency itself. Rows whose currency has no rate are excluded. The
+     * statistics therefore reflect the population that was ranked — the top and bottom of
+     * each group — not the full set of payroll summaries.</p>
      *
      * <p>Each returned row carries the requested group-key values, plus
-     * {@code direction} ({@code "TOP"} or {@code "BOTTOM"}) and {@code amount}. Rows are
-     * grouped by the requested keys and by direction, so a group can produce up to two
-     * rows. Fields not selected as group keys are left {@code null}.</p>
+     * {@code minReferenceAmount} and {@code maxReferenceAmount}. Fields not selected as
+     * group keys are left {@code null}.</p>
      *
-     * @param periodIds periods to include; must be non-empty
-     * @param groupKeys group keys to group by
-     * @param filters   selection filters, with group-key dimensions already removed
-     * @return one row per group and direction, after filtering
+     * @param periodIds             periods to include; must be non-empty
+     * @param groupKeys             group keys to group by
+     * @param filters               selection filters, with group-key dimensions already
+     *                              removed
+     * @param referenceCurrencyCode currency to convert the original amounts to
+     * @return one row per distinct key combination with {@code min} and {@code max}
      */
     List<AggregateRowProjection> queryStatistics(
             List<UUID> periodIds,
             List<GroupKey> groupKeys,
-            ReportEffectiveFilters filters);
+            ReportEffectiveFilters filters,
+            String referenceCurrencyCode);
 }

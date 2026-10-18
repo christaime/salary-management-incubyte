@@ -1,13 +1,14 @@
 package com.salary.management.infrastructure.persistence.projection;
 
+import com.salary.management.domain.model.values.Amount;
+import org.springframework.beans.factory.annotation.Value;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * Projection for one row of a top-N or bottom-N query: the employee, its total, and its
- * rank within the group. No direction column: the direction is known from which query
- * produced the row ({@code topByGroup} → TOP, {@code bottomByGroup} → BOTTOM). Read-only;
- * mapped to {@code RankedSummary} by the adapter.
+ * Projection for one row of a top-N or bottom-N query. Read-only; mapped to
+ * {@code RankedSummary} by the adapter.
  */
 public interface RankedRow {
 
@@ -25,5 +26,12 @@ public interface RankedRow {
 
     UUID getEmployeeId();
 
-    BigDecimal getTotal();
+    BigDecimal getOriginalTotal();
+
+    String getOriginalCurrency();
+
+    BigDecimal getReferenceTotal();
+
+    String getReferenceCurrency();
+
 }

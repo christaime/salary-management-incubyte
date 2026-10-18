@@ -4,18 +4,20 @@ import com.salary.management.common.validation.DomainValidation;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
+import com.salary.management.domain.model.values.Amount;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
  * One entry in the top or bottom earner ranking of a payroll period, scoped to a
  * (country, department, role, employment type) combination.
+ *
+ * <p>Carries the employee's total in the assignment currency ({@code originalAmount}) and
+ * the same total converted to the reference currency ({@code referenceAmount}).</p>
  */
 @Getter
 public final class PayrollPeriodEarnerRanking {
@@ -53,8 +55,10 @@ public final class PayrollPeriodEarnerRanking {
     private final Employee employee;
 
     @NotNull
-    @PositiveOrZero
-    private final BigDecimal amount;
+    private final Amount originalAmount;
+
+    @NotNull
+    private final Amount referenceAmount;
 
     private PayrollPeriodEarnerRanking(Builder builder) {
         this.id = builder.id;
@@ -67,7 +71,8 @@ public final class PayrollPeriodEarnerRanking {
         this.direction = builder.direction;
         this.rank = builder.rank;
         this.employee = builder.employee;
-        this.amount = builder.amount;
+        this.originalAmount = builder.originalAmount;
+        this.referenceAmount = builder.referenceAmount;
     }
 
     public static Builder builder() {
@@ -75,13 +80,23 @@ public final class PayrollPeriodEarnerRanking {
     }
 
     /**
-     * Returns a new ranking entry with the given amount.
+     * Returns a new ranking entry with the given original amount.
      *
-     * @param newAmount new amount, must be non-negative
+     * @param newOriginalAmount new original amount
      * @return new validated ranking entry
      */
-    public PayrollPeriodEarnerRanking withAmount(BigDecimal newAmount) {
-        return toBuilder().amount(newAmount).build();
+    public PayrollPeriodEarnerRanking withOriginalAmount(Amount newOriginalAmount) {
+        return toBuilder().originalAmount(newOriginalAmount).build();
+    }
+
+    /**
+     * Returns a new ranking entry with the given reference amount.
+     *
+     * @param newReferenceAmount new reference amount
+     * @return new validated ranking entry
+     */
+    public PayrollPeriodEarnerRanking withReferenceAmount(Amount newReferenceAmount) {
+        return toBuilder().referenceAmount(newReferenceAmount).build();
     }
 
     /**
@@ -106,7 +121,8 @@ public final class PayrollPeriodEarnerRanking {
                 .direction(this.direction)
                 .rank(this.rank)
                 .employee(this.employee)
-                .amount(this.amount);
+                .originalAmount(this.originalAmount)
+                .referenceAmount(this.referenceAmount);
     }
 
     /** Hand-written builder validating the composed {@code PayrollPeriodEarnerRanking}. */
@@ -122,7 +138,8 @@ public final class PayrollPeriodEarnerRanking {
         private EarnerRankingDirection direction;
         private Integer rank;
         private Employee employee;
-        private BigDecimal amount;
+        private Amount originalAmount;
+        private Amount referenceAmount;
 
         public Builder id(UUID id) {
             this.id = id;
@@ -174,8 +191,13 @@ public final class PayrollPeriodEarnerRanking {
             return this;
         }
 
-        public Builder amount(BigDecimal amount) {
-            this.amount = amount;
+        public Builder originalAmount(Amount originalAmount) {
+            this.originalAmount = originalAmount;
+            return this;
+        }
+
+        public Builder referenceAmount(Amount referenceAmount) {
+            this.referenceAmount = referenceAmount;
             return this;
         }
 

@@ -11,6 +11,7 @@ import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
+import com.salary.management.domain.model.values.Amount;
 import com.salary.management.domain.repository.criteria.PayrollPeriodEarnerRankingCriteria;
 import com.salary.management.infrastructure.persistence.repository.PayrollPeriodEarnerRankingJpaRepository;
 import jakarta.persistence.EntityManager;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -78,7 +80,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
                 .employee(employee(ADA))
-                .amount(new BigDecimal("5000.00"))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
                 .build();
 
         adapter.saveAll(List.of(ranking));
@@ -93,13 +96,18 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
         assertEquals(ADA, result.get(0).getEmployee().getId());
         assertEquals(EarnerRankingDirection.TOP, result.get(0).getDirection());
         assertEquals(1, result.get(0).getRank());
-        assertEquals(0, result.get(0).getAmount().compareTo(new BigDecimal("5000.00")));
+        assertEquals(0, result.get(0).getOriginalAmount().getAmount()
+                .compareTo(new BigDecimal("5000.00")));
+        assertEquals("EUR", result.get(0).getOriginalAmount().getCurrency());
+        assertEquals(0, result.get(0).getReferenceAmount().getAmount()
+                .compareTo(new BigDecimal("5376.34")));
+        assertEquals("USD", result.get(0).getReferenceAmount().getCurrency());
     }
 
     @Test
     @DisplayName("saveAll throws when the payroll period does not exist")
     void saveAllThrowsWhenPayrollPeriodMissing() {
-        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999999");
         PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
                 .payrollPeriod(payrollPeriod(missing, "Missing",
                         LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
@@ -111,7 +119,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
                 .employee(employee(ADA))
-                .amount(new BigDecimal("5000.00"))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -120,7 +129,7 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     @Test
     @DisplayName("saveAll throws when the employee does not exist")
     void saveAllThrowsWhenEmployeeMissing() {
-        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999999");
         PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
                 .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
                         LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
@@ -132,7 +141,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
                 .employee(employee(missing))
-                .amount(new BigDecimal("5000.00"))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -141,7 +151,7 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     @Test
     @DisplayName("saveAll throws when the country does not exist")
     void saveAllThrowsWhenCountryMissing() {
-        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999999");
         PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
                 .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
                         LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
@@ -153,7 +163,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
                 .employee(employee(ADA))
-                .amount(new BigDecimal("5000.00"))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -162,7 +173,7 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     @Test
     @DisplayName("saveAll throws when the department does not exist")
     void saveAllThrowsWhenDepartmentMissing() {
-        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999999");
         PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
                 .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
                         LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
@@ -175,7 +186,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
                 .employee(employee(ADA))
-                .amount(new BigDecimal("5000.00"))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -184,7 +196,7 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     @Test
     @DisplayName("saveAll throws when the role does not exist")
     void saveAllThrowsWhenRoleMissing() {
-        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999999");
         PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
                 .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
                         LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
@@ -196,7 +208,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
                 .employee(employee(ADA))
-                .amount(new BigDecimal("5000.00"))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -216,7 +229,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
                 .employee(employee(ADA))
-                .amount(new BigDecimal("5000.00"))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
                 .build();
         PayrollPeriodEarnerRanking bottom = PayrollPeriodEarnerRanking.builder()
                 .payrollPeriod(payrollPeriod(FEBRUARY, "February 2026",
@@ -229,7 +243,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .direction(EarnerRankingDirection.BOTTOM)
                 .rank(1)
                 .employee(employee(GRACE))
-                .amount(new BigDecimal("1200.00"))
+                .originalAmount(amount("1200.00", "EUR"))
+                .referenceAmount(amount("1290.32", "USD"))
                 .build();
 
         adapter.saveAll(List.of(top, bottom));
@@ -254,7 +269,7 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     @Test
     @DisplayName("findByPayrollPeriodId returns empty for a period with no rows")
     void findByPayrollPeriodIdReturnsEmptyWhenNone() {
-        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999999");
 
         assertTrue(adapter.findByPayrollPeriodId(missing).isEmpty());
     }
@@ -265,7 +280,7 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
         PayrollPeriodEarnerRankingCriteria criteria =
                 PayrollPeriodEarnerRankingCriteria.builder()
                         .payrollPeriodId(JANUARY)
-                        .sortBy("amount")
+                        .sortBy("referenceAmount.amount")
                         .sortDirection(SortDirection.DESC)
                         .build();
 
@@ -303,8 +318,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     }
 
     @Test
-    @DisplayName("deleteByPayrollPeriodId removes all rows for a period")
-    void deleteByPayrollPeriodIdRemovesAll() {
+    @DisplayName("deleteDraftsByPayrollPeriodId removes all DRAFT rows for a period")
+    void deleteDraftsByPayrollPeriodIdRemovesAll() {
         adapter.deleteDraftsByPayrollPeriodId(JANUARY);
         entityManager.flush();
         entityManager.clear();
@@ -314,9 +329,9 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     }
 
     @Test
-    @DisplayName("deleteByPayrollPeriodId is a no-op for a period with no rows")
-    void deleteByPayrollPeriodIdIsNoOpWhenNone() {
-        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+    @DisplayName("deleteDraftsByPayrollPeriodId is a no-op for a period with no rows")
+    void deleteDraftsByPayrollPeriodIdIsNoOpWhenNone() {
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999999");
 
         adapter.deleteDraftsByPayrollPeriodId(missing);
 
@@ -366,6 +381,13 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .matricule("PLACEHOLDER")
                 .name("Placeholder")
                 .email("placeholder@example.com")
+                .build();
+    }
+
+    private Amount amount(String value, String currency) {
+        return Amount.builder()
+                .amount(new BigDecimal(value))
+                .currency(currency)
                 .build();
     }
 }

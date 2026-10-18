@@ -82,7 +82,8 @@ public class SnapshotBuilder {
         }
 
         collectCoverageWarnings(period, warnings, blockers);
-
+        // We load conversion data before operations needing it are call
+        currencyConverter.initConverter();
         List<PayrollPeriodAggregate> aggregates = buildAggregates(period, blockers);
         List<PayrollPeriodEarnerRanking> rankings = buildRankings(period);
 
@@ -165,9 +166,7 @@ public class SnapshotBuilder {
         List<GroupedSummary> groups = aggregateRepository.aggregateByGroup(period.getId());
         List<PayrollPeriodAggregate> aggregates = new ArrayList<>();
         boolean stopConvertingAmount = false;
-        if(!groups.isEmpty()){ // We load convertion data because we will probably need them
-            currencyConverter.initConverter();
-        }
+
         for (GroupedSummary g : groups) {
             Country country = countryRepository.findById(g.countryId()).orElseThrow();
             Department department = departmentRepository.findById(g.departmentId()).orElseThrow();
@@ -226,16 +225,16 @@ public class SnapshotBuilder {
     private List<PayrollPeriodEarnerRanking> buildRankings(PayrollPeriod period) {
         List<PayrollPeriodEarnerRanking> rankings = new ArrayList<>();
         rankings.addAll(toRankings(period,
-                rankingRepository.topByGroup(period.getId(), RANKING_LIMIT),
+                rankingRepository.topByGroup(period.getId(), currencyConverter.getReferenceCurrency(), RANKING_LIMIT),
                 EarnerRankingDirection.TOP));
         rankings.addAll(toRankings(period,
-                rankingRepository.bottomByGroup(period.getId(), RANKING_LIMIT),
+                rankingRepository.bottomByGroup(period.getId(),currencyConverter.getReferenceCurrency(), RANKING_LIMIT),
                 EarnerRankingDirection.BOTTOM));
         return rankings;
     }
 
     private List<PayrollPeriodEarnerRanking> toRankings(PayrollPeriod period,
-            List<RankedSummary> rows, EarnerRankingDirection direction) {
+                                                        List<RankedSummary> rows, EarnerRankingDirection direction) {
         List<PayrollPeriodEarnerRanking> out = new ArrayList<>();
         for (RankedSummary row : rows) {
             Country country = countryRepository.findById(row.countryId()).orElseThrow();
@@ -252,7 +251,8 @@ public class SnapshotBuilder {
                     .direction(direction)
                     .rank(row.rank())
                     .employee(employee)
-                    .amount(row.total())
+                    .originalAmount(row.originalAmount())
+                    .referenceAmount(row.referenceAmount())
                     .build());
         }
         return out;

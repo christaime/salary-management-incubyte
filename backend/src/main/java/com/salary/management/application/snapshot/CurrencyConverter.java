@@ -1,6 +1,7 @@
 package com.salary.management.application.snapshot;
 
 import com.salary.management.domain.model.CurrencyRate;
+import com.salary.management.domain.model.values.AmountUtils;
 import com.salary.management.domain.model.values.Amounts;
 import com.salary.management.domain.repository.CurrencyRateRepository;
 import com.salary.management.domain.repository.criteria.CurrencyRateCriteria;
@@ -91,9 +92,13 @@ public class CurrencyConverter {
                 .build();
     }
 
+    public String getReferenceCurrency(){
+        return this.referenceCurrency;
+    }
+
     private BigDecimal convert(BigDecimal amount, CurrencyRate rate) {
         return rate.getReferenceAmount()
                 .multiply(amount)
-                .divide(rate.getRate(), Amounts.AMOUNT_SCALE, RoundingMode.HALF_UP);
+                .divide(rate.getRate(), AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP);
     }
 }

@@ -5,6 +5,7 @@ import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
+import com.salary.management.domain.model.values.Amount;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -108,29 +109,47 @@ class PayrollPeriodEarnerRankingTest {
     }
 
     @Test
-    @DisplayName("null amount is rejected")
-    void nullAmountIsRejected() {
+    @DisplayName("null originalAmount is rejected")
+    void nullOriginalAmountIsRejected() {
         assertThrows(DomainValidationException.class,
-                () -> valid().amount(null).build());
+                () -> valid().originalAmount(null).build());
     }
 
     @Test
-    @DisplayName("negative amount is rejected")
-    void negativeAmountIsRejected() {
+    @DisplayName("null referenceAmount is rejected")
+    void nullReferenceAmountIsRejected() {
         assertThrows(DomainValidationException.class,
-                () -> valid().amount(new BigDecimal("-0.01")).build());
+                () -> valid().referenceAmount(null).build());
     }
 
     @Test
-    @DisplayName("withAmount returns a new instance with the same id")
-    void withAmountReturnsNewInstanceWithSameId() {
+    @DisplayName("withOriginalAmount returns a new instance with the same id")
+    void withOriginalAmountReturnsNewInstanceWithSameId() {
         PayrollPeriodEarnerRanking original = valid().build();
-        PayrollPeriodEarnerRanking updated = original.withAmount(new BigDecimal("9999.99"));
+        PayrollPeriodEarnerRanking updated =
+                original.withOriginalAmount(amount("9999.99", "EUR"));
 
         assertNotSame(original, updated);
         assertEquals(original.getId(), updated.getId());
-        assertEquals(0, original.getAmount().compareTo(new BigDecimal("5000.00")));
-        assertEquals(0, updated.getAmount().compareTo(new BigDecimal("9999.99")));
+        assertEquals(0, original.getOriginalAmount().getAmount()
+                .compareTo(new BigDecimal("5000.00")));
+        assertEquals(0, updated.getOriginalAmount().getAmount()
+                .compareTo(new BigDecimal("9999.99")));
+    }
+
+    @Test
+    @DisplayName("withReferenceAmount returns a new instance with the same id")
+    void withReferenceAmountReturnsNewInstanceWithSameId() {
+        PayrollPeriodEarnerRanking original = valid().build();
+        PayrollPeriodEarnerRanking updated =
+                original.withReferenceAmount(amount("10800.00", "USD"));
+
+        assertNotSame(original, updated);
+        assertEquals(original.getId(), updated.getId());
+        assertEquals(0, original.getReferenceAmount().getAmount()
+                .compareTo(new BigDecimal("5400.00")));
+        assertEquals(0, updated.getReferenceAmount().getAmount()
+                .compareTo(new BigDecimal("10800.00")));
     }
 
     @Test
@@ -157,6 +176,12 @@ class PayrollPeriodEarnerRankingTest {
         assertEquals(EarnerRankingDirection.TOP, ranking.getDirection());
         assertEquals(1, ranking.getRank());
         assertEquals("EMP-0001", ranking.getEmployee().getMatricule());
+        assertEquals(0, ranking.getOriginalAmount().getAmount()
+                .compareTo(new BigDecimal("5000.00")));
+        assertEquals("EUR", ranking.getOriginalAmount().getCurrency());
+        assertEquals(0, ranking.getReferenceAmount().getAmount()
+                .compareTo(new BigDecimal("5400.00")));
+        assertEquals("USD", ranking.getReferenceAmount().getCurrency());
     }
 
     private PayrollPeriodEarnerRanking.Builder valid() {
@@ -170,7 +195,15 @@ class PayrollPeriodEarnerRankingTest {
                 .direction(EarnerRankingDirection.TOP)
                 .rank(1)
                 .employee(anEmployee())
-                .amount(new BigDecimal("5000.00"));
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5400.00", "USD"));
+    }
+
+    private Amount amount(String value, String currency) {
+        return Amount.builder()
+                .amount(new BigDecimal(value))
+                .currency(currency)
+                .build();
     }
 
     private Country aCountry() {

@@ -15,6 +15,7 @@ import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.ReportKind;
+import com.salary.management.domain.model.values.AmountUtils;
 import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.model.values.SnapshotBuildResult;
 import com.salary.management.domain.repository.*;
@@ -79,7 +80,7 @@ public class AggregateReportService {
 
         Map<GroupTuple, StatisticsPair> statistics = request.includeStatistics()
                 ? buildStatistics(reportDataRepository.queryStatistics(
-                        periodIds, request.groupKeys(), filters),
+                        periodIds, request.groupKeys(), filters, referenceCurrency),
                 request.groupKeys())
                 : Map.of();
 
@@ -129,19 +130,7 @@ public class AggregateReportService {
                     "groupKeys", "Unsupported",
                     "ORIGIN_COUNTRY is not supported as a group key", Map.of()));
         }
-        if (request.includeStatistics()) {
-            Set<GroupKey> allowed = Set.of(
-                    GroupKey.COUNTRY, GroupKey.DEPARTMENT,
-                    GroupKey.ROLE, GroupKey.EMPLOYMENT_TYPE);
-            for (GroupKey key : request.groupKeys()) {
-                if (!allowed.contains(key)) {
-                    errors.add(new ValidationError(
-                            "groupKeys", "StatisticsGroupKey",
-                            "includeStatistics supports only COUNTRY, DEPARTMENT, "
-                                    + "ROLE, EMPLOYMENT_TYPE; got " + key, Map.of()));
-                }
-            }
-        }
+
         if (!errors.isEmpty()) {
             throw new DomainValidationException(errors);
         }
@@ -198,10 +187,13 @@ public class AggregateReportService {
         for (AggregateRowProjection row : rows) {
             GroupTuple key = rowToKey(row, groupKeys);
             StatisticsPair pair = map.computeIfAbsent(key, k -> new StatisticsPair());
-            if (EarnerRankingDirection.TOP.equals(row.direction)) {
-                pair.max = row.amount;
-            } else if (EarnerRankingDirection.BOTTOM.equals(row.direction)) {
-                pair.min = row.amount;
+            if (row.minReferenceAmount != null
+                    && (pair.min == null || row.minReferenceAmount.compareTo(pair.min) < 0)) {
+                pair.min = row.minReferenceAmount;
+            }
+            if (row.maxReferenceAmount != null
+                    && (pair.max == null || row.maxReferenceAmount.compareTo(pair.max) > 0)) {
+                pair.max = row.maxReferenceAmount;
             }
         }
         return map;
@@ -223,19 +215,21 @@ public class AggregateReportService {
             StatisticsDto stats = null;
             if (request.includeStatistics()) {
                 StatisticsPair pair = statistics.get(key);
-                BigDecimal average = row.sumEmployeeCount != null && row.sumEmployeeCount > 0
-                        ? row.sumTotal.divide(
-                        BigDecimal.valueOf(row.sumEmployeeCount),
-                        2, RoundingMode.HALF_UP)
-                        : null;
                 AmountDto min = pair != null && pair.min != null
-                        ? new AmountDto(pair.min, referenceCurrency) : null;
+                        ? new AmountDto(pair.min,referenceCurrency)
+                        : null;
                 AmountDto max = pair != null && pair.max != null
-                        ? new AmountDto(pair.max, referenceCurrency) : null;
-                AmountDto avg = average != null
-                        ? new AmountDto(average, referenceCurrency) : null;
-                stats = new StatisticsDto(min, max, avg);
+                        ? new AmountDto(pair.max, referenceCurrency)
+                        : null;
+                AmountDto average = row.sumEmployeeCount != null && row.sumEmployeeCount > 0
+                        ? new AmountDto(row.sumTotal.divide(
+                        BigDecimal.valueOf(row.sumEmployeeCount),
+                        AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
+                        referenceCurrency)
+                        : null;
+                stats = new StatisticsDto(min, max, average);
             }
+
             lines.add(new AggregateLineDto(
                     amount,
                     row.sumEmployeeCount == null ? 0 : row.sumEmployeeCount.intValue(),

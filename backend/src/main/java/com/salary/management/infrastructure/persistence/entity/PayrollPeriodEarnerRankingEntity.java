@@ -3,7 +3,11 @@ package com.salary.management.infrastructure.persistence.entity;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
+import com.salary.management.infrastructure.persistence.embeddable.AmountEmbeddable;
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -16,14 +20,16 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
  * JPA entity for one entry in the top or bottom earner ranking of a payroll period,
  * scoped to a (country, department, role, employment type) combination.
  *
- * <p>The identifier is assigned by the domain.</p>
+ * <p>Holds two {@link AmountEmbeddable} instances: the employee's total in the assignment
+ * currency ({@code original_*}) and the same total converted to the reference currency
+ * ({@code reference_*}). Column names are overridden so the two do not collide. The
+ * identifier is assigned by the domain.</p>
  */
 @Entity
 @Table(
@@ -77,6 +83,23 @@ public class PayrollPeriodEarnerRankingEntity {
     @Column(name = "employee_id", nullable = false)
     private UUID employeeId;
 
-    @Column(name = "amount", nullable = false)
-    private BigDecimal amount;
+    /** Employee total in the assignment currency. */
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "amount",
+                    column = @Column(name = "original_amount", nullable = false)),
+            @AttributeOverride(name = "currency",
+                    column = @Column(name = "original_currency", nullable = false, length = 3))
+    })
+    private AmountEmbeddable originalAmount;
+
+    /** Employee total converted to the reference currency. */
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "amount",
+                    column = @Column(name = "reference_amount", nullable = false)),
+            @AttributeOverride(name = "currency",
+                    column = @Column(name = "reference_currency", nullable = false, length = 3))
+    })
+    private AmountEmbeddable referenceAmount;
 }

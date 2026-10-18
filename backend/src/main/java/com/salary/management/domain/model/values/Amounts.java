@@ -13,7 +13,8 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+
+import static com.salary.management.domain.model.values.AmountUtils.AMOUNT_SCALE;
 
 /**
  * Immutable monetary value object describing the composition of a payroll amount.
@@ -24,8 +25,6 @@ import java.util.Objects;
  */
 @Getter
 public final class Amounts {
-
-    public static int AMOUNT_SCALE = 2;
 
     @NotNull
     @PositiveOrZero
@@ -188,7 +187,7 @@ public final class Amounts {
         }
 
         private static BigDecimal nullToZero(BigDecimal value) {
-            return value != null ? value : BigDecimal.ZERO;
+            return AmountUtils.nullToZero(value);
         }
     }
 }

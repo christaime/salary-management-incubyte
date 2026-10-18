@@ -3,6 +3,7 @@ package com.salary.management.domain.model;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
+import com.salary.management.domain.model.values.AmountUtils;
 import com.salary.management.domain.model.values.Amounts;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,7 @@ class PayrollSummaryTest {
         PayrollSummary summary = valid();
         assertNotNull(summary.getId());
         assertEquals(PayrollSummaryStatus.DRAFT, summary.getStatus());
-        assertEquals(new BigDecimal("1400").setScale(Amounts.AMOUNT_SCALE, RoundingMode.HALF_UP), summary.getAmounts().getTotal());
+        assertEquals(new BigDecimal("1400").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), summary.getAmounts().getTotal());
         assertEquals("2024-01 Monthly", summary.getPayrollPeriod().getName());
     }
 

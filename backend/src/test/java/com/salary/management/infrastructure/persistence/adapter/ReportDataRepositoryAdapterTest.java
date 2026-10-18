@@ -41,30 +41,9 @@ class ReportDataRepositoryAdapterTest {
     private static final UUID JANUARY =
             UUID.fromString("77777777-7777-7777-7777-777777777777");
 
+    private static final String REFERENCE_CURRENCY = "USD";
     @Autowired
     private ReportDataRepositoryAdapter adapter;
-
-    @Test
-    @DisplayName("queryAggregates groups by country and sums the two groups")
-    void queryAggregatesGroupsByCountry() {
-        ReportEffectiveFilters filters = new ReportEffectiveFilters(
-                null, null, null, null);
-
-        List<AggregateRowProjection> rows = adapter.queryAggregates(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters);
-
-        assertEquals(2, rows.size());
-        for (AggregateRowProjection row : rows) {
-            assertNotNull(row.country);
-            assertTrue(row.country.code().equals("FR") || row.country.code().equals("DE"));
-        }
-        AggregateRowProjection fr = rows.stream()
-                .filter(r -> "FR".equals(r.country.code())).findFirst().orElseThrow();
-        assertEquals("France", fr.country.name());
-        assertEquals(0, fr.sumBase.compareTo(new BigDecimal("1080.00")));
-        assertEquals(0, fr.sumTotal.compareTo(new BigDecimal("1458.00")));
-        assertEquals(3L, fr.sumEmployeeCount);
-    }
 
     @Test
     @DisplayName("queryAggregates groups by country and department")
@@ -137,28 +116,54 @@ class ReportDataRepositoryAdapterTest {
         assertNull(row.role);
         assertNull(row.employmentType);
         assertNull(row.currency);
-        assertEquals(0, row.sumTotal.compareTo(new BigDecimal("2187.00")));
+        assertEquals(0, row.sumTotal.compareTo(new BigDecimal("1875.01")));
         assertEquals(4L, row.sumEmployeeCount);
     }
 
     @Test
-    @DisplayName("queryStatistics returns TOP and BOTTOM rank-1 rows per group")
-    void queryStatisticsReturnsTopAndBottom() {
+    @DisplayName("queryAggregates groups by country and sums the two groups")
+    void queryAggregatesGroupsByCountry() {
+        ReportEffectiveFilters filters = new ReportEffectiveFilters(
+                null, null, null, null);
+
+        List<AggregateRowProjection> rows = adapter.queryAggregates(
+                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters);
+
+        assertEquals(2, rows.size());
+        AggregateRowProjection fr = rows.stream()
+                .filter(r -> "FR".equals(r.country.code()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("France", fr.country.name());
+        // 925.93 + 462.96 = 1388.89
+        assertEquals(0, fr.sumBase.compareTo(new BigDecimal("925.93")));
+        // 1250.00
+        assertEquals(0, fr.sumTotal.compareTo(new BigDecimal("1250.01")));
+        assertEquals(3L, fr.sumEmployeeCount);
+    }
+
+    @Test
+    @DisplayName("queryStatistics returns min and max reference amount per group")
+    void queryStatisticsReturnsMinAndMax() {
         ReportEffectiveFilters filters = new ReportEffectiveFilters(
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters);
+                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters, REFERENCE_CURRENCY);
 
         assertEquals(2, rows.size());
-        AggregateRowProjection top = rows.stream()
-                .filter(r -> EarnerRankingDirection.TOP.equals(r.direction)).findFirst().orElseThrow();
-        AggregateRowProjection bottom = rows.stream()
-                .filter(r -> EarnerRankingDirection.BOTTOM.equals(r.direction)).findFirst().orElseThrow();
-        assertEquals("FR", top.country.code());
-        assertEquals(0, top.amount.compareTo(new BigDecimal("9000.00")));
-        assertEquals("FR", bottom.country.code());
-        assertEquals(0, bottom.amount.compareTo(new BigDecimal("1000.00")));
+        AggregateRowProjection fr = rows.stream()
+                .filter(r -> "FR".equals(r.country.code()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(0, fr.minReferenceAmount.compareTo(new BigDecimal("1000.00")));
+        assertEquals(0, fr.maxReferenceAmount.compareTo(new BigDecimal("2500.00")));
+        AggregateRowProjection de = rows.stream()
+                .filter(r -> "DE".equals(r.country.code()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(0, de.minReferenceAmount.compareTo(new BigDecimal("625.00")));
+        assertEquals(0, de.maxReferenceAmount.compareTo(new BigDecimal("625.00")));
     }
 
     @Test
@@ -168,10 +173,10 @@ class ReportDataRepositoryAdapterTest {
                 Set.of(FR), null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters);
+                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters, REFERENCE_CURRENCY);
 
-        assertEquals(2, rows.size());
-        assertTrue(rows.stream().allMatch(r -> "FR".equals(r.country.code())));
+        assertEquals(1, rows.size());
+        assertEquals("FR", rows.get(0).country.code());
     }
 
     @Test

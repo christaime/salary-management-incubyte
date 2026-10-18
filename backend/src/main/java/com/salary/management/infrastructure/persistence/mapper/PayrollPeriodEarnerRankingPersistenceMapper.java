@@ -1,7 +1,8 @@
 package com.salary.management.infrastructure.persistence.mapper;
 
-import com.salary.management.domain.model.Employee;
 import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
+import com.salary.management.domain.model.values.Amount;
+import com.salary.management.infrastructure.persistence.embeddable.AmountEmbeddable;
 import com.salary.management.infrastructure.persistence.entity.CountryEntity;
 import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
 import com.salary.management.infrastructure.persistence.entity.EmployeeEntity;
@@ -26,6 +27,9 @@ public interface PayrollPeriodEarnerRankingPersistenceMapper {
 
     /**
      * Maps a domain ranking entry to its entity. Foreign references are stored as UUIDs.
+     * The two {@link Amount} values map to their respective {@link AmountEmbeddable}
+     * columns via the {@code original_*} and {@code reference_*} overrides declared on the
+     * entity.
      *
      * @param ranking source domain object
      * @return mapped entity
@@ -35,6 +39,8 @@ public interface PayrollPeriodEarnerRankingPersistenceMapper {
     @Mapping(target = "departmentId", source = "department.id")
     @Mapping(target = "roleId", source = "role.id")
     @Mapping(target = "employeeId", source = "employee.id")
+    @Mapping(target = "originalAmount", source = "originalAmount")
+    @Mapping(target = "referenceAmount", source = "referenceAmount")
     PayrollPeriodEarnerRankingEntity toEntity(PayrollPeriodEarnerRanking ranking);
 
     /**
@@ -60,7 +66,8 @@ public interface PayrollPeriodEarnerRankingPersistenceMapper {
     @Mapping(target = "rank", source = "entity.rank")
     @Mapping(target = "employee", source = "employee")
     @Mapping(target = "employee.originCountry", ignore = true)
-    @Mapping(target = "amount", source = "entity.amount")
+    @Mapping(target = "originalAmount", source = "entity.originalAmount")
+    @Mapping(target = "referenceAmount", source = "entity.referenceAmount")
     PayrollPeriodEarnerRanking toDomain(
             PayrollPeriodEarnerRankingEntity entity,
             PayrollPeriodEntity payrollPeriod,
@@ -69,4 +76,20 @@ public interface PayrollPeriodEarnerRankingPersistenceMapper {
             RoleEntity role,
             EmployeeEntity employee
     );
+
+    /**
+     * Maps a domain {@link Amount} to its embeddable form.
+     *
+     * @param amount source amount
+     * @return mapped embeddable
+     */
+    AmountEmbeddable toEmbeddable(Amount amount);
+
+    /**
+     * Maps an {@link AmountEmbeddable} back to the domain {@link Amount}.
+     *
+     * @param embeddable source embeddable
+     * @return mapped amount
+     */
+    Amount toAmount(AmountEmbeddable embeddable);
 }

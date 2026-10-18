@@ -26,8 +26,8 @@ public interface PayrollPeriodEarnerRankingRepository {
     void deleteDraftsByPayrollPeriodId(UUID payrollPeriodId);
 
     /** Top {@code limit} employees by total DESC per group, VALIDATED summaries only. */
-    List<RankedSummary> topByGroup(UUID payrollPeriodId, int limit);
+    List<RankedSummary> topByGroup(UUID payrollPeriodId,String referenceCurrencyCode, int limit);
 
     /** Bottom {@code limit} employees by total ASC per group, VALIDATED summaries only. */
-    List<RankedSummary> bottomByGroup(UUID payrollPeriodId, int limit);
+    List<RankedSummary> bottomByGroup(UUID payrollPeriodId, String referenceCurrencyCode, int limit);
 }

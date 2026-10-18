@@ -302,19 +302,27 @@ CREATE INDEX idx_payroll_period_aggregate_group
 
 -- ---------------------------------------------------------------------------
 -- payroll_period_earner_rankings
+--
+-- Each row carries the employee's total in two currencies: the assignment
+-- currency (original_amount / original_currency) and the reference currency
+-- (reference_amount / reference_currency). This mirrors
+-- payroll_period_aggregates, so no downstream code has to convert or guess.
 -- ---------------------------------------------------------------------------
 CREATE TABLE payroll_period_earner_rankings (
-    id                TEXT PRIMARY KEY,
-    payroll_period_id TEXT NOT NULL,
-    status            TEXT NOT NULL,
-    country_id        TEXT NOT NULL,
-    department_id     TEXT NOT NULL,
-    role_id           TEXT NOT NULL,
-    employment_type   TEXT NOT NULL,
-    direction         TEXT NOT NULL,
-    rank              INTEGER NOT NULL,
-    employee_id       TEXT NOT NULL,
-    amount            NUMERIC(38, 2) NOT NULL,
+    id                  TEXT PRIMARY KEY,
+    payroll_period_id   TEXT NOT NULL,
+    status              TEXT NOT NULL,
+    country_id          TEXT NOT NULL,
+    department_id       TEXT NOT NULL,
+    role_id             TEXT NOT NULL,
+    employment_type     TEXT NOT NULL,
+    direction           TEXT NOT NULL,
+    rank                INTEGER NOT NULL,
+    employee_id         TEXT NOT NULL,
+    original_amount     NUMERIC(38, 2) NOT NULL,
+    original_currency   TEXT NOT NULL,
+    reference_amount    NUMERIC(38, 2) NOT NULL,
+    reference_currency  TEXT NOT NULL,
     CONSTRAINT uk_payroll_period_earner_ranking_group
         UNIQUE (payroll_period_id, country_id, department_id, role_id,
                 employment_type, direction, rank),

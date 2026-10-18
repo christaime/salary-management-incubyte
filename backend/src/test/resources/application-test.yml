@@ -10,4 +10,4 @@ spring:
   flyway:
     locations: classpath:db/migration
   jpa:
-    show-sql: ${JPA_SHOW_SQL:false}
+    show-sql: ${JPA_SHOW_SQL:true}

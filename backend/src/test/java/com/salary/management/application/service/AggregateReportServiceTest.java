@@ -1,9 +1,6 @@
 package com.salary.management.application.service;
 
-import com.salary.management.application.dto.AggregateLineDto;
-import com.salary.management.application.dto.AggregateReportRequest;
-import com.salary.management.application.dto.AggregateReportResponse;
-import com.salary.management.application.dto.DateRange;
+import com.salary.management.application.dto.*;
 import com.salary.management.application.exception.ReportBlockedException;
 import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
@@ -32,12 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -90,16 +83,6 @@ class AggregateReportServiceTest {
         AggregateReportRequest request = request(
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
                 List.of(GroupKey.ORIGIN_COUNTRY), false, false);
-
-        assertThrows(DomainValidationException.class, () -> service.generate(request));
-    }
-
-    @Test
-    @DisplayName("includeStatistics with CURRENCY group key throws")
-    void statisticsWithCurrencyGroupKeyThrows() {
-        AggregateReportRequest request = request(
-                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
-                List.of(GroupKey.CURRENCY), false, true);
 
         assertThrows(DomainValidationException.class, () -> service.generate(request));
     }
@@ -224,25 +207,33 @@ class AggregateReportServiceTest {
     }
 
     @Test
-    @DisplayName("statistics populated from rankings with TOP and BOTTOM")
-    void statisticsPopulatedFromRankings() {
+    @DisplayName("statistics populated from the statistics query min and max")
+    void statisticsPopulatedFromStatisticsQuery() {
         PayrollPeriod period = period(true);
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of(aggregateRow()));
 
-        AggregateRowProjection top = statisticsRow(EarnerRankingDirection.TOP, new BigDecimal("9000.00"));
-        AggregateRowProjection bottom = statisticsRow(EarnerRankingDirection.BOTTOM, new BigDecimal("1000.00"));
-        when(reportDataRepository.queryStatistics(anyList(), anyList(), any()))
-                .thenReturn(List.of(top, bottom));
+        AggregateRowProjection statsRow = new AggregateRowProjection();
+        statsRow.country = new RefDto("FR", "France");
+        statsRow.minReferenceAmount = new BigDecimal("1000.00");
+        statsRow.maxReferenceAmount = new BigDecimal("9000.00");
+
+        when(reportDataRepository.queryStatistics(anyList(), anyList(), any(), any()))
+                .thenReturn(List.of(statsRow));
 
         AggregateReportResponse response = service.generate(
                 request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
                         List.of(GroupKey.COUNTRY), false, true));
 
         AggregateLineDto line = response.lines().get(0);
-        assertEquals(0, line.statistics().min().amount().compareTo(new BigDecimal("1000.00")));
-        assertEquals(0, line.statistics().max().amount().compareTo(new BigDecimal("9000.00")));
+        assertNotNull(line.statistics());
+        assertEquals(0, line.statistics().min().amount()
+                .compareTo(new BigDecimal("1000.00")));
+        assertEquals(0, line.statistics().max().amount()
+                .compareTo(new BigDecimal("9000.00")));
+        // Average is computed from the aggregate, not from the statistics query:
+        // 1350.00 / 2 = 675.00.
         assertEquals(0, line.statistics().average().amount()
                 .compareTo(new BigDecimal("675.00")));
     }
@@ -280,8 +271,11 @@ class AggregateReportServiceTest {
     private AggregateRowProjection statisticsRow(EarnerRankingDirection direction, BigDecimal amount) {
         AggregateRowProjection p = new AggregateRowProjection();
         p.country = new com.salary.management.application.dto.RefDto("FR", "France");
-        p.direction = direction;
-        p.amount = amount;
+        if(EarnerRankingDirection.TOP.equals(direction)){
+            p.maxReferenceAmount = amount;
+        }else{
+            p.minReferenceAmount = amount;
+        }
         return p;
     }
 }

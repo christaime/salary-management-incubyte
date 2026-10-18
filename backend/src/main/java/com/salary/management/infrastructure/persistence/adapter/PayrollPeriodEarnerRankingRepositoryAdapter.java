@@ -3,6 +3,7 @@ package com.salary.management.infrastructure.persistence.adapter;
 import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.values.Amount;
 import com.salary.management.domain.model.values.RankedSummary;
 import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
 import com.salary.management.domain.repository.criteria.PayrollPeriodEarnerRankingCriteria;
@@ -73,15 +74,21 @@ public class PayrollPeriodEarnerRankingRepositoryAdapter
     }
 
     @Override
-    public List<RankedSummary> topByGroup(UUID payrollPeriodId, int limit) {
-        return jpaRepository.topByGroup(payrollPeriodId, limit).stream()
+    public List<RankedSummary> topByGroup(
+            UUID payrollPeriodId,
+            String referenceCurrencyCode,
+            int limit) {
+        return jpaRepository.topByGroup(payrollPeriodId, referenceCurrencyCode, limit).stream()
                 .map(row -> toRankedSummary(row, EarnerRankingDirection.TOP))
                 .toList();
     }
 
     @Override
-    public List<RankedSummary> bottomByGroup(UUID payrollPeriodId, int limit) {
-        return jpaRepository.bottomByGroup(payrollPeriodId, limit).stream()
+    public List<RankedSummary> bottomByGroup(
+            UUID payrollPeriodId,
+            String referenceCurrencyCode,
+            int limit) {
+        return jpaRepository.bottomByGroup(payrollPeriodId, referenceCurrencyCode, limit).stream()
                 .map(row -> toRankedSummary(row, EarnerRankingDirection.BOTTOM))
                 .toList();
     }
@@ -96,9 +103,13 @@ public class PayrollPeriodEarnerRankingRepositoryAdapter
                 direction,
                 row.getRank(),
                 row.getEmployeeId(),
-                row.getTotal());
+                amount(row.getOriginalTotal(), row.getOriginalCurrency()),
+                amount(row.getReferenceTotal(), row.getReferenceCurrency()));
     }
 
+    private Amount amount(java.math.BigDecimal value, String currency) {
+        return Amount.builder().amount(value).currency(currency).build();
+    }
     /**
      * Verifies that the ranking's foreign references exist before mapping. Throws
      * {@link EntityNotFoundException} on the first missing reference.
