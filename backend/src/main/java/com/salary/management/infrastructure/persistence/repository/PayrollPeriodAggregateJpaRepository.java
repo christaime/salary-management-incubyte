@@ -4,6 +4,7 @@ import com.salary.management.infrastructure.persistence.entity.PayrollPeriodAggr
 import com.salary.management.infrastructure.persistence.projection.AggregateRow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -26,11 +27,17 @@ public interface PayrollPeriodAggregateJpaRepository
     List<PayrollPeriodAggregateEntity> findByPayrollPeriodId(UUID payrollPeriodId);
 
     /**
-     * Deletes all aggregates for a payroll period.
+     * Deletes the DRAFT aggregates for a payroll period.
      *
      * @param payrollPeriodId payroll period identifier
      */
-    void deleteByPayrollPeriodId(UUID payrollPeriodId);
+    @Modifying
+    @Query("""
+            DELETE FROM PayrollPeriodAggregateEntity a
+            WHERE a.payrollPeriodId = :payrollPeriodId
+              AND a.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.DRAFT
+            """)
+    void deleteDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
 
     /**
      * Groups VALIDATED payroll summaries of the given period by the five assignment

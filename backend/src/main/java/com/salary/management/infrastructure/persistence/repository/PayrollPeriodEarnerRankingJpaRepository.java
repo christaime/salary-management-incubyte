@@ -4,6 +4,7 @@ import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarn
 import com.salary.management.infrastructure.persistence.projection.RankedRow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -26,11 +27,17 @@ public interface PayrollPeriodEarnerRankingJpaRepository
     List<PayrollPeriodEarnerRankingEntity> findByPayrollPeriodId(UUID payrollPeriodId);
 
     /**
-     * Deletes all ranking entries for a payroll period.
+     * Deletes the DRAFT rankings for a payroll period.
      *
      * @param payrollPeriodId payroll period identifier
      */
-    void deleteByPayrollPeriodId(UUID payrollPeriodId);
+    @Modifying
+    @Query("""
+            DELETE FROM PayrollPeriodEarnerRankingEntity r
+            WHERE r.payrollPeriodId = :payrollPeriodId
+              AND r.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.DRAFT
+            """)
+    void deleteDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
 
     /**
      * Top {@code limit} employees by total DESC per group, over VALIDATED summaries of the

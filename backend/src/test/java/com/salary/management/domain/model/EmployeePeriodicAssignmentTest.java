@@ -2,6 +2,7 @@ package com.salary.management.domain.model;
 
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +36,7 @@ class EmployeePeriodicAssignmentTest {
                 .country(aCountry())
                 .department(aDepartment())
                 .role(aRole())
+                .payrollFrequency(PayrollPeriodFrequency.MONTHLY)
                 .employmentType(EmploymentType.FULL_TIME)
                 .inEffect(true)
                 .build();
@@ -62,6 +64,7 @@ class EmployeePeriodicAssignmentTest {
                 .country(aCountry())
                 .department(aDepartment())
                 .role(aRole())
+                .payrollFrequency(PayrollPeriodFrequency.MONTHLY)
                 .employmentType(EmploymentType.CONTRACTOR)
                 .inEffect(true)
                 .build();

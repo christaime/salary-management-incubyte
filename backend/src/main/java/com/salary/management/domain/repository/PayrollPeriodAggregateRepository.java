@@ -16,7 +16,14 @@ public interface PayrollPeriodAggregateRepository {
 
     List<PayrollPeriodAggregate> list(PayrollPeriodAggregateCriteria criteria);
 
-    void deleteByPayrollPeriodId(UUID payrollPeriodId);
+    /**
+     * Deletes the DRAFT aggregates for a payroll period, leaving VALIDATED rows untouched.
+     *
+     * <p>Used before persisting a freshly built snapshot for an open period.</p>
+     *
+     * @param payrollPeriodId payroll period identifier
+     */
+    void deleteDraftsByPayrollPeriodId(UUID payrollPeriodId);
     /**
      * Groups VALIDATED payroll summaries of the given period by the five assignment
      * attributes. Amounts are in each group's currency.

@@ -27,8 +27,8 @@ public interface CurrencyRateJpaRepository
             String referenceCurrencyCode);
 
     /**
-     * Finds the reference currency code from the first record.
+     * Finds the reference currency code .
      */
-    @Query("SELECT c.referenceCurrencyCode FROM CurrencyRateEntity c")
-    Optional<String> findFirstReferenceCurrencyCode();
+    @Query("SELECT MIN(c.referenceCurrencyCode) FROM CurrencyRateEntity c")
+    Optional<String> findReferenceCurrencyCode();
 }

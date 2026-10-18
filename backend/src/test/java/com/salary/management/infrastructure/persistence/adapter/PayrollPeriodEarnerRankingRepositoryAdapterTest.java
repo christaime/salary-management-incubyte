@@ -305,7 +305,7 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     @Test
     @DisplayName("deleteByPayrollPeriodId removes all rows for a period")
     void deleteByPayrollPeriodIdRemovesAll() {
-        adapter.deleteByPayrollPeriodId(JANUARY);
+        adapter.deleteDraftsByPayrollPeriodId(JANUARY);
         entityManager.flush();
         entityManager.clear();
 
@@ -318,7 +318,7 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     void deleteByPayrollPeriodIdIsNoOpWhenNone() {
         UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
 
-        adapter.deleteByPayrollPeriodId(missing);
+        adapter.deleteDraftsByPayrollPeriodId(missing);
 
         assertEquals(2, jpaRepository.count());
     }

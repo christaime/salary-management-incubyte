@@ -63,8 +63,8 @@ public class PayrollPeriodAggregateRepositoryAdapter
     }
 
     @Override
-    public void deleteByPayrollPeriodId(UUID payrollPeriodId) {
-        jpaRepository.deleteByPayrollPeriodId(payrollPeriodId);
+    public void deleteDraftsByPayrollPeriodId(UUID payrollPeriodId) {
+        jpaRepository.deleteDraftsByPayrollPeriodId(payrollPeriodId);
     }
 
     @Override

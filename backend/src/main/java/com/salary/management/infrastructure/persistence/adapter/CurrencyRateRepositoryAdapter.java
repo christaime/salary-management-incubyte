@@ -64,7 +64,7 @@ public class CurrencyRateRepositoryAdapter implements CurrencyRateRepository {
 
     @Override
     public String getReferenceCurrencyCode() {
-        var refCurrency = jpaRepository.findFirstReferenceCurrencyCode();
+        var refCurrency = jpaRepository.findReferenceCurrencyCode();
         return refCurrency.orElse(null);
     }
 

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -54,7 +55,7 @@ class PayrollSummaryTest {
         PayrollSummary summary = valid();
         assertNotNull(summary.getId());
         assertEquals(PayrollSummaryStatus.DRAFT, summary.getStatus());
-        assertEquals(new BigDecimal("1400"), summary.getAmounts().getTotal());
+        assertEquals(new BigDecimal("1400").setScale(Amounts.AMOUNT_SCALE, RoundingMode.HALF_UP), summary.getAmounts().getTotal());
         assertEquals("2024-01 Monthly", summary.getPayrollPeriod().getName());
     }
 

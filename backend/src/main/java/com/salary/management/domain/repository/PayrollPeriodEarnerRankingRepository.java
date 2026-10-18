@@ -16,7 +16,14 @@ public interface PayrollPeriodEarnerRankingRepository {
 
     List<PayrollPeriodEarnerRanking> list(PayrollPeriodEarnerRankingCriteria criteria);
 
-    void deleteByPayrollPeriodId(UUID payrollPeriodId);
+    /**
+     * Deletes the DRAFT rankings for a payroll period, leaving VALIDATED rows untouched.
+     *
+     * <p>Used before persisting a freshly built snapshot for an open period.</p>
+     *
+     * @param payrollPeriodId payroll period identifier
+     */
+    void deleteDraftsByPayrollPeriodId(UUID payrollPeriodId);
 
     /** Top {@code limit} employees by total DESC per group, VALIDATED summaries only. */
     List<RankedSummary> topByGroup(UUID payrollPeriodId, int limit);
