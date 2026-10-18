@@ -1,6 +1,7 @@
 package com.salary.management.domain.repository.projection;
 
 import com.salary.management.application.dto.RefDto;
+import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 
 import java.math.BigDecimal;
@@ -39,6 +40,6 @@ public class AggregateRowProjection {
     public Long sumEmployeeCount;
 
     /** Statistics query extra columns. */
-    public String direction;
+    public EarnerRankingDirection direction;
     public BigDecimal amount;
 }

@@ -2,6 +2,7 @@ build/
 .gradle/
 out/
 data/
+test-data/
 *.db
 *.db-wal
 *.db-shm

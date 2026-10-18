@@ -31,6 +31,13 @@
 --
 -- Departments and roles are picked deterministically by n % 10 and n % 12
 -- respectively, so every (department, role) combination is represented.
+--
+-- UUID prefixes used below are all hex-safe:
+--   a1.... roles
+--   c0.... countries, d0.... departments
+--   f0.... periods (in V202610173)
+--   employee id and assignment id are derived via printf('%08x-...') and are
+--   guaranteed hex-valid.
 
 -- ---------------------------------------------------------------------------
 -- Curated employees (150 rows, hand-picked names and origins).
@@ -338,7 +345,7 @@ INSERT INTO employees (id, matricule, name, email, birth_date, origin_country_id
  'nadia.diop@company.com',       '1989-02-08', 'c0000000-0000-0000-0000-000000000009');
 
 -- ---------------------------------------------------------------------------
--- Top-up employees 151..10000 (unchanged).
+-- Top-up employees 151..10000.
 -- ---------------------------------------------------------------------------
 WITH RECURSIVE
 eu_first(f, i) AS (VALUES
@@ -482,9 +489,10 @@ SELECT
 FROM named;
 
 -- ---------------------------------------------------------------------------
--- Assignments for curated employees 1..150. Same shape as the top-up block
--- below, only n is 1..150. Country comes from employees.origin_country_id.
--- Frequency follows employment type: FULL_TIME -> MONTHLY, PART_TIME -> BI_WEEKLY.
+-- Assignments for curated employees 1..150.
+-- Role ids use prefix a1000000 (hex-valid). Country comes from
+-- employees.origin_country_id. Frequency follows employment type:
+-- FULL_TIME -> MONTHLY, PART_TIME -> BI_WEEKLY.
 -- ---------------------------------------------------------------------------
 WITH RECURSIVE
 nums(n) AS (
@@ -527,18 +535,18 @@ SELECT
     ELSE        'd0000000-0000-0000-0000-00000000000a'
   END,
   CASE n % 12
-    WHEN 0 THEN 'r0000000-0000-0000-0000-000000000001'
-    WHEN 1 THEN 'r0000000-0000-0000-0000-000000000002'
-    WHEN 2 THEN 'r0000000-0000-0000-0000-000000000003'
-    WHEN 3 THEN 'r0000000-0000-0000-0000-000000000004'
-    WHEN 4 THEN 'r0000000-0000-0000-0000-000000000005'
-    WHEN 5 THEN 'r0000000-0000-0000-0000-000000000006'
-    WHEN 6 THEN 'r0000000-0000-0000-0000-000000000007'
-    WHEN 7 THEN 'r0000000-0000-0000-0000-000000000008'
-    WHEN 8 THEN 'r0000000-0000-0000-0000-000000000009'
-    WHEN 9 THEN 'r0000000-0000-0000-0000-00000000000a'
-    WHEN 10 THEN 'r0000000-0000-0000-0000-00000000000b'
-    ELSE        'r0000000-0000-0000-0000-00000000000c'
+    WHEN 0 THEN 'a1000000-0000-0000-0000-000000000001'
+    WHEN 1 THEN 'a1000000-0000-0000-0000-000000000002'
+    WHEN 2 THEN 'a1000000-0000-0000-0000-000000000003'
+    WHEN 3 THEN 'a1000000-0000-0000-0000-000000000004'
+    WHEN 4 THEN 'a1000000-0000-0000-0000-000000000005'
+    WHEN 5 THEN 'a1000000-0000-0000-0000-000000000006'
+    WHEN 6 THEN 'a1000000-0000-0000-0000-000000000007'
+    WHEN 7 THEN 'a1000000-0000-0000-0000-000000000008'
+    WHEN 8 THEN 'a1000000-0000-0000-0000-000000000009'
+    WHEN 9 THEN 'a1000000-0000-0000-0000-00000000000a'
+    WHEN 10 THEN 'a1000000-0000-0000-0000-00000000000b'
+    ELSE        'a1000000-0000-0000-0000-00000000000c'
   END,
   CASE WHEN n % 7 = 0 THEN 'PART_TIME' ELSE 'FULL_TIME' END,
   CASE WHEN n % 7 = 0 THEN 'BI_WEEKLY' ELSE 'MONTHLY' END,
@@ -589,18 +597,18 @@ SELECT
     ELSE        'd0000000-0000-0000-0000-00000000000a'
   END,
   CASE n % 12
-    WHEN 0 THEN 'r0000000-0000-0000-0000-000000000001'
-    WHEN 1 THEN 'r0000000-0000-0000-0000-000000000002'
-    WHEN 2 THEN 'r0000000-0000-0000-0000-000000000003'
-    WHEN 3 THEN 'r0000000-0000-0000-0000-000000000004'
-    WHEN 4 THEN 'r0000000-0000-0000-0000-000000000005'
-    WHEN 5 THEN 'r0000000-0000-0000-0000-000000000006'
-    WHEN 6 THEN 'r0000000-0000-0000-0000-000000000007'
-    WHEN 7 THEN 'r0000000-0000-0000-0000-000000000008'
-    WHEN 8 THEN 'r0000000-0000-0000-0000-000000000009'
-    WHEN 9 THEN 'r0000000-0000-0000-0000-00000000000a'
-    WHEN 10 THEN 'r0000000-0000-0000-0000-00000000000b'
-    ELSE        'r0000000-0000-0000-0000-00000000000c'
+    WHEN 0 THEN 'a1000000-0000-0000-0000-000000000001'
+    WHEN 1 THEN 'a1000000-0000-0000-0000-000000000002'
+    WHEN 2 THEN 'a1000000-0000-0000-0000-000000000003'
+    WHEN 3 THEN 'a1000000-0000-0000-0000-000000000004'
+    WHEN 4 THEN 'a1000000-0000-0000-0000-000000000005'
+    WHEN 5 THEN 'a1000000-0000-0000-0000-000000000006'
+    WHEN 6 THEN 'a1000000-0000-0000-0000-000000000007'
+    WHEN 7 THEN 'a1000000-0000-0000-0000-000000000008'
+    WHEN 8 THEN 'a1000000-0000-0000-0000-000000000009'
+    WHEN 9 THEN 'a1000000-0000-0000-0000-00000000000a'
+    WHEN 10 THEN 'a1000000-0000-0000-0000-00000000000b'
+    ELSE        'a1000000-0000-0000-0000-00000000000c'
   END,
   CASE WHEN n % 7 = 0 THEN 'PART_TIME' ELSE 'FULL_TIME' END,
   CASE WHEN n % 7 = 0 THEN 'BI_WEEKLY' ELSE 'MONTHLY' END,

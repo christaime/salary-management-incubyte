@@ -12,6 +12,7 @@ import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.PayrollPeriod;
+import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.ReportKind;
 import com.salary.management.domain.model.values.ReportWarning;
@@ -197,9 +198,9 @@ public class AggregateReportService {
         for (AggregateRowProjection row : rows) {
             GroupTuple key = rowToKey(row, groupKeys);
             StatisticsPair pair = map.computeIfAbsent(key, k -> new StatisticsPair());
-            if ("TOP".equals(row.direction)) {
+            if (EarnerRankingDirection.TOP.equals(row.direction)) {
                 pair.max = row.amount;
-            } else if ("BOTTOM".equals(row.direction)) {
+            } else if (EarnerRankingDirection.BOTTOM.equals(row.direction)) {
                 pair.min = row.amount;
             }
         }

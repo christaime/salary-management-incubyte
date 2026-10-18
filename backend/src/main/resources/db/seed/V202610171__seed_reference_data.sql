@@ -45,20 +45,22 @@ INSERT INTO departments (id, code, name) VALUES
 -- ---------------------------------------------------------------------------
 -- Roles (12). No seniority column on the table; seniority is folded into the
 -- role name and reflected in the salary bands used by the employee seeder.
+-- Prefix a1000000 is a valid UUID group (hex digits only). The former r
+-- prefix was not a hex digit and produced UUIDs UUID.fromString rejected.
 -- ---------------------------------------------------------------------------
 INSERT INTO roles (id, code, name) VALUES
-('r0000000-0000-0000-0000-000000000001', 'PROD',    'Producer'),
-('r0000000-0000-0000-0000-000000000002', 'SPROD',   'Senior Producer'),
-('r0000000-0000-0000-0000-000000000003', 'EDIT',    'Video Editor'),
-('r0000000-0000-0000-0000-000000000004', 'ENG',     'Streaming Engineer'),
-('r0000000-0000-0000-0000-000000000005', 'SENG',    'Senior Streaming Engineer'),
-('r0000000-0000-0000-0000-000000000006', 'A&R',     'A&R Manager'),
-('r0000000-0000-0000-0000-000000000007', 'EVENT',   'Event Coordinator'),
-('r0000000-0000-0000-0000-000000000008', 'MKTG',    'Marketing Manager'),
-('r0000000-0000-0000-0000-000000000009', 'SALES',   'Advertising Sales Executive'),
-('r0000000-0000-0000-0000-00000000000a', 'DISTRIB', 'Distribution Analyst'),
-('r0000000-0000-0000-0000-00000000000b', 'FIN',     'Financial Analyst'),
-('r0000000-0000-0000-0000-00000000000c', 'LEGAL',   'Rights & Clearances Counsel');
+('a1000000-0000-0000-0000-000000000001', 'PROD',    'Producer'),
+('a1000000-0000-0000-0000-000000000002', 'SPROD',   'Senior Producer'),
+('a1000000-0000-0000-0000-000000000003', 'EDIT',    'Video Editor'),
+('a1000000-0000-0000-0000-000000000004', 'ENG',     'Streaming Engineer'),
+('a1000000-0000-0000-0000-000000000005', 'SENG',    'Senior Streaming Engineer'),
+('a1000000-0000-0000-0000-000000000006', 'A&R',     'A&R Manager'),
+('a1000000-0000-0000-0000-000000000007', 'EVENT',   'Event Coordinator'),
+('a1000000-0000-0000-0000-000000000008', 'MKTG',    'Marketing Manager'),
+('a1000000-0000-0000-0000-000000000009', 'SALES',   'Advertising Sales Executive'),
+('a1000000-0000-0000-0000-00000000000a', 'DISTRIB', 'Distribution Analyst'),
+('a1000000-0000-0000-0000-00000000000b', 'FIN',     'Financial Analyst'),
+('a1000000-0000-0000-0000-00000000000c', 'LEGAL',   'Rights & Clearances Counsel');
 
 -- ---------------------------------------------------------------------------
 -- Currency rates. Single reference: USD. reference_amount = 1 on every row,

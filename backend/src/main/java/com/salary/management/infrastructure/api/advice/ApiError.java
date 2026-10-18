@@ -1,4 +1,4 @@
-package com.salary.management.application.dto;
+package com.salary.management.infrastructure.api.advice;
 
 import org.springframework.web.ErrorResponse;
 

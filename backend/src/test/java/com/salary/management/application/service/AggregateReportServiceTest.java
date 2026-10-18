@@ -8,11 +8,7 @@ import com.salary.management.application.exception.ReportBlockedException;
 import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.PayrollPeriod;
-import com.salary.management.domain.model.enums.EmploymentType;
-import com.salary.management.domain.model.enums.GroupKey;
-import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
-import com.salary.management.domain.model.enums.ReportKind;
-import com.salary.management.domain.model.enums.ReportWarningCode;
+import com.salary.management.domain.model.enums.*;
 import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.model.values.SnapshotBuildResult;
 import com.salary.management.domain.repository.CurrencyRateRepository;
@@ -235,8 +231,8 @@ class AggregateReportServiceTest {
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of(aggregateRow()));
 
-        AggregateRowProjection top = statisticsRow("TOP", new BigDecimal("9000.00"));
-        AggregateRowProjection bottom = statisticsRow("BOTTOM", new BigDecimal("1000.00"));
+        AggregateRowProjection top = statisticsRow(EarnerRankingDirection.TOP, new BigDecimal("9000.00"));
+        AggregateRowProjection bottom = statisticsRow(EarnerRankingDirection.BOTTOM, new BigDecimal("1000.00"));
         when(reportDataRepository.queryStatistics(anyList(), anyList(), any()))
                 .thenReturn(List.of(top, bottom));
 
@@ -281,7 +277,7 @@ class AggregateReportServiceTest {
         return p;
     }
 
-    private AggregateRowProjection statisticsRow(String direction, BigDecimal amount) {
+    private AggregateRowProjection statisticsRow(EarnerRankingDirection direction, BigDecimal amount) {
         AggregateRowProjection p = new AggregateRowProjection();
         p.country = new com.salary.management.application.dto.RefDto("FR", "France");
         p.direction = direction;

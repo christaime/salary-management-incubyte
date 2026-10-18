@@ -5,6 +5,8 @@
 # directory that does not exist on the classpath. Flyway then scans only
 # db/migration. Each adapter test supplies its own fixture via @Sql.
 spring:
+  datasource:
+    url: ${DB_URL:jdbc:sqlite:./test-data/salary-management.db}
   flyway:
     locations: classpath:db/migration
   jpa:

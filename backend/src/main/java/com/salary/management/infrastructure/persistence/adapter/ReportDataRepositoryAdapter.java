@@ -1,6 +1,7 @@
 package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.application.dto.RefDto;
+import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.repository.ReportDataRepository;
@@ -75,18 +76,18 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                 case DEPARTMENT -> {
                     Root<DepartmentEntity> dept = cq.from(DepartmentEntity.class);
                     predicates.add(cb.equal(dept.get("id"), root.get("departmentId")));
-                    selections.add(dept.get("id").alias("departmentCode"));
+                    selections.add(dept.get("code").alias("departmentCode"));
                     selections.add(dept.get("name").alias("departmentName"));
-                    groupBy.add(dept.get("id"));
+                    groupBy.add(dept.get("code"));
                     groupBy.add(dept.get("name"));
                     orders.add(cb.asc(dept.get("name")));
                 }
                 case ROLE -> {
                     Root<RoleEntity> role = cq.from(RoleEntity.class);
                     predicates.add(cb.equal(role.get("id"), root.get("roleId")));
-                    selections.add(role.get("id").alias("roleCode"));
+                    selections.add(role.get("code").alias("roleCode"));
                     selections.add(role.get("name").alias("roleName"));
-                    groupBy.add(role.get("id"));
+                    groupBy.add(role.get("code"));
                     groupBy.add(role.get("name"));
                     orders.add(cb.asc(role.get("name")));
                 }
@@ -165,17 +166,17 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                 case DEPARTMENT -> {
                     Root<DepartmentEntity> dept = cq.from(DepartmentEntity.class);
                     predicates.add(cb.equal(dept.get("id"), root.get("departmentId")));
-                    selections.add(dept.get("id").alias("departmentCode"));
+                    selections.add(dept.get("code").alias("departmentCode"));
                     selections.add(dept.get("name").alias("departmentName"));
-                    groupBy.add(dept.get("id"));
+                    groupBy.add(dept.get("code"));
                     groupBy.add(dept.get("name"));
                 }
                 case ROLE -> {
                     Root<RoleEntity> role = cq.from(RoleEntity.class);
                     predicates.add(cb.equal(role.get("id"), root.get("roleId")));
-                    selections.add(role.get("id").alias("roleCode"));
+                    selections.add(role.get("code").alias("roleCode"));
                     selections.add(role.get("name").alias("roleName"));
-                    groupBy.add(role.get("id"));
+                    groupBy.add(role.get("code"));
                     groupBy.add(role.get("name"));
                 }
                 case EMPLOYMENT_TYPE -> {
@@ -211,10 +212,8 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                 case COUNTRY -> p.country = ref(t, "countryCode", "countryName");
                 case DEPARTMENT -> p.department = ref(t, "departmentCode", "departmentName");
                 case ROLE -> p.role = ref(t, "roleCode", "roleName");
-                case EMPLOYMENT_TYPE -> {
-                    String raw = t.get("employmentType", String.class);
-                    p.employmentType = raw == null ? null : EmploymentType.valueOf(raw);
-                }
+                case EMPLOYMENT_TYPE -> p.employmentType =
+                        t.get("employmentType", EmploymentType.class);
                 case CURRENCY -> p.currency = t.get("currency", String.class);
                 default -> throw new IllegalStateException("Unsupported group key: " + key);
             }
@@ -224,8 +223,8 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         p.sumAllowances = t.get("sumAllowances", BigDecimal.class);
         p.sumEmployerTaxes = t.get("sumEmployerTaxes", BigDecimal.class);
         p.sumTotal = t.get("sumTotal", BigDecimal.class);
-        Long count = t.get("sumEmployeeCount", Long.class);
-        p.sumEmployeeCount = count == null ? 0L : count;
+        Number count = (Number) t.get("sumEmployeeCount");
+        p.sumEmployeeCount = count == null ? 0L : count.longValue();
         return p;
     }
 
@@ -236,15 +235,13 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                 case COUNTRY -> p.country = ref(t, "countryCode", "countryName");
                 case DEPARTMENT -> p.department = ref(t, "departmentCode", "departmentName");
                 case ROLE -> p.role = ref(t, "roleCode", "roleName");
-                case EMPLOYMENT_TYPE -> {
-                    String raw = t.get("employmentType", String.class);
-                    p.employmentType = raw == null ? null : EmploymentType.valueOf(raw);
-                }
+                case EMPLOYMENT_TYPE -> p.employmentType =
+                        t.get("employmentType", EmploymentType.class);
                 default -> throw new IllegalStateException(
                         "Unsupported statistics key: " + key);
             }
         }
-        p.direction = t.get("direction", String.class);
+        p.direction = t.get("direction", EarnerRankingDirection.class);
         p.amount = t.get("amount", BigDecimal.class);
         return p;
     }
