@@ -26,7 +26,7 @@ INSERT INTO payroll_periods (id, name, start_date, end_date, frequency, closed) 
 
 INSERT INTO employee_periodic_assignments
     (id, employee_id, start_date, end_date, country_id,
-     department_id, role_id, employment_type, in_effect)
+     department_id, role_id, employment_type, frequency, in_effect)
 VALUES
     ('55555555-5555-5555-5555-555555555555',
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -34,7 +34,14 @@ VALUES
      '11111111-1111-1111-1111-111111111111',
      '22222222-2222-2222-2222-222222222222',
      '33333333-3333-3333-3333-333333333333',
-     'FULL_TIME', 1);
+     'FULL_TIME', 'MONTHLY', 1),
+    ('55555555-5555-5555-5555-555555555556',
+      'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      '2026-01-01', NULL,
+      '11111111-1111-1111-1111-111111111111',
+      '22222222-2222-2222-2222-222222222222',
+      '33333333-3333-3333-3333-333333333333',
+      'FULL_TIME', 'MONTHLY', 1);
 
 INSERT INTO payroll_summaries
     (id, employee_id, payroll_period_id, employee_periodic_assignment_id,

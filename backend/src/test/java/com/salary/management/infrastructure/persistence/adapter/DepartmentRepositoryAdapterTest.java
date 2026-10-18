@@ -286,14 +286,14 @@ class DepartmentRepositoryAdapterTest {
         entityManager.createNativeQuery("""
                 INSERT INTO employee_periodic_assignments
                     (id, employee_id, start_date, end_date, country_id,
-                     department_id, role_id, employment_type, in_effect)
+                     department_id, role_id, employment_type,frequency, in_effect)
                 VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
                         'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
                         '2026-01-01', NULL,
                         '44444444-4444-4444-4444-444444444444',
                         '11111111-1111-1111-1111-111111111111',
                         '55555555-5555-5555-5555-555555555555',
-                        'FULL_TIME', 1)
+                        'FULL_TIME','MONTHLY', 1)
                 """).executeUpdate();
         entityManager.flush();
         entityManager.clear();

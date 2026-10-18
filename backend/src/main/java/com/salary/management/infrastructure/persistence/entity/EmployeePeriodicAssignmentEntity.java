@@ -1,6 +1,7 @@
 package com.salary.management.infrastructure.persistence.entity;
 
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -57,6 +58,11 @@ public class EmployeePeriodicAssignmentEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "employment_type", nullable = false)
     private EmploymentType employmentType;
+
+    /** Cadence at which this assignment is paid. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "frequency", nullable = false)
+    private PayrollPeriodFrequency payrollFrequency;
 
     @Column(name = "in_effect", nullable = false)
     private Boolean inEffect;

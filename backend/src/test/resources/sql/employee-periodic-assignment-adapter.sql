@@ -23,7 +23,7 @@ INSERT INTO employees (id, matricule, name, email, birth_date, origin_country_id
 
 INSERT INTO employee_periodic_assignments
     (id, employee_id, start_date, end_date, country_id,
-     department_id, role_id, employment_type, in_effect)
+     department_id, role_id, employment_type, frequency, in_effect)
 VALUES
     ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1',
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -31,11 +31,11 @@ VALUES
      '11111111-1111-1111-1111-111111111111',
      '33333333-3333-3333-3333-333333333333',
      '55555555-5555-5555-5555-555555555555',
-     'FULL_TIME', 1),
+     'FULL_TIME', 'MONTHLY', 1),
     ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee2',
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
      '2026-07-01', NULL,
      '22222222-2222-2222-2222-222222222222',
      '44444444-4444-4444-4444-444444444444',
      '66666666-6666-6666-6666-666666666666',
-     'PART_TIME', 0);
+     'PART_TIME', 'BI_WEEKLY', 0);

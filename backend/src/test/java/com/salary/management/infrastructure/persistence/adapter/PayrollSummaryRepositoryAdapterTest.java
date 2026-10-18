@@ -53,6 +53,8 @@ class PayrollSummaryRepositoryAdapterTest {
     private static final UUID ADA = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID GRACE =
             UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    private static final UUID GRACE_ASSIGNMENT =
+            UUID.fromString("55555555-5555-5555-5555-555555555556");
 
     @Autowired
     private PayrollSummaryRepositoryAdapter adapter;
@@ -152,6 +154,7 @@ class PayrollSummaryRepositoryAdapterTest {
     @DisplayName("list returns matching rows sorted by the requested field")
     void listReturnsMatchingRowsSorted() {
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .payrollPeriodId(JANUARY)
                 .sortBy("status")
                 .sortDirection(SortDirection.ASC)
                 .build();
@@ -179,6 +182,8 @@ class PayrollSummaryRepositoryAdapterTest {
     void listFiltersByEmployeeMatricule() {
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
                 .employeeMatricule("EMP-0001")
+                .rangeStart(LocalDate.of(2026, 1, 1))
+                .rangeEnd(LocalDate.of(2026, 1, 31))
                 .build();
 
         List<PayrollSummary> result = adapter.list(criteria);
@@ -190,8 +195,8 @@ class PayrollSummaryRepositoryAdapterTest {
     @DisplayName("list filters by date range")
     void listFiltersByDateRange() {
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
-                 .rangeStart(LocalDate.of(2026, 1, 1))
-                 .rangeEnd(LocalDate.of(2026, 1, 31))
+                .rangeStart(LocalDate.of(2026, 1, 1))
+                .rangeEnd(LocalDate.of(2026, 1, 31))
                 .build();
 
         List<PayrollSummary> result = adapter.list(criteria);
@@ -203,6 +208,7 @@ class PayrollSummaryRepositoryAdapterTest {
     @DisplayName("list filters by assignment country")
     void listFiltersByAssignmentCountry() {
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .payrollPeriodId(JANUARY)
                 .anyCountryIds(Set.of(FR))
                 .build();
 
@@ -215,6 +221,7 @@ class PayrollSummaryRepositoryAdapterTest {
     @DisplayName("list filters by assignment department")
     void listFiltersByAssignmentDepartment() {
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .payrollPeriodId(JANUARY)
                 .anyDepartmentIds(Set.of(ENGINEERING))
                 .build();
 
@@ -227,6 +234,7 @@ class PayrollSummaryRepositoryAdapterTest {
     @DisplayName("list filters by assignment role")
     void listFiltersByAssignmentRole() {
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .payrollPeriodId(JANUARY)
                 .anyRoleIds(Set.of(ENGINEER))
                 .build();
 
@@ -239,6 +247,7 @@ class PayrollSummaryRepositoryAdapterTest {
     @DisplayName("page returns correct totalElements and totalPages")
     void pageReturnsCorrectTotals() {
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .payrollPeriodId(JANUARY)
                 .page(0)
                 .size(10)
                 .sortBy("status")
@@ -290,6 +299,74 @@ class PayrollSummaryRepositoryAdapterTest {
         adapter.save(summary);
 
         assertTrue(jpaRepository.existsById(summary.getId()));
+    }
+
+    @Test
+    @DisplayName("pageNonExistent returns synthetic summaries for employees missing a summary")
+    void pageNonExistentReturnsSyntheticSummaries() {
+        PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .payrollPeriodId(JANUARY)
+                .nonExistent(true)
+                .page(0)
+                .size(10)
+                .build();
+
+        DataPage<PayrollSummary> page = adapter.pageNonExistent(criteria);
+
+        assertEquals(1, page.totalElements());
+        assertEquals(1, page.content().size());
+        PayrollSummary synthetic = page.content().get(0);
+
+        // Employee and period: from the assignment and the requested period.
+        assertEquals(GRACE, synthetic.getEmployeeId());
+        assertEquals(GRACE_ASSIGNMENT, synthetic.getEmployeePeriodicAssignmentId());
+        assertEquals(JANUARY, synthetic.getPayrollPeriod().getId());
+
+        // Zero amounts, currency from the assignment's country (EUR).
+        Amounts amounts = synthetic.getAmounts();
+        assertEquals(0, amounts.getBase().compareTo(BigDecimal.ZERO));
+        assertEquals(0, amounts.getVariable().compareTo(BigDecimal.ZERO));
+        assertEquals(0, amounts.getAllowances().compareTo(BigDecimal.ZERO));
+        assertEquals(0, amounts.getEmployerTaxes().compareTo(BigDecimal.ZERO));
+        assertEquals(0, amounts.getTotal().compareTo(BigDecimal.ZERO));
+        assertEquals("EUR", amounts.getCurrency());
+
+        // DRAFT, since it has not been filled in.
+        assertEquals(PayrollSummaryStatus.DRAFT, synthetic.getStatus());
+    }
+
+    @Test
+    @DisplayName("pageNonExistent excludes employees who already have a summary")
+    void pageNonExistentExcludesEmployeesWithSummary() {
+        // Ada has an assignment for January and a summary for January.
+        PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .payrollPeriodId(JANUARY)
+                .nonExistent(true)
+                .page(0)
+                .size(10)
+                .build();
+
+        DataPage<PayrollSummary> page = adapter.pageNonExistent(criteria);
+
+        // Only Grace is returned; Ada is excluded because she has a summary.
+        assertEquals(1, page.totalElements());
+        assertTrue(page.content().stream()
+                .noneMatch(s -> ADA.equals(s.getEmployeeId())));
+        assertTrue(page.content().stream()
+                .allMatch(s -> GRACE.equals(s.getEmployeeId())));
+    }
+
+    @Test
+    @DisplayName("pageNonExistent throws when nonExistent is false")
+    void pageNonExistentThrowsWhenNotNonExistent() {
+        PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .payrollPeriodId(JANUARY)
+                .page(0)
+                .size(10)
+                .build();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> adapter.pageNonExistent(criteria));
     }
 
     private PayrollPeriod payrollPeriod(UUID id, String name,

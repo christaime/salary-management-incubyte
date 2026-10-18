@@ -3,6 +3,7 @@ package com.salary.management.domain.repository.criteria;
 import com.salary.management.common.pagination.Criteria;
 import com.salary.management.common.pagination.SortDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 
 import java.time.LocalDate;
 import java.util.Set;
@@ -20,8 +21,11 @@ public final class PayrollSummaryCriteria implements Criteria {
 
     private final UUID employeeId;
     private final String employeeMatricule;
+    private final UUID payrollPeriodId;
     private final LocalDate rangeStart;
     private final LocalDate rangeEnd;
+    private final PayrollSummaryStatus status;
+    private final boolean nonExistent;
     private final Set<UUID> anyCountryIds;
     private final Set<UUID> anyDepartmentIds;
     private final Set<UUID> anyRoleIds;
@@ -32,10 +36,37 @@ public final class PayrollSummaryCriteria implements Criteria {
     private final int size;
 
     private PayrollSummaryCriteria(Builder builder) {
+        if (builder.nonExistent) {
+            if (builder.payrollPeriodId == null) {
+                throw new IllegalArgumentException(
+                        "nonExistent requires payrollPeriodId");
+            }
+            if (builder.rangeStart != null || builder.rangeEnd != null) {
+                throw new IllegalArgumentException(
+                        "nonExistent cannot be combined with rangeStart/rangeEnd");
+            }
+        } else {
+            if (builder.payrollPeriodId != null
+                    && (builder.rangeStart != null || builder.rangeEnd != null)) {
+                throw new IllegalArgumentException(
+                        "payrollPeriodId and rangeStart/rangeEnd are mutually exclusive");
+            }
+            if (builder.employeeId == null
+                    && builder.payrollPeriodId == null
+                    && builder.rangeStart == null
+                    && builder.rangeEnd == null) {
+                throw new IllegalArgumentException(
+                        "at least one of employeeId, payrollPeriodId or rangeStart/rangeEnd "
+                                + "is required");
+            }
+        }
         this.employeeId = builder.employeeId;
         this.employeeMatricule = builder.employeeMatricule;
+        this.payrollPeriodId = builder.payrollPeriodId;
         this.rangeStart = builder.rangeStart;
         this.rangeEnd = builder.rangeEnd;
+        this.status = builder.status;
+        this.nonExistent = builder.nonExistent;
         this.anyCountryIds = builder.anyCountryIds;
         this.anyDepartmentIds = builder.anyDepartmentIds;
         this.anyRoleIds = builder.anyRoleIds;
@@ -50,74 +81,52 @@ public final class PayrollSummaryCriteria implements Criteria {
         return new Builder();
     }
 
-    /**
-     * Employee identifier filter, or {@code null}.
-     *
-     * @return employee identifier
-     */
     public UUID employeeId() {
         return employeeId;
     }
 
-    /**
-     * Employee matricule filter, or {@code null}.
-     *
-     * @return employee matricule
-     */
     public String employeeMatricule() {
         return employeeMatricule;
     }
 
-    /**
-     * Lower bound (inclusive) on the payroll period start date, or {@code null}.
-     *
-     * @return range start
-     */
+    public UUID payrollPeriodId() {
+        return payrollPeriodId;
+    }
+
     public LocalDate rangeStart() {
         return rangeStart;
     }
 
-    /**
-     * Upper bound (inclusive) on the payroll period end date, or {@code null}.
-     *
-     * @return range end
-     */
     public LocalDate rangeEnd() {
         return rangeEnd;
     }
 
+    public PayrollSummaryStatus status() {
+        return status;
+    }
+
     /**
-     * Filter on any of the given assignment country identifiers, or {@code null}.
-     *
-     * @return country identifiers
+     * When {@code true}, the query returns payroll summaries that <em>should</em> exist for
+     * the period but do not, as synthetic summaries with zero amounts and {@code DRAFT}
+     * status. Only {@link #payrollPeriodId()} is used to anchor the period; {@code status} is
+     * ignored in this mode.
      */
+    public boolean nonExistent() {
+        return nonExistent;
+    }
+
     public Set<UUID> anyCountryIds() {
         return anyCountryIds;
     }
 
-    /**
-     * Filter on any of the given assignment department identifiers, or {@code null}.
-     *
-     * @return department identifiers
-     */
     public Set<UUID> anyDepartmentIds() {
         return anyDepartmentIds;
     }
 
-    /**
-     * Filter on any of the given assignment role identifiers, or {@code null}.
-     *
-     * @return role identifiers
-     */
     public Set<UUID> anyRoleIds() {
         return anyRoleIds;
     }
 
-    /**
-     * Filter on any of the given assignment employment types, or {@code null}.
-     *
-     * @return employment types
-     */
     public Set<EmploymentType> anyEmploymentTypes() {
         return anyEmploymentTypes;
     }
@@ -162,8 +171,11 @@ public final class PayrollSummaryCriteria implements Criteria {
 
         private UUID employeeId;
         private String employeeMatricule;
+        private UUID payrollPeriodId;
         private LocalDate rangeStart;
         private LocalDate rangeEnd;
+        private PayrollSummaryStatus status;
+        private boolean nonExistent;
         private Set<UUID> anyCountryIds;
         private Set<UUID> anyDepartmentIds;
         private Set<UUID> anyRoleIds;
@@ -183,6 +195,11 @@ public final class PayrollSummaryCriteria implements Criteria {
             return this;
         }
 
+        public Builder payrollPeriodId(UUID payrollPeriodId) {
+            this.payrollPeriodId = payrollPeriodId;
+            return this;
+        }
+
         public Builder rangeStart(LocalDate rangeStart) {
             this.rangeStart = rangeStart;
             return this;
@@ -190,6 +207,16 @@ public final class PayrollSummaryCriteria implements Criteria {
 
         public Builder rangeEnd(LocalDate rangeEnd) {
             this.rangeEnd = rangeEnd;
+            return this;
+        }
+
+        public Builder status(PayrollSummaryStatus status) {
+            this.status = status;
+            return this;
+        }
+
+        public Builder nonExistent(boolean nonExistent) {
+            this.nonExistent = nonExistent;
             return this;
         }
 

@@ -27,14 +27,8 @@ public interface CurrencyRateJpaRepository
             String referenceCurrencyCode);
 
     /**
-     * Reference currency shared by every stored row, or {@code null} when the table is empty.
-     *
-     * <p>Read helper for the adapter's {@code getReferenceCurrencyCode()} and for callers
-     * that need to ask "what reference is in force?" without loading a row. The
-     * single-reference invariant makes this well-defined when rows exist; the empty table
-     * returns {@code null}.</p>
+     * Finds the reference currency code from the first record.
      */
-    @Query("select r.referenceCurrencyCode from CurrencyRateEntity r "
-            + "where r.id = (select min(r2.id) from CurrencyRateEntity r2)")
-    String getReferenceCurrencyCode();
+    @Query("SELECT c.referenceCurrencyCode FROM CurrencyRateEntity c")
+    Optional<String> findFirstReferenceCurrencyCode();
 }

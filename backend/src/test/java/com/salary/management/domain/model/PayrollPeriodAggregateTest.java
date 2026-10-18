@@ -80,13 +80,6 @@ class PayrollPeriodAggregateTest {
     }
 
     @Test
-    @DisplayName("null referenceAmounts is rejected")
-    void nullReferenceAmountsIsRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> valid().referenceAmounts(null).build());
-    }
-
-    @Test
     @DisplayName("null employeeCount is rejected")
     void nullEmployeeCountIsRejected() {
         assertThrows(DomainValidationException.class,

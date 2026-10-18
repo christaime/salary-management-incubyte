@@ -129,11 +129,11 @@ public final class CurrencyRate {
                 this.referenceAmount = BigDecimal.ONE;
             }
             List<ValidationError> extraErrors = new ArrayList<>();
-            if (this.currencyCode != null && this.currencyCode.equals(this.referenceCurrencyCode)) {
+            if (this.currencyCode != null && this.currencyCode.equals(this.referenceCurrencyCode) && (!BigDecimal.ONE.equals(this.referenceAmount) || !BigDecimal.ONE.equals(this.rate))) {
                 extraErrors.add(new ValidationError(
                         "currencyCode",
                         "InvalidCurrencyRate",
-                        "currency_rates row must not pair a currency with itself",
+                        "currency_rates self-pair must have reference_amount = 1 and rate = 1",
                         Map.of()
                 ));
             }

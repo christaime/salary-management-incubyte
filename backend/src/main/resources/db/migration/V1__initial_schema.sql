@@ -122,22 +122,32 @@ BEGIN
     SELECT RAISE(ABORT, 'currency_rates must use a single reference currency');
 END;
 
-CREATE TRIGGER trg_currency_rate_no_self_pair_insert
+-- ---------------------------------------------------------------------------
+-- Self-pair triggers.
+-- A row whose currency_code equals its reference_currency_code is a no-op
+-- conversion (X to X). It is allowed, but must be stored as the identity:
+-- reference_amount = 1 and rate = 1. Anything else on a self-pair is a bug.
+-- ---------------------------------------------------------------------------
+CREATE TRIGGER trg_currency_rate_self_pair_insert
 BEFORE INSERT ON currency_rates
 FOR EACH ROW
 WHEN NEW.currency_code = NEW.reference_currency_code
+ AND (NEW.reference_amount <> 1 OR NEW.rate <> 1)
 BEGIN
-    SELECT RAISE(ABORT, 'currency_rates must not pair a currency with itself');
+    SELECT RAISE(ABORT,
+        'currency_rates self-pair must have reference_amount = 1 and rate = 1');
 END;
 
-CREATE TRIGGER trg_currency_rate_no_self_pair_update
-BEFORE UPDATE OF currency_code, reference_currency_code ON currency_rates
+CREATE TRIGGER trg_currency_rate_self_pair_update
+BEFORE UPDATE OF currency_code, reference_currency_code, reference_amount, rate
+ON currency_rates
 FOR EACH ROW
 WHEN NEW.currency_code = NEW.reference_currency_code
+ AND (NEW.reference_amount <> 1 OR NEW.rate <> 1)
 BEGIN
-    SELECT RAISE(ABORT, 'currency_rates must not pair a currency with itself');
+    SELECT RAISE(ABORT,
+        'currency_rates self-pair must have reference_amount = 1 and rate = 1');
 END;
-
 -- ---------------------------------------------------------------------------
 -- payroll_periods
 -- ---------------------------------------------------------------------------
@@ -167,6 +177,7 @@ CREATE TABLE employee_periodic_assignments (
     department_id    TEXT NOT NULL,
     role_id          TEXT NOT NULL,
     employment_type  TEXT NOT NULL,
+    frequency        TEXT NOT NULL,
     in_effect        BOOLEAN NOT NULL,
     CONSTRAINT fk_assignment_employee
         FOREIGN KEY (employee_id) REFERENCES employees (id),
@@ -184,9 +195,9 @@ CREATE INDEX idx_assignment_employee ON employee_periodic_assignments (employee_
 CREATE INDEX idx_assignment_country ON employee_periodic_assignments (country_id);
 CREATE INDEX idx_assignment_department ON employee_periodic_assignments (department_id);
 CREATE INDEX idx_assignment_role ON employee_periodic_assignments (role_id);
+CREATE INDEX idx_assignment_frequency ON employee_periodic_assignments (frequency);
 CREATE INDEX idx_assignment_dates
     ON employee_periodic_assignments (start_date, end_date);
-
 -- ---------------------------------------------------------------------------
 -- payroll_summaries
 -- ---------------------------------------------------------------------------

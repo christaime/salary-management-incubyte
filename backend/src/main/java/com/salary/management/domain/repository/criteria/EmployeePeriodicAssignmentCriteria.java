@@ -3,6 +3,7 @@ package com.salary.management.domain.repository.criteria;
 import com.salary.management.common.pagination.Criteria;
 import com.salary.management.common.pagination.SortDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 
 import java.time.LocalDate;
 import java.util.Set;
@@ -12,7 +13,7 @@ import java.util.UUID;
 public final class EmployeePeriodicAssignmentCriteria implements Criteria {
 
     private static final Set<String> SORTABLE_FIELDS =
-            Set.of("startDate", "endDate", "employmentType", "inEffect");
+            Set.of("startDate", "endDate", "employmentType", "payrollFrequency", "inEffect");
 
     private final UUID employeeId;
     private final LocalDate startDate;
@@ -21,6 +22,7 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
     private final Set<UUID> anyDepartmentIds;
     private final Set<UUID> anyRoleIds;
     private final Set<EmploymentType> anyEmploymentTypes;
+    private final Set<PayrollPeriodFrequency> anyPayrollFrequencies;
     private final String sortBy;
     private final SortDirection sortDirection;
     private final int page;
@@ -34,6 +36,7 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
         this.anyDepartmentIds = builder.anyDepartmentIds;
         this.anyRoleIds = builder.anyRoleIds;
         this.anyEmploymentTypes = builder.anyEmploymentTypes;
+        this.anyPayrollFrequencies = builder.anyPayrollFrequencies;
         this.sortBy = builder.sortBy;
         this.sortDirection = builder.sortDirection;
         this.page = builder.page;
@@ -107,6 +110,15 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
         return anyEmploymentTypes;
     }
 
+    /**
+     * Filter on any of the given payroll frequencies, or {@code null}.
+     *
+     * @return payroll frequencies
+     */
+    public Set<PayrollPeriodFrequency> anyPayrollFrequencies() {
+        return anyPayrollFrequencies;
+    }
+
     @Override
     public String sortBy() {
         return sortBy;
@@ -152,6 +164,7 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
         private Set<UUID> anyDepartmentIds;
         private Set<UUID> anyRoleIds;
         private Set<EmploymentType> anyEmploymentTypes;
+        private Set<PayrollPeriodFrequency> anyPayrollFrequencies;
         private String sortBy;
         private SortDirection sortDirection;
         private int page;
@@ -189,6 +202,11 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
 
         public Builder anyEmploymentTypes(Set<EmploymentType> anyEmploymentTypes) {
             this.anyEmploymentTypes = anyEmploymentTypes;
+            return this;
+        }
+
+        public Builder anyPayrollFrequencies(Set<PayrollPeriodFrequency> anyPayrollFrequencies) {
+            this.anyPayrollFrequencies = anyPayrollFrequencies;
             return this;
         }
 

@@ -3,6 +3,7 @@ package com.salary.management.domain.model;
 import com.salary.management.common.validation.DomainValidation;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 
@@ -45,6 +46,9 @@ public final class EmployeePeriodicAssignment {
     private final EmploymentType employmentType;
 
     @NotNull
+    private final PayrollPeriodFrequency payrollFrequency;
+
+    @NotNull
     private final Boolean inEffect;
 
     private EmployeePeriodicAssignment(Builder builder) {
@@ -56,6 +60,7 @@ public final class EmployeePeriodicAssignment {
         this.department = builder.department;
         this.role = builder.role;
         this.employmentType = builder.employmentType;
+        this.payrollFrequency = builder.payrollFrequency;
         this.inEffect = builder.inEffect;
     }
 
@@ -83,6 +88,10 @@ public final class EmployeePeriodicAssignment {
         return toBuilder().role(newRole).build();
     }
 
+    public EmployeePeriodicAssignment withPayrollFrequency(PayrollPeriodFrequency newFrequency) {
+        return toBuilder().payrollFrequency(newFrequency).build();
+    }
+
     private Builder toBuilder() {
         return new Builder()
                 .id(this.id)
@@ -93,6 +102,7 @@ public final class EmployeePeriodicAssignment {
                 .department(this.department)
                 .role(this.role)
                 .employmentType(this.employmentType)
+                .payrollFrequency(this.payrollFrequency)
                 .inEffect(this.inEffect);
     }
 
@@ -110,6 +120,7 @@ public final class EmployeePeriodicAssignment {
         private Department department;
         private Role role;
         private EmploymentType employmentType;
+        private PayrollPeriodFrequency payrollFrequency;
         private Boolean inEffect;
 
         public Builder id(UUID id) {
@@ -149,6 +160,11 @@ public final class EmployeePeriodicAssignment {
 
         public Builder employmentType(EmploymentType employmentType) {
             this.employmentType = employmentType;
+            return this;
+        }
+
+        public Builder payrollFrequency(PayrollPeriodFrequency payrollFrequency) {
+            this.payrollFrequency = payrollFrequency;
             return this;
         }
 

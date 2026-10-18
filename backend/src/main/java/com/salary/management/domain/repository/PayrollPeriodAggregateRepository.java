@@ -1,6 +1,7 @@
 package com.salary.management.domain.repository;
 
 import com.salary.management.domain.model.PayrollPeriodAggregate;
+import com.salary.management.domain.model.values.GroupedSummary;
 import com.salary.management.domain.repository.criteria.PayrollPeriodAggregateCriteria;
 
 import java.util.List;
@@ -16,4 +17,9 @@ public interface PayrollPeriodAggregateRepository {
     List<PayrollPeriodAggregate> list(PayrollPeriodAggregateCriteria criteria);
 
     void deleteByPayrollPeriodId(UUID payrollPeriodId);
+    /**
+     * Groups VALIDATED payroll summaries of the given period by the five assignment
+     * attributes. Amounts are in each group's currency.
+     */
+    List<GroupedSummary> aggregateByGroup(UUID payrollPeriodId);
 }

@@ -7,6 +7,7 @@ import com.salary.management.domain.model.Department;
 import com.salary.management.domain.model.EmployeePeriodicAssignment;
 import com.salary.management.domain.model.Role;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.repository.criteria.EmployeePeriodicAssignmentCriteria;
 import com.salary.management.infrastructure.persistence.repository.EmployeePeriodicAssignmentJpaRepository;
 import jakarta.persistence.EntityManager;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -74,6 +76,7 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
                 .department(department(ENGINEERING))
                 .role(role(ENGINEER))
                 .employmentType(EmploymentType.FULL_TIME)
+                .payrollFrequency(PayrollPeriodFrequency.MONTHLY)
                 .inEffect(true)
                 .build();
 
@@ -90,6 +93,7 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
         assertEquals(ENGINEERING, found.get().getDepartment().getId());
         assertEquals(ENGINEER, found.get().getRole().getId());
         assertEquals(EmploymentType.FULL_TIME, found.get().getEmploymentType());
+        assertEquals(PayrollPeriodFrequency.MONTHLY, found.get().getPayrollFrequency());
         assertTrue(found.get().getInEffect());
     }
 
@@ -104,6 +108,7 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
                 .department(department(ENGINEERING))
                 .role(role(ENGINEER))
                 .employmentType(EmploymentType.FULL_TIME)
+                .payrollFrequency(PayrollPeriodFrequency.MONTHLY)
                 .inEffect(true)
                 .build();
 
@@ -121,6 +126,7 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
                 .department(department(ENGINEERING))
                 .role(role(ENGINEER))
                 .employmentType(EmploymentType.FULL_TIME)
+                .payrollFrequency(PayrollPeriodFrequency.MONTHLY)
                 .inEffect(true)
                 .build();
         EmployeePeriodicAssignment updated = existing.withInEffect(false);
@@ -193,13 +199,43 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
     void listFiltersByCountry() {
         EmployeePeriodicAssignmentCriteria criteria =
                 EmployeePeriodicAssignmentCriteria.builder()
-                        .anyCountryIds(java.util.Set.of(DE))
+                        .anyCountryIds(Set.of(DE))
                         .build();
 
         List<EmployeePeriodicAssignment> result = adapter.list(criteria);
 
         assertEquals(1, result.size());
         assertEquals(ASSIGNMENT_2, result.get(0).getId());
+    }
+
+    @Test
+    @DisplayName("list filters by payroll frequency")
+    void listFiltersByPayrollFrequency() {
+        EmployeePeriodicAssignmentCriteria monthly =
+                EmployeePeriodicAssignmentCriteria.builder()
+                        .anyPayrollFrequencies(Set.of(PayrollPeriodFrequency.MONTHLY))
+                        .sortBy("startDate")
+                        .sortDirection(SortDirection.ASC)
+                        .build();
+        EmployeePeriodicAssignmentCriteria biWeekly =
+                EmployeePeriodicAssignmentCriteria.builder()
+                        .anyPayrollFrequencies(Set.of(PayrollPeriodFrequency.BI_WEEKLY))
+                        .sortBy("startDate")
+                        .sortDirection(SortDirection.ASC)
+                        .build();
+
+        List<EmployeePeriodicAssignment> monthlyResult = adapter.list(monthly);
+        List<EmployeePeriodicAssignment> biWeeklyResult = adapter.list(biWeekly);
+
+        assertEquals(1, monthlyResult.size());
+        assertEquals(ASSIGNMENT_1, monthlyResult.get(0).getId());
+        assertEquals(PayrollPeriodFrequency.MONTHLY,
+                monthlyResult.get(0).getPayrollFrequency());
+
+        assertEquals(1, biWeeklyResult.size());
+        assertEquals(ASSIGNMENT_2, biWeeklyResult.get(0).getId());
+        assertEquals(PayrollPeriodFrequency.BI_WEEKLY,
+                biWeeklyResult.get(0).getPayrollFrequency());
     }
 
     @Test
@@ -245,7 +281,6 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
     @Test
     @DisplayName("deleteById throws when the assignment is referenced")
     void deleteByIdThrowsWhenReferenced() {
-        // Seed a payroll summary that references ASSIGNMENT_1.
         entityManager.createNativeQuery("""
                 INSERT INTO payroll_periods
                     (id, name, start_date, end_date, frequency, closed)
@@ -285,6 +320,7 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
                 .department(department(FINANCE))
                 .role(role(MANAGER))
                 .employmentType(EmploymentType.PART_TIME)
+                .payrollFrequency(PayrollPeriodFrequency.BI_WEEKLY)
                 .inEffect(true)
                 .build();
 
@@ -293,30 +329,21 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
 
         assertTrue(jpaRepository.existsById(assignment.getId()));
         assertNull(assignment.getEndDate());
+        assertEquals(PayrollPeriodFrequency.BI_WEEKLY, assignment.getPayrollFrequency());
     }
 
     private Country country(UUID id) {
         return Country.builder()
-                .id(id)
-                .isoCode("XX")
-                .name("Placeholder")
-                .currencyCode("XXX")
-                .build();
+                .id(id).isoCode("XX").name("Placeholder").currencyCode("XXX").build();
     }
 
     private Department department(UUID id) {
         return Department.builder()
-                .id(id)
-                .code("PLC")
-                .name("Placeholder")
-                .build();
+                .id(id).code("PLC").name("Placeholder").build();
     }
 
     private Role role(UUID id) {
         return Role.builder()
-                .id(id)
-                .code("PLC")
-                .name("Placeholder")
-                .build();
+                .id(id).code("PLC").name("Placeholder").build();
     }
 }

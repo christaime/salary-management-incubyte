@@ -49,6 +49,7 @@ public interface EmployeePeriodicAssignmentPersistenceMapper {
     @Mapping(target = "role", source = "role")
     @Mapping(target = "employmentType", source = "entity.employmentType")
     @Mapping(target = "inEffect", source = "entity.inEffect")
+    @Mapping(target = "payrollFrequency", source = "entity.payrollFrequency")
     EmployeePeriodicAssignment toDomain(
             EmployeePeriodicAssignmentEntity entity,
             CountryEntity country,

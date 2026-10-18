@@ -1,6 +1,9 @@
 package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
+import com.salary.management.domain.model.enums.EarnerRankingDirection;
+import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.values.RankedSummary;
 import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
 import com.salary.management.domain.repository.criteria.PayrollPeriodEarnerRankingCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
@@ -11,6 +14,7 @@ import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarn
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEntity;
 import com.salary.management.infrastructure.persistence.entity.RoleEntity;
 import com.salary.management.infrastructure.persistence.mapper.PayrollPeriodEarnerRankingPersistenceMapper;
+import com.salary.management.infrastructure.persistence.projection.RankedRow;
 import com.salary.management.infrastructure.persistence.repository.CountryJpaRepository;
 import com.salary.management.infrastructure.persistence.repository.DepartmentJpaRepository;
 import com.salary.management.infrastructure.persistence.repository.EmployeeJpaRepository;
@@ -66,6 +70,33 @@ public class PayrollPeriodEarnerRankingRepositoryAdapter
     @Override
     public void deleteByPayrollPeriodId(UUID payrollPeriodId) {
         jpaRepository.deleteByPayrollPeriodId(payrollPeriodId);
+    }
+
+    @Override
+    public List<RankedSummary> topByGroup(UUID payrollPeriodId, int limit) {
+        return jpaRepository.topByGroup(payrollPeriodId, limit).stream()
+                .map(row -> toRankedSummary(row, EarnerRankingDirection.TOP))
+                .toList();
+    }
+
+    @Override
+    public List<RankedSummary> bottomByGroup(UUID payrollPeriodId, int limit) {
+        return jpaRepository.bottomByGroup(payrollPeriodId, limit).stream()
+                .map(row -> toRankedSummary(row, EarnerRankingDirection.BOTTOM))
+                .toList();
+    }
+
+    private RankedSummary toRankedSummary(RankedRow row, EarnerRankingDirection direction) {
+        return new RankedSummary(
+                row.getPayrollPeriodId(),
+                row.getCountryId(),
+                row.getDepartmentId(),
+                row.getRoleId(),
+                EmploymentType.valueOf(row.getEmploymentType()),
+                direction,
+                row.getRank(),
+                row.getEmployeeId(),
+                row.getTotal());
     }
 
     /**

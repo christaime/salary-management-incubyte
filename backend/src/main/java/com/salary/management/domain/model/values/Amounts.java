@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,8 @@ import java.util.Objects;
  */
 @Getter
 public final class Amounts {
+
+    public static int AMOUNT_SCALE = 2;
 
     @NotNull
     @PositiveOrZero
@@ -49,11 +52,11 @@ public final class Amounts {
     private final String currency;
 
     private Amounts(Builder builder) {
-        this.base = Builder.nullToZero(builder.base);
-        this.variable = Builder.nullToZero(builder.variable);
-        this.allowances = Builder.nullToZero(builder.allowances);
-        this.employerTaxes = Builder.nullToZero(builder.employerTaxes);
-        this.total = Builder.nullToZero(builder.total);
+        this.base = Builder.nullToZero(builder.base).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        this.variable = Builder.nullToZero(builder.variable).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        this.allowances = Builder.nullToZero(builder.allowances).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        this.employerTaxes = Builder.nullToZero(builder.employerTaxes).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        this.total = Builder.nullToZero(builder.total).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
         this.currency = builder.currency;
     }
 

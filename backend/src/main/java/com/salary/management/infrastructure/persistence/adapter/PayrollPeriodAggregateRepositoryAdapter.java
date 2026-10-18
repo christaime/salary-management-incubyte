@@ -1,6 +1,8 @@
 package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.domain.model.PayrollPeriodAggregate;
+import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.values.GroupedSummary;
 import com.salary.management.domain.repository.PayrollPeriodAggregateRepository;
 import com.salary.management.domain.repository.criteria.PayrollPeriodAggregateCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
@@ -63,6 +65,25 @@ public class PayrollPeriodAggregateRepositoryAdapter
     @Override
     public void deleteByPayrollPeriodId(UUID payrollPeriodId) {
         jpaRepository.deleteByPayrollPeriodId(payrollPeriodId);
+    }
+
+    @Override
+    public List<GroupedSummary> aggregateByGroup(UUID payrollPeriodId) {
+        return jpaRepository.aggregateByGroup(payrollPeriodId).stream()
+                .map(row -> new GroupedSummary(
+                        row.getPayrollPeriodId(),
+                        row.getCountryId(),
+                        row.getDepartmentId(),
+                        row.getRoleId(),
+                        EmploymentType.valueOf(row.getEmploymentType()),
+                        row.getCurrency(),
+                        row.getEmployeeCount().intValue(),
+                        row.getBase(),
+                        row.getVariable(),
+                        row.getAllowances(),
+                        row.getEmployerTaxes(),
+                        row.getTotal()))
+                .toList();
     }
 
     /**

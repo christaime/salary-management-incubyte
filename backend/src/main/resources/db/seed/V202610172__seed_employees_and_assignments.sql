@@ -10,10 +10,10 @@
 -- Employment split: ~6/7 FULL_TIME, ~1/7 PART_TIME. CONTRACTOR is intentionally
 -- not seeded.
 --
--- Every employee has exactly one assignment, in effect from 2025-10-01
--- (before the first payroll period starts on 2026-01-01) with end_date NULL.
--- Every assignment lands on a (country, department, role, employment_type)
--- tuple consistent with the employee's origin region and the reference data.
+-- Every employee, curated or generated, has exactly one assignment, in effect
+-- from 2025-10-01 with end_date NULL. Assignment frequency follows employment
+-- type: FULL_TIME -> MONTHLY, PART_TIME -> BI_WEEKLY. This matches the
+-- assignment cadence with the payroll periods in V202610173.
 --
 -- Determinism:
 --   matricule   = printf('EMP-%06d', n)
@@ -337,226 +337,272 @@ INSERT INTO employees (id, matricule, name, email, birth_date, origin_country_id
 ('00000096-0000-4000-8000-000000000096', 'EMP-000150', 'Nadia Diop',
  'nadia.diop@company.com',       '1989-02-08', 'c0000000-0000-0000-0000-000000000009');
 
+-- ---------------------------------------------------------------------------
+-- Top-up employees 151..10000 (unchanged).
+-- ---------------------------------------------------------------------------
+WITH RECURSIVE
+eu_first(f, i) AS (VALUES
+  ('Anna',0),('Lukas',1),('Mia',2),('Noah',3),('Emma',4),('Felix',5),
+  ('Sofia',6),('Leon',7),('Hannah',8),('Paul',9),('Lena',10),('Jonas',11),
+  ('Clara',12),('Elias',13),('Marie',14),('David',15),('Julia',16),('Simon',17),
+  ('Sarah',18),('Nico',19)),
+eu_last(l, i) AS (VALUES
+  ('Muller',0),('Schmidt',1),('Schneider',2),('Fischer',3),('Weber',4),
+  ('Dupont',5),('Martin',6),('Bernard',7),('Petit',8),('Durand',9),
+  ('Rossi',10),('Russo',11),('Smith',12),('Jones',13),('Brown',14),
+  ('Taylor',15),('Wilson',16),('Evans',17),('Walker',18),('Harris',19)),
+am_first(f, i) AS (VALUES
+  ('Emily',0),('Jacob',1),('Madison',2),('Michael',3),('Ava',4),('Ethan',5),
+  ('Isabella',6),('Liam',7),('Olivia',8),('Noah',9),('Sophia',10),('Mason',11),
+  ('Lucas',12),('Carlos',13),('Camila',14),('Diego',15),('Valentina',16),
+  ('Mateo',17),('Sofia',18),('Gabriel',19)),
+am_last(l, i) AS (VALUES
+  ('Smith',0),('Johnson',1),('Williams',2),('Brown',3),('Garcia',4),
+  ('Martinez',5),('Lopez',6),('Hernandez',7),('Silva',8),('Santos',9),
+  ('Oliveira',10),('Pereira',11),('Costa',12),('Gomez',13),('Diaz',14),
+  ('Reyes',15),('Morales',16),('Torres',17),('Ramirez',18),('Flores',19)),
+as_first(f, i) AS (VALUES
+  ('Wei',0),('Li',1),('Priya',2),('Arjun',3),('Mei',4),('Raj',5),
+  ('Yuki',6),('Hiroshi',7),('Ananya',8),('Rahul',9),('Xia',10),('Chen',11),
+  ('Sakura',12),('Kenji',13),('Neha',14),('Vikram',15),('Ming',16),('Yan',17),
+  ('Aiko',18),('Ravi',19)),
+as_last(l, i) AS (VALUES
+  ('Zhang',0),('Wang',1),('Li',2),('Chen',3),('Liu',4),
+  ('Sharma',5),('Patel',6),('Singh',7),('Kumar',8),('Gupta',9),
+  ('Tanaka',10),('Sato',11),('Suzuki',12),('Watanabe',13),('Ito',14),
+  ('Yamamoto',15),('Nakamura',16),('Kobayashi',17),('Kato',18),('Yoshida',19)),
+af_first(f, i) AS (VALUES
+  ('Amadou',0),('Fatima',1),('Kwame',2),('Aisha',3),('Omar',4),('Zara',5),
+  ('Kofi',6),('Nadia',7),('Ibrahim',8),('Leila',9),('Yaw',10),('Ama',11),
+  ('Moussa',12),('Aminata',13),('Kwesi',14),('Akosua',15),('Cheikh',16),
+  ('Mariama',17),('Emeka',18),('Chiamaka',19)),
+af_last(l, i) AS (VALUES
+  ('Diallo',0),('Al-Hassan',1),('Mensah',2),('Bello',3),('Traore',4),
+  ('Ouattara',5),('Konate',6),('Bamba',7),('Sow',8),('Camara',9),
+  ('Cisse',10),('Coulibaly',11),('Diop',12),('Ndiaye',13),('Fall',14),
+  ('Ba',15),('Sy',16),('Sarr',17),('Faye',18),('Ndiaye',19)),
+nums(n) AS (
+  SELECT 151 UNION ALL SELECT n + 1 FROM nums WHERE n < 10000
+),
+tagged(n, region) AS (
+  SELECT n,
+    CASE
+      WHEN n <= 3149 THEN 'EUROPE'
+      WHEN n <= 5648 THEN 'AMERICA'
+      WHEN n <= 7647 THEN 'ASIA'
+      WHEN n <= 9146 THEN 'AFRICA'
+      ELSE 'NULL_ORIGIN'
+    END
+  FROM nums
+),
+with_country(n, region, origin_country_id, country_id) AS (
+  SELECT n, region,
+    CASE region
+      WHEN 'EUROPE'      THEN CASE n % 3
+                              WHEN 0 THEN 'c0000000-0000-0000-0000-000000000002'
+                              WHEN 1 THEN 'c0000000-0000-0000-0000-000000000003'
+                              ELSE        'c0000000-0000-0000-0000-000000000007'
+                            END
+      WHEN 'AMERICA'     THEN CASE n % 3
+                              WHEN 0 THEN 'c0000000-0000-0000-0000-000000000001'
+                              WHEN 1 THEN 'c0000000-0000-0000-0000-000000000006'
+                              ELSE        'c0000000-0000-0000-0000-000000000008'
+                            END
+      WHEN 'ASIA'        THEN CASE n % 2
+                              WHEN 0 THEN 'c0000000-0000-0000-0000-000000000004'
+                              ELSE        'c0000000-0000-0000-0000-00000000000a'
+                            END
+      WHEN 'AFRICA'      THEN CASE n % 2
+                              WHEN 0 THEN 'c0000000-0000-0000-0000-000000000005'
+                              ELSE        'c0000000-0000-0000-0000-000000000009'
+                            END
+      ELSE                    'c0000000-0000-0000-0000-000000000001'
+    END,
+    CASE region
+      WHEN 'EUROPE'      THEN CASE n % 3
+                              WHEN 0 THEN 'c0000000-0000-0000-0000-000000000002'
+                              WHEN 1 THEN 'c0000000-0000-0000-0000-000000000003'
+                              ELSE        'c0000000-0000-0000-0000-000000000007'
+                            END
+      WHEN 'AMERICA'     THEN CASE n % 3
+                              WHEN 0 THEN 'c0000000-0000-0000-0000-000000000001'
+                              WHEN 1 THEN 'c0000000-0000-0000-0000-000000000006'
+                              ELSE        'c0000000-0000-0000-0000-000000000008'
+                            END
+      WHEN 'ASIA'        THEN CASE n % 2
+                              WHEN 0 THEN 'c0000000-0000-0000-0000-000000000004'
+                              ELSE        'c0000000-0000-0000-0000-00000000000a'
+                            END
+      WHEN 'AFRICA'      THEN CASE n % 2
+                              WHEN 0 THEN 'c0000000-0000-0000-0000-000000000005'
+                              ELSE        'c0000000-0000-0000-0000-000000000009'
+                            END
+      ELSE CASE n % 10
+             WHEN 0 THEN 'c0000000-0000-0000-0000-000000000001'
+             WHEN 1 THEN 'c0000000-0000-0000-0000-000000000002'
+             WHEN 2 THEN 'c0000000-0000-0000-0000-000000000003'
+             WHEN 3 THEN 'c0000000-0000-0000-0000-000000000004'
+             WHEN 4 THEN 'c0000000-0000-0000-0000-000000000005'
+             WHEN 5 THEN 'c0000000-0000-0000-0000-000000000006'
+             WHEN 6 THEN 'c0000000-0000-0000-0000-000000000007'
+             WHEN 7 THEN 'c0000000-0000-0000-0000-000000000008'
+             WHEN 8 THEN 'c0000000-0000-0000-0000-000000000009'
+             ELSE        'c0000000-0000-0000-0000-00000000000a'
+           END
+    END
+  FROM tagged
+),
+named(n, region, origin_country_id, country_id, first, last) AS (
+  SELECT wc.n, wc.region, wc.origin_country_id, wc.country_id,
+    CASE wc.region
+      WHEN 'EUROPE'  THEN (SELECT f FROM eu_first WHERE i = wc.n % 20)
+      WHEN 'AMERICA' THEN (SELECT f FROM am_first WHERE i = wc.n % 20)
+      WHEN 'ASIA'    THEN (SELECT f FROM as_first WHERE i = wc.n % 20)
+      WHEN 'AFRICA'  THEN (SELECT f FROM af_first WHERE i = wc.n % 20)
+      ELSE 'Casey'
+    END,
+    CASE wc.region
+      WHEN 'EUROPE'  THEN (SELECT l FROM eu_last WHERE i = wc.n % 20)
+      WHEN 'AMERICA' THEN (SELECT l FROM am_last WHERE i = wc.n % 20)
+      WHEN 'ASIA'    THEN (SELECT l FROM as_last WHERE i = wc.n % 20)
+      WHEN 'AFRICA'  THEN (SELECT l FROM af_last WHERE i = wc.n % 20)
+      ELSE 'Morgan'
+    END
+  FROM with_country wc
+)
+INSERT INTO employees (id, matricule, name, email, birth_date, origin_country_id)
+SELECT
+  printf('%08x-0000-4000-8000-%012x', n, n),
+  printf('EMP-%06d', n),
+  first || ' ' || last,
+  lower(first) || '.' || lower(replace(last, ' ', '')) || '.' || printf('%06d', n)
+    || '@company.com',
+  date('1970-01-01', '+' || ((n * 37) % 11323) || ' days'),
+  origin_country_id
+FROM named;
 
- -- ---------------------------------------------------------------------------
- -- Top-up to 10,000 via WITH RECURSIVE, using per-region name tables inline.
- -- Each row of `n` produces one employee. Region, country, department, role,
- -- employment type, birth date, and name are all deterministic functions of n.
- -- ---------------------------------------------------------------------------
- WITH RECURSIVE
- -- Region name tables (20 first names + 20 last names per region).
- eu_first(f, i) AS (VALUES
-   ('Anna',0),('Lukas',1),('Mia',2),('Noah',3),('Emma',4),('Felix',5),
-   ('Sofia',6),('Leon',7),('Hannah',8),('Paul',9),('Lena',10),('Jonas',11),
-   ('Clara',12),('Elias',13),('Marie',14),('David',15),('Julia',16),('Simon',17),
-   ('Sarah',18),('Nico',19)),
- eu_last(l, i) AS (VALUES
-   ('Muller',0),('Schmidt',1),('Schneider',2),('Fischer',3),('Weber',4),
-   ('Dupont',5),('Martin',6),('Bernard',7),('Petit',8),('Durand',9),
-   ('Rossi',10),('Russo',11),('Smith',12),('Jones',13),('Brown',14),
-   ('Taylor',15),('Wilson',16),('Evans',17),('Walker',18),('Harris',19)),
- am_first(f, i) AS (VALUES
-   ('Emily',0),('Jacob',1),('Madison',2),('Michael',3),('Ava',4),('Ethan',5),
-   ('Isabella',6),('Liam',7),('Olivia',8),('Noah',9),('Sophia',10),('Mason',11),
-   ('Lucas',12),('Carlos',13),('Camila',14),('Diego',15),('Valentina',16),
-   ('Mateo',17),('Sofia',18),('Gabriel',19)),
- am_last(l, i) AS (VALUES
-   ('Smith',0),('Johnson',1),('Williams',2),('Brown',3),('Garcia',4),
-   ('Martinez',5),('Lopez',6),('Hernandez',7),('Silva',8),('Santos',9),
-   ('Oliveira',10),('Pereira',11),('Costa',12),('Gomez',13),('Diaz',14),
-   ('Reyes',15),('Morales',16),('Torres',17),('Ramirez',18),('Flores',19)),
- as_first(f, i) AS (VALUES
-   ('Wei',0),('Li',1),('Priya',2),('Arjun',3),('Mei',4),('Raj',5),
-   ('Yuki',6),('Hiroshi',7),('Ananya',8),('Rahul',9),('Xia',10),('Chen',11),
-   ('Sakura',12),('Kenji',13),('Neha',14),('Vikram',15),('Ming',16),('Yan',17),
-   ('Aiko',18),('Ravi',19)),
- as_last(l, i) AS (VALUES
-   ('Zhang',0),('Wang',1),('Li',2),('Chen',3),('Liu',4),
-   ('Sharma',5),('Patel',6),('Singh',7),('Kumar',8),('Gupta',9),
-   ('Tanaka',10),('Sato',11),('Suzuki',12),('Watanabe',13),('Ito',14),
-   ('Yamamoto',15),('Nakamura',16),('Kobayashi',17),('Kato',18),('Yoshida',19)),
- af_first(f, i) AS (VALUES
-   ('Amadou',0),('Fatima',1),('Kwame',2),('Aisha',3),('Omar',4),('Zara',5),
-   ('Kofi',6),('Nadia',7),('Ibrahim',8),('Leila',9),('Yaw',10),('Ama',11),
-   ('Moussa',12),('Aminata',13),('Kwesi',14),('Akosua',15),('Cheikh',16),
-   ('Mariama',17),('Emeka',18),('Chiamaka',19)),
- af_last(l, i) AS (VALUES
-   ('Diallo',0),('Al-Hassan',1),('Mensah',2),('Bello',3),('Traore',4),
-   ('Ouattara',5),('Konate',6),('Bamba',7),('Sow',8),('Camara',9),
-   ('Cisse',10),('Coulibaly',11),('Diop',12),('Ndiaye',13),('Fall',14),
-   ('Ba',15),('Sy',16),('Sarr',17),('Faye',18),('Ndiaye',19)),
+-- ---------------------------------------------------------------------------
+-- Assignments for curated employees 1..150. Same shape as the top-up block
+-- below, only n is 1..150. Country comes from employees.origin_country_id.
+-- Frequency follows employment type: FULL_TIME -> MONTHLY, PART_TIME -> BI_WEEKLY.
+-- ---------------------------------------------------------------------------
+WITH RECURSIVE
+nums(n) AS (
+  SELECT 1 UNION ALL SELECT n + 1 FROM nums WHERE n < 150
+)
+INSERT INTO employee_periodic_assignments
+    (id, employee_id, start_date, end_date, country_id,
+     department_id, role_id, employment_type, frequency, in_effect)
+SELECT
+  printf('%08x-0000-4000-9000-%012x', n, n),
+  printf('%08x-0000-4000-8000-%012x', n, n),
+  '2025-10-01',
+  NULL,
+  COALESCE(
+    (SELECT origin_country_id FROM employees
+     WHERE id = printf('%08x-0000-4000-8000-%012x', n, n)),
+    CASE n % 10
+      WHEN 0 THEN 'c0000000-0000-0000-0000-000000000001'
+      WHEN 1 THEN 'c0000000-0000-0000-0000-000000000002'
+      WHEN 2 THEN 'c0000000-0000-0000-0000-000000000003'
+      WHEN 3 THEN 'c0000000-0000-0000-0000-000000000004'
+      WHEN 4 THEN 'c0000000-0000-0000-0000-000000000005'
+      WHEN 5 THEN 'c0000000-0000-0000-0000-000000000006'
+      WHEN 6 THEN 'c0000000-0000-0000-0000-000000000007'
+      WHEN 7 THEN 'c0000000-0000-0000-0000-000000000008'
+      WHEN 8 THEN 'c0000000-0000-0000-0000-000000000009'
+      ELSE        'c0000000-0000-0000-0000-00000000000a'
+    END
+  ),
+  CASE n % 10
+    WHEN 0 THEN 'd0000000-0000-0000-0000-000000000001'
+    WHEN 1 THEN 'd0000000-0000-0000-0000-000000000002'
+    WHEN 2 THEN 'd0000000-0000-0000-0000-000000000003'
+    WHEN 3 THEN 'd0000000-0000-0000-0000-000000000004'
+    WHEN 4 THEN 'd0000000-0000-0000-0000-000000000005'
+    WHEN 5 THEN 'd0000000-0000-0000-0000-000000000006'
+    WHEN 6 THEN 'd0000000-0000-0000-0000-000000000007'
+    WHEN 7 THEN 'd0000000-0000-0000-0000-000000000008'
+    WHEN 8 THEN 'd0000000-0000-0000-0000-000000000009'
+    ELSE        'd0000000-0000-0000-0000-00000000000a'
+  END,
+  CASE n % 12
+    WHEN 0 THEN 'r0000000-0000-0000-0000-000000000001'
+    WHEN 1 THEN 'r0000000-0000-0000-0000-000000000002'
+    WHEN 2 THEN 'r0000000-0000-0000-0000-000000000003'
+    WHEN 3 THEN 'r0000000-0000-0000-0000-000000000004'
+    WHEN 4 THEN 'r0000000-0000-0000-0000-000000000005'
+    WHEN 5 THEN 'r0000000-0000-0000-0000-000000000006'
+    WHEN 6 THEN 'r0000000-0000-0000-0000-000000000007'
+    WHEN 7 THEN 'r0000000-0000-0000-0000-000000000008'
+    WHEN 8 THEN 'r0000000-0000-0000-0000-000000000009'
+    WHEN 9 THEN 'r0000000-0000-0000-0000-00000000000a'
+    WHEN 10 THEN 'r0000000-0000-0000-0000-00000000000b'
+    ELSE        'r0000000-0000-0000-0000-00000000000c'
+  END,
+  CASE WHEN n % 7 = 0 THEN 'PART_TIME' ELSE 'FULL_TIME' END,
+  CASE WHEN n % 7 = 0 THEN 'BI_WEEKLY' ELSE 'MONTHLY' END,
+  1
+FROM nums;
 
- -- Top-up range: 151..10000.
- nums(n) AS (
-   SELECT 151 UNION ALL SELECT n + 1 FROM nums WHERE n < 10000
- ),
- -- Region per n, matching the 30/25/20/15/10 split.
- tagged(n, region) AS (
-   SELECT n,
-     CASE
-       WHEN n <= 3149 THEN 'EUROPE'
-       WHEN n <= 5648 THEN 'AMERICA'
-       WHEN n <= 7647 THEN 'ASIA'
-       WHEN n <= 9146 THEN 'AFRICA'
-       ELSE 'NULL_ORIGIN'
-     END
-   FROM nums
- ),
- -- Country per region. NULL_ORIGIN cycles all 10 countries by n % 10.
- with_country(n, region, origin_country_id, country_id) AS (
-   SELECT n, region,
-     CASE region
-       WHEN 'EUROPE'      THEN CASE n % 3
-                               WHEN 0 THEN 'c0000000-0000-0000-0000-000000000002'
-                               WHEN 1 THEN 'c0000000-0000-0000-0000-000000000003'
-                               ELSE        'c0000000-0000-0000-0000-000000000007'
-                             END
-       WHEN 'AMERICA'     THEN CASE n % 3
-                               WHEN 0 THEN 'c0000000-0000-0000-0000-000000000001'
-                               WHEN 1 THEN 'c0000000-0000-0000-0000-000000000006'
-                               ELSE        'c0000000-0000-0000-0000-000000000008'
-                             END
-       WHEN 'ASIA'        THEN CASE n % 2
-                               WHEN 0 THEN 'c0000000-0000-0000-0000-000000000004'
-                               ELSE        'c0000000-0000-0000-0000-00000000000a'
-                             END
-       WHEN 'AFRICA'      THEN CASE n % 2
-                               WHEN 0 THEN 'c0000000-0000-0000-0000-000000000005'
-                               ELSE        'c0000000-0000-0000-0000-000000000009'
-                             END
-       ELSE                    'c0000000-0000-0000-0000-000000000001'
-     END,
-     -- Assignment country: same as origin for named regions, cycles all for NULL_ORIGIN.
-     CASE region
-       WHEN 'EUROPE'      THEN CASE n % 3
-                               WHEN 0 THEN 'c0000000-0000-0000-0000-000000000002'
-                               WHEN 1 THEN 'c0000000-0000-0000-0000-000000000003'
-                               ELSE        'c0000000-0000-0000-0000-000000000007'
-                             END
-       WHEN 'AMERICA'     THEN CASE n % 3
-                               WHEN 0 THEN 'c0000000-0000-0000-0000-000000000001'
-                               WHEN 1 THEN 'c0000000-0000-0000-0000-000000000006'
-                               ELSE        'c0000000-0000-0000-0000-000000000008'
-                             END
-       WHEN 'ASIA'        THEN CASE n % 2
-                               WHEN 0 THEN 'c0000000-0000-0000-0000-000000000004'
-                               ELSE        'c0000000-0000-0000-0000-00000000000a'
-                             END
-       WHEN 'AFRICA'      THEN CASE n % 2
-                               WHEN 0 THEN 'c0000000-0000-0000-0000-000000000005'
-                               ELSE        'c0000000-0000-0000-0000-000000000009'
-                             END
-       ELSE CASE n % 10
-              WHEN 0 THEN 'c0000000-0000-0000-0000-000000000001'
-              WHEN 1 THEN 'c0000000-0000-0000-0000-000000000002'
-              WHEN 2 THEN 'c0000000-0000-0000-0000-000000000003'
-              WHEN 3 THEN 'c0000000-0000-0000-0000-000000000004'
-              WHEN 4 THEN 'c0000000-0000-0000-0000-000000000005'
-              WHEN 5 THEN 'c0000000-0000-0000-0000-000000000006'
-              WHEN 6 THEN 'c0000000-0000-0000-0000-000000000007'
-              WHEN 7 THEN 'c0000000-0000-0000-0000-000000000008'
-              WHEN 8 THEN 'c0000000-0000-0000-0000-000000000009'
-              ELSE        'c0000000-0000-0000-0000-00000000000a'
-            END
-     END
-   FROM tagged
- ),
- -- Name per n, using the region's tables.
- named(n, region, origin_country_id, country_id, first, last) AS (
-   SELECT wc.n, wc.region, wc.origin_country_id, wc.country_id,
-     CASE wc.region
-       WHEN 'EUROPE'  THEN (SELECT f FROM eu_first WHERE i = wc.n % 20)
-       WHEN 'AMERICA' THEN (SELECT f FROM am_first WHERE i = wc.n % 20)
-       WHEN 'ASIA'    THEN (SELECT f FROM as_first WHERE i = wc.n % 20)
-       WHEN 'AFRICA'  THEN (SELECT f FROM af_first WHERE i = wc.n % 20)
-       ELSE 'Casey'
-     END,
-     CASE wc.region
-       WHEN 'EUROPE'  THEN (SELECT l FROM eu_last WHERE i = wc.n % 20)
-       WHEN 'AMERICA' THEN (SELECT l FROM am_last WHERE i = wc.n % 20)
-       WHEN 'ASIA'    THEN (SELECT l FROM as_last WHERE i = wc.n % 20)
-       WHEN 'AFRICA'  THEN (SELECT l FROM af_last WHERE i = wc.n % 20)
-       ELSE 'Morgan'
-     END
-   FROM with_country wc
- )
- INSERT INTO employees (id, matricule, name, email, birth_date, origin_country_id)
- SELECT
-   printf('%08x-0000-4000-8000-%012x', n, n),
-   printf('EMP-%06d', n),
-   first || ' ' || last,
-   lower(first) || '.' || lower(replace(last, ' ', '')) || '.' || printf('%06d', n)
-     || '@company.com',
-   -- Birth date in [1970-01-01, 2000-12-31], by n.
-   date('1970-01-01', '+' || ((n * 37) % 11323) || ' days'),
-   origin_country_id
- FROM named;
-
-
- -- ---------------------------------------------------------------------------
- -- One assignment per employee, in effect from 2025-10-01 with no end date.
- -- Department and role cycle by n so every (department, role) combo is hit;
- -- employment type is FULL_TIME on 6 of 7 n's, PART_TIME on the seventh.
- -- ---------------------------------------------------------------------------
- WITH RECURSIVE
- nums(n) AS (
-   SELECT 1 UNION ALL SELECT n + 1 FROM nums WHERE n < 10000
- )
- INSERT INTO employee_periodic_assignments
-     (id, employee_id, start_date, end_date, country_id,
-      department_id, role_id, employment_type, in_effect)
- SELECT
-   printf('%08x-0000-4000-9000-%012x', n, n),
-   printf('%08x-0000-4000-8000-%012x', n, n),
-   '2025-10-01',
-   NULL,
-   -- Assignment country: read from employees.origin_country_id when present,
-   -- otherwise fall back to a country by n % 10. This keeps the assignment
-   -- country consistent with the employee's origin where origin is known.
-   COALESCE(
-     (SELECT origin_country_id FROM employees
-      WHERE id = printf('%08x-0000-4000-8000-%012x', n, n)),
-     CASE n % 10
-       WHEN 0 THEN 'c0000000-0000-0000-0000-000000000001'
-       WHEN 1 THEN 'c0000000-0000-0000-0000-000000000002'
-       WHEN 2 THEN 'c0000000-0000-0000-0000-000000000003'
-       WHEN 3 THEN 'c0000000-0000-0000-0000-000000000004'
-       WHEN 4 THEN 'c0000000-0000-0000-0000-000000000005'
-       WHEN 5 THEN 'c0000000-0000-0000-0000-000000000006'
-       WHEN 6 THEN 'c0000000-0000-0000-0000-000000000007'
-       WHEN 7 THEN 'c0000000-0000-0000-0000-000000000008'
-       WHEN 8 THEN 'c0000000-0000-0000-0000-000000000009'
-       ELSE        'c0000000-0000-0000-0000-00000000000a'
-     END
-   ),
-   -- Department cycle: n % 10 maps to the 10 departments by fixed id.
-   CASE n % 10
-     WHEN 0 THEN 'd0000000-0000-0000-0000-000000000001'
-     WHEN 1 THEN 'd0000000-0000-0000-0000-000000000002'
-     WHEN 2 THEN 'd0000000-0000-0000-0000-000000000003'
-     WHEN 3 THEN 'd0000000-0000-0000-0000-000000000004'
-     WHEN 4 THEN 'd0000000-0000-0000-0000-000000000005'
-     WHEN 5 THEN 'd0000000-0000-0000-0000-000000000006'
-     WHEN 6 THEN 'd0000000-0000-0000-0000-000000000007'
-     WHEN 7 THEN 'd0000000-0000-0000-0000-000000000008'
-     WHEN 8 THEN 'd0000000-0000-0000-0000-000000000009'
-     ELSE        'd0000000-0000-0000-0000-00000000000a'
-   END,
-   -- Role cycle: n % 12 maps to the 12 roles.
-   CASE n % 12
-     WHEN 0 THEN 'r0000000-0000-0000-0000-000000000001'
-     WHEN 1 THEN 'r0000000-0000-0000-0000-000000000002'
-     WHEN 2 THEN 'r0000000-0000-0000-0000-000000000003'
-     WHEN 3 THEN 'r0000000-0000-0000-0000-000000000004'
-     WHEN 4 THEN 'r0000000-0000-0000-0000-000000000005'
-     WHEN 5 THEN 'r0000000-0000-0000-0000-000000000006'
-     WHEN 6 THEN 'r0000000-0000-0000-0000-000000000007'
-     WHEN 7 THEN 'r0000000-0000-0000-0000-000000000008'
-     WHEN 8 THEN 'r0000000-0000-0000-0000-000000000009'
-     WHEN 9 THEN 'r0000000-0000-0000-0000-00000000000a'
-     WHEN 10 THEN 'r0000000-0000-0000-0000-00000000000b'
-     ELSE        'r0000000-0000-0000-0000-00000000000c'
-   END,
-   CASE WHEN n % 7 = 0 THEN 'PART_TIME' ELSE 'FULL_TIME' END,
-   1
- FROM nums;
+-- ---------------------------------------------------------------------------
+-- Assignments for top-up employees 151..10000. Same shape as above.
+-- ---------------------------------------------------------------------------
+WITH RECURSIVE
+nums(n) AS (
+  SELECT 151 UNION ALL SELECT n + 1 FROM nums WHERE n < 10000
+)
+INSERT INTO employee_periodic_assignments
+    (id, employee_id, start_date, end_date, country_id,
+     department_id, role_id, employment_type, frequency, in_effect)
+SELECT
+  printf('%08x-0000-4000-9000-%012x', n, n),
+  printf('%08x-0000-4000-8000-%012x', n, n),
+  '2025-10-01',
+  NULL,
+  COALESCE(
+    (SELECT origin_country_id FROM employees
+     WHERE id = printf('%08x-0000-4000-8000-%012x', n, n)),
+    CASE n % 10
+      WHEN 0 THEN 'c0000000-0000-0000-0000-000000000001'
+      WHEN 1 THEN 'c0000000-0000-0000-0000-000000000002'
+      WHEN 2 THEN 'c0000000-0000-0000-0000-000000000003'
+      WHEN 3 THEN 'c0000000-0000-0000-0000-000000000004'
+      WHEN 4 THEN 'c0000000-0000-0000-0000-000000000005'
+      WHEN 5 THEN 'c0000000-0000-0000-0000-000000000006'
+      WHEN 6 THEN 'c0000000-0000-0000-0000-000000000007'
+      WHEN 7 THEN 'c0000000-0000-0000-0000-000000000008'
+      WHEN 8 THEN 'c0000000-0000-0000-0000-000000000009'
+      ELSE        'c0000000-0000-0000-0000-00000000000a'
+    END
+  ),
+  CASE n % 10
+    WHEN 0 THEN 'd0000000-0000-0000-0000-000000000001'
+    WHEN 1 THEN 'd0000000-0000-0000-0000-000000000002'
+    WHEN 2 THEN 'd0000000-0000-0000-0000-000000000003'
+    WHEN 3 THEN 'd0000000-0000-0000-0000-000000000004'
+    WHEN 4 THEN 'd0000000-0000-0000-0000-000000000005'
+    WHEN 5 THEN 'd0000000-0000-0000-0000-000000000006'
+    WHEN 6 THEN 'd0000000-0000-0000-0000-000000000007'
+    WHEN 7 THEN 'd0000000-0000-0000-0000-000000000008'
+    WHEN 8 THEN 'd0000000-0000-0000-0000-000000000009'
+    ELSE        'd0000000-0000-0000-0000-00000000000a'
+  END,
+  CASE n % 12
+    WHEN 0 THEN 'r0000000-0000-0000-0000-000000000001'
+    WHEN 1 THEN 'r0000000-0000-0000-0000-000000000002'
+    WHEN 2 THEN 'r0000000-0000-0000-0000-000000000003'
+    WHEN 3 THEN 'r0000000-0000-0000-0000-000000000004'
+    WHEN 4 THEN 'r0000000-0000-0000-0000-000000000005'
+    WHEN 5 THEN 'r0000000-0000-0000-0000-000000000006'
+    WHEN 6 THEN 'r0000000-0000-0000-0000-000000000007'
+    WHEN 7 THEN 'r0000000-0000-0000-0000-000000000008'
+    WHEN 8 THEN 'r0000000-0000-0000-0000-000000000009'
+    WHEN 9 THEN 'r0000000-0000-0000-0000-00000000000a'
+    WHEN 10 THEN 'r0000000-0000-0000-0000-00000000000b'
+    ELSE        'r0000000-0000-0000-0000-00000000000c'
+  END,
+  CASE WHEN n % 7 = 0 THEN 'PART_TIME' ELSE 'FULL_TIME' END,
+  CASE WHEN n % 7 = 0 THEN 'BI_WEEKLY' ELSE 'MONTHLY' END,
+  1
+FROM nums;

@@ -51,6 +51,10 @@ public final class EmployeePeriodicAssignmentSpecification {
                 predicates.add(
                         root.get("employmentType").in(criteria.anyEmploymentTypes()));
             }
+            if (isNotEmpty(criteria.anyPayrollFrequencies())) {
+                predicates.add(
+                        root.get("payrollFrequency").in(criteria.anyPayrollFrequencies()));
+            }
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };

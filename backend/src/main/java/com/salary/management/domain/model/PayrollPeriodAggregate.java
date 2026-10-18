@@ -44,7 +44,7 @@ public final class PayrollPeriodAggregate {
     @NotNull
     private final Amounts originalAmounts;
 
-    @NotNull
+    // This amount is null untill computed
     private final Amounts referenceAmounts;
 
     @NotNull

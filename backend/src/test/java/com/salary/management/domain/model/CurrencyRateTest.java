@@ -110,10 +110,10 @@ class CurrencyRateTest {
     }
 
     @Test
-    @DisplayName("currency and reference must differ")
-    void sameCurrencyRejected() {
+    @DisplayName("same currency must have rate=1 and referenceAmount=1")
+    void sameCurrencyShouldHaveRateAndAmountOne() {
         assertThrows(DomainValidationException.class, () -> CurrencyRate.builder()
                 .currencyCode("USD").referenceCurrencyCode("USD")
-                .rate(BigDecimal.ONE).build());
+                .rate(new BigDecimal(2)).build());
     }
 }

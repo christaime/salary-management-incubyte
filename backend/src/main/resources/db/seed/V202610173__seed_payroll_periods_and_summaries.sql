@@ -6,22 +6,17 @@
 -- two cadences overlap by design. The last period ends 2026-07-01.
 --
 -- Summaries: one per (employee, period) where the employee's assignment is in
--- effect for the period AND the employment type matches the period cadence:
---   FULL_TIME            -> MONTHLY periods only
---   PART_TIME, CONTRACTOR-> BI_WEEKLY periods only (CONTRACTOR is not seeded)
+-- effect for the period AND the assignment's payroll frequency matches the
+-- period's frequency. Cadence is read from employee_periodic_assignments.frequency
+-- (set in V202610172), not derived from employment type here.
 -- In effect: in_effect = 1 AND start_date <= period.end_date
 --            AND (end_date IS NULL OR end_date >= period.start_date).
 --
 -- With the 10% of assignments ending 2026-05-18 (see V202610172):
---   FULL_TIME : months 1-5 for the 10%, months 1-6 for the rest.
---   PART_TIME : B01-B10 for the 10%, B01-B13 for the rest.
+--   MONTHLY assignments   : months 1-5 for the 10%, months 1-6 for the rest.
+--   BI_WEEKLY assignments : B01-B10 for the 10%, B01-B13 for the rest.
 -- Closed periods (monthly 1-3, bi-weekly 1-7) are covered by every group, so
 -- the VALIDATED slice is unaffected by the assignment-end rule.
---
--- Expected row counts (approximate, from the 6/7 FULL_TIME split):
---   FULL_TIME total      ~50,569   VALIDATED ~25,713
---   PART_TIME total      ~18,148   VALIDATED ~10,003
---   All       total      ~68,717   VALIDATED ~35,716
 --
 -- Amounts are in the assignment country's currency. total = base + variable +
 -- allowances + employer_taxes, always.
@@ -64,7 +59,7 @@ INSERT INTO payroll_periods (id, name, start_date, end_date, frequency, closed) 
 -- payroll_summaries
 --
 -- Nine narrow CTEs, each doing one transformation, one cross-join only.
--- salary band from the role table below (annual, USD).
+-- Salary band from the role table below (annual, USD).
 -- hash(n) = (n * 2654435761) % (annual_max - annual_min + 1) spreads n inside
 -- the band. Not a perfect uniform, but deterministic and well-distributed.
 -- ---------------------------------------------------------------------------
@@ -109,6 +104,7 @@ role_band(role_code, annual_min, annual_max, pt_factor) AS (
   ('LEGAL',   90000, 180000, 0.5)
 ),
 -- Employees with their assignment, role code, currency and cadence.
+-- Cadence is read from a.frequency, set per assignment in V202610172.
 ew(year_n, employee_id, assignment_id, country_id, department_id, role_id,
    employment_type, role_code, currency, cadence, assignment_start, assignment_end) AS (
   SELECT
@@ -121,11 +117,7 @@ ew(year_n, employee_id, assignment_id, country_id, department_id, role_id,
     a.employment_type,
     r.code,
     c.currency_code,
-    CASE a.employment_type
-      WHEN 'FULL_TIME'             THEN 'MONTHLY'
-      WHEN 'PART_TIME'             THEN 'BI_WEEKLY'
-      WHEN 'CONTRACTOR'            THEN 'BI_WEEKLY'
-    END,
+    a.frequency,
     a.start_date,
     a.end_date
   FROM employees e
@@ -191,7 +183,6 @@ converted(year_n, p_idx, p_id, frequency, closed, employee_id, assignment_id,
     ON cr.reference_currency_code = 'USD'
    AND cr.currency_code = dv.currency
 ),
-
 -- Add variable, allowances, employer_taxes, total. All percentages of base.
 -- Each component is rounded to 2 decimals BEFORE summing, so the stored
 -- total equals base + variable + allowances + employer_taxes exactly.
@@ -211,7 +202,6 @@ amounted(year_n, p_idx, p_id, frequency, closed, employee_id, assignment_id,
          + ROUND(cv.base * (10 + (cv.year_n + cv.p_idx) % 11) / 100.0, 2)
   FROM converted cv
 )
-
 INSERT INTO payroll_summaries
     (id, employee_id, payroll_period_id, employee_periodic_assignment_id,
      assignment_country_id, assignment_department_id, assignment_role_id,
