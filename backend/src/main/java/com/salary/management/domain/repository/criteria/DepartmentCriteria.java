@@ -2,10 +2,12 @@ package com.salary.management.domain.repository.criteria;
 
 import com.salary.management.common.pagination.Criteria;
 import com.salary.management.common.pagination.SortDirection;
+import lombok.Getter;
 
 import java.util.Set;
 
 /** Criteria for querying departments. */
+@Getter
 public final class DepartmentCriteria implements Criteria {
 
     private static final Set<String> SORTABLE_FIELDS = Set.of("code", "name");
