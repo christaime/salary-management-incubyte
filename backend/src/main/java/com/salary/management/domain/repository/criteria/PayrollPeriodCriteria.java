@@ -3,11 +3,13 @@ package com.salary.management.domain.repository.criteria;
 import com.salary.management.common.pagination.Criteria;
 import com.salary.management.common.pagination.SortDirection;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
+import lombok.Getter;
 
 import java.time.LocalDate;
 import java.util.Set;
 
 /** Criteria for querying payroll periods. */
+@Getter
 public final class PayrollPeriodCriteria implements Criteria {
 
     private static final Set<String> SORTABLE_FIELDS =

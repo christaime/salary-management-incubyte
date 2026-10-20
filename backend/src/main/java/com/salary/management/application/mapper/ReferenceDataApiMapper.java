@@ -6,7 +6,7 @@ import com.salary.management.domain.model.Role;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring")
-public interface ReferenceDataMapper {
+public interface ReferenceDataApiMapper {
 
     ReferenceDataResponse toResponse(Department department);
 

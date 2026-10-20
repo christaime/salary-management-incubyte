@@ -1,7 +1,7 @@
 package com.salary.management.application.service;
 
 import com.salary.management.application.dto.ReferenceDataResponse;
-import com.salary.management.application.mapper.ReferenceDataMapper;
+import com.salary.management.application.mapper.ReferenceDataApiMapper;
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.domain.model.Department;
 import com.salary.management.domain.repository.DepartmentRepository;
@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class DepartmentService {
 
     private final DepartmentRepository repository;
-    private final ReferenceDataMapper mapper;
+    private final ReferenceDataApiMapper mapper;
 
     public DataPage<ReferenceDataResponse> search(DepartmentCriteria criteria) {
         DataPage<Department> domainPage = repository.page(criteria);
