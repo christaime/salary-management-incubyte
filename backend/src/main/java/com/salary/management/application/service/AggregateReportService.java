@@ -216,23 +216,26 @@ public class AggregateReportService {
             if (request.includeStatistics()) {
                 StatisticsPair pair = statistics.get(key);
                 AmountDto min = pair != null && pair.min != null
-                        ? new AmountDto(pair.min,referenceCurrency)
+                        ? new AmountDto(pair.min.setScale(
+                        AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
+                        referenceCurrency)
                         : null;
                 AmountDto max = pair != null && pair.max != null
-                        ? new AmountDto(pair.max, referenceCurrency)
+                        ? new AmountDto(pair.max.setScale(
+                        AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
+                        referenceCurrency)
                         : null;
-                AmountDto average = row.sumEmployeeCount != null && row.sumEmployeeCount > 0
+                AmountDto average = row.employeeCount != null && row.employeeCount > 0
                         ? new AmountDto(row.sumTotal.divide(
-                        BigDecimal.valueOf(row.sumEmployeeCount),
+                        BigDecimal.valueOf(row.employeeCount),
                         AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
                         referenceCurrency)
                         : null;
                 stats = new StatisticsDto(min, max, average);
             }
-
             lines.add(new AggregateLineDto(
                     amount,
-                    row.sumEmployeeCount == null ? 0 : row.sumEmployeeCount.intValue(),
+                    row.employeeCount == null ? 0 : row.employeeCount.intValue(),
                     row.country,
                     row.department,
                     row.role,

@@ -1,9 +1,9 @@
 package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.application.dto.RefDto;
-import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.values.AmountUtils;
 import com.salary.management.domain.repository.ReportDataRepository;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
@@ -11,7 +11,7 @@ import com.salary.management.domain.repository.projection.AggregateRowProjection
 import com.salary.management.infrastructure.persistence.entity.CountryEntity;
 import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodAggregateEntity;
-import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarnerRankingEntity;
+import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEntity;
 import com.salary.management.infrastructure.persistence.entity.RoleEntity;
 import com.salary.management.infrastructure.persistence.projection.StatisticsRow;
 import com.salary.management.infrastructure.persistence.repository.PayrollPeriodEarnerRankingJpaRepository;
@@ -30,7 +30,11 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 /** Persistence adapter implementing {@link ReportDataRepository}. */
 @Component
@@ -49,9 +53,11 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         CriteriaQuery<Tuple> cq = cb.createTupleQuery();
         Root<PayrollPeriodAggregateEntity> root =
                 cq.from(PayrollPeriodAggregateEntity.class);
+        Root<PayrollPeriodEntity> period = cq.from(PayrollPeriodEntity.class);
 
         List<Predicate> predicates = new ArrayList<>();
         predicates.add(root.get("payrollPeriodId").in(periodIds));
+        predicates.add(cb.equal(period.get("id"), root.get("payrollPeriodId")));
         addFilter(cb, root, predicates, "countryId", filters.countryIds());
         addFilter(cb, root, predicates, "departmentId", filters.departmentIds());
         addFilter(cb, root, predicates, "roleId", filters.roleIds());
@@ -118,6 +124,26 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         selections.add(cb.sum(root.get("referenceAmounts").get("total")).alias("sumTotal"));
         selections.add(cb.sum(root.get("employeeCount")).alias("sumEmployeeCount"));
 
+        Expression<Long> monthlyEmployees = cb.<Long>selectCase()
+                .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
+                        cb.toLong(root.get("employeeCount")))
+                .otherwise(0L);
+        Expression<Long> monthlyPeriods = cb.<Long>selectCase()
+                .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY), 1L)
+                .otherwise(0L);
+        Expression<Long> biWeeklyEmployees = cb.<Long>selectCase()
+                .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY),
+                        cb.toLong(root.get("employeeCount")))
+                .otherwise(0L);
+        Expression<Long> biWeeklyPeriods = cb.<Long>selectCase()
+                .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY), 1L)
+                .otherwise(0L);
+
+        selections.add(cb.sum(monthlyEmployees).alias("monthlyEmployeeCount"));
+        selections.add(cb.sum(monthlyPeriods).alias("monthlyPeriodCount"));
+        selections.add(cb.sum(biWeeklyEmployees).alias("biWeeklyEmployeeCount"));
+        selections.add(cb.sum(biWeeklyPeriods).alias("biWeeklyPeriodCount"));
+
         cq.multiselect(selections);
         cq.where(cb.and(predicates.toArray(new Predicate[0])));
         cq.groupBy(groupBy);
@@ -171,13 +197,15 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                         "Unsupported statistics key: " + key);
             }
         }
-        p.minReferenceAmount = row.getMinReferenceAmount()!= null ? row.getMinReferenceAmount().setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP): null;
-        p.maxReferenceAmount = row.getMaxReferenceAmount()!= null ? row.getMaxReferenceAmount().setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP): null;
+        p.minReferenceAmount = row.getMinReferenceAmount() != null
+                ? row.getMinReferenceAmount().setScale(
+                AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP)
+                : null;
+        p.maxReferenceAmount = row.getMaxReferenceAmount() != null
+                ? row.getMaxReferenceAmount().setScale(
+                AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP)
+                : null;
         return p;
-    }
-
-    private <T> Collection<T> nullIfEmpty(Set<T> set) {
-        return set == null || set.isEmpty() ? null : set;
     }
 
     private AggregateRowProjection toAggregateProjection(Tuple t, List<GroupKey> groupKeys) {
@@ -198,9 +226,42 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         p.sumAllowances = t.get("sumAllowances", BigDecimal.class);
         p.sumEmployerTaxes = t.get("sumEmployerTaxes", BigDecimal.class);
         p.sumTotal = t.get("sumTotal", BigDecimal.class);
-        Number count = (Number) t.get("sumEmployeeCount");
-        p.sumEmployeeCount = count == null ? 0L : count.longValue();
+        p.sumEmployeeCount = number(t.get("sumEmployeeCount"));
+        p.monthlyEmployeeCount = number(t.get("monthlyEmployeeCount"));
+        p.monthlyPeriodCount = number(t.get("monthlyPeriodCount"));
+        p.biWeeklyEmployeeCount = number(t.get("biWeeklyEmployeeCount"));
+        p.biWeeklyPeriodCount = number(t.get("biWeeklyPeriodCount"));
+        p.employeeCount = computeAverageEmployeeCount(
+                p.monthlyEmployeeCount, p.monthlyPeriodCount,
+                p.biWeeklyEmployeeCount, p.biWeeklyPeriodCount);
         return p;
+    }
+
+    private long computeAverageEmployeeCount(
+            Long monthlyEmployees, Long monthlyPeriods,
+            Long biWeeklyEmployees, Long biWeeklyPeriods) {
+        long monthlyAvg = safeDivide(monthlyEmployees, monthlyPeriods);
+        long biWeeklyAvg = safeDivide(biWeeklyEmployees, biWeeklyPeriods);
+        return monthlyAvg + biWeeklyAvg;
+    }
+
+    private long safeDivide(Long numerator, Long denominator) {
+        if (numerator == null || denominator == null || denominator == 0L) {
+            return 0L;
+        }
+        return BigDecimal.valueOf(numerator)
+                .divide(BigDecimal.valueOf(denominator), 0, RoundingMode.HALF_UP)
+                .longValueExact();
+    }
+
+    private Long number(Object value) {
+        if (value == null) {
+            return 0L;
+        }
+        if (value instanceof Number n) {
+            return n.longValue();
+        }
+        return Long.parseLong(value.toString());
     }
 
     private RefDto ref(Tuple t, String codeAlias, String nameAlias) {
@@ -210,6 +271,10 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
             return null;
         }
         return new RefDto(code, name);
+    }
+
+    private <T> Collection<T> nullIfEmpty(Set<T> set) {
+        return set == null || set.isEmpty() ? null : set;
     }
 
     private void addFilter(CriteriaBuilder cb, Root<?> root, List<Predicate> predicates,

@@ -55,7 +55,7 @@ public interface PayrollPeriodAggregateJpaRepository
                    s.assignmentRoleId           AS roleId,
                    s.assignmentEmploymentType   AS employmentType,
                    s.amounts.currency           AS currency,
-                   COUNT(s)                     AS employeeCount,
+                   COUNT(DISTINCT s.employee.id)   AS employeeCount,
                    SUM(s.amounts.base)          AS base,
                    SUM(s.amounts.variable)      AS variable,
                    SUM(s.amounts.allowances)    AS allowances,

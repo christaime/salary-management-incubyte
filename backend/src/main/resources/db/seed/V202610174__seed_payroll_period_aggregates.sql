@@ -34,7 +34,7 @@ grouped AS (
     s.assignment_role_id,
     s.assignment_employment_type,
     s.currency,
-    COUNT(*)                              AS employee_count,
+    COUNT(DISTINCT s.employee_id)          AS employee_count,
     SUM(s.base)                           AS base_sum,
     SUM(s.variable)                       AS variable_sum,
     SUM(s.allowances)                     AS allowances_sum,
