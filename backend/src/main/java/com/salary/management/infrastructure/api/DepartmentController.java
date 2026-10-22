@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/departments")
+@RequestMapping("/api/v1/departments")
 @RequiredArgsConstructor
 @Tag(name = "Departments", description = "Reference data for departments")
 public class DepartmentController {

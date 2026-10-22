@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 
 @RestController
-@RequestMapping("/payroll-periods")
+@RequestMapping("/api/v1/payroll-periods")
 @RequiredArgsConstructor
 @Tag(name = "Payroll Periods", description = "Reference data for payroll periods")
 public class PayrollPeriodController {
