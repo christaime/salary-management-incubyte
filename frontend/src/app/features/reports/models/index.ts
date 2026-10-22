@@ -11,3 +11,5 @@ export type { AggregateLineDto } from './aggregate-line.model';
 export type { ReportWarningDto } from './report-warning.model';
 export type { AggregateReportResponse } from './aggregate-report-response.model';
 export type { ErrorResponse, ValidationError } from './error-response.model';
+export type { ReportKind } from './report-kind.model';
+export { REPORT_KINDS, REPORT_KIND_LABELS, groupKeysFor } from './report-kind.model';

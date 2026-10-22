@@ -1,0 +1,43 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex flex-col gap-4" novalidate>
+
+  <!-- Row: period + actions -->
+  <div class="flex flex-col md:flex-row md:flex-wrap xl:flex-nowrap md:items-center gap-3 w-full">
+
+    <!-- Start period -->
+    <app-payroll-period-picker
+      formControlName="startPeriod"
+      class="w-full md:w-64 shrink-0"
+      label="Start period"
+      [isRequired]="true"
+      [startYearAllowed]="2024"
+    />
+
+    <!-- End period -->
+    <app-payroll-period-picker
+      formControlName="endPeriod"
+      class="w-full md:w-64 shrink-0"
+      label="End period"
+      [startYearAllowed]="endPickerMinYear()"
+    />
+
+    <!-- Actions (Placed immediately after End period) -->
+    <div class="flex items-center gap-2 shrink-0">
+      <button mat-flat-button color="primary" type="submit" [disabled]="!canSubmit()">
+        @if (submitting()) { Generating… } @else { Generate }
+      </button>
+
+      <button mat-stroked-button type="button" (click)="onReset()">Reset</button>
+
+      <!-- Customize Button directly after Reset -->
+      <button mat-stroked-button type="button" (click)="filterDrawer.open()">
+        <mat-icon class="mr-1">tune</mat-icon>
+        Customize
+      </button>
+    </div>
+
+  </div>
+
+</form>
+
+<!-- Standalone Side Drawer Component -->
+<app-aggregate-report-filter-drawer #filterDrawer [form]="filterFormGroup" />

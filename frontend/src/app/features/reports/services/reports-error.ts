@@ -19,7 +19,7 @@ export interface ReportsError {
   /** Human-readable message. */
   message: string;
   /** Raw per-field validation errors. Empty array when none. */
-  fieldErrors: ValidationError[];
+  fieldErrors: readonly ValidationError[];
   /**
    * Populated when `code === 'REPORT_BLOCKED'`. Empty array otherwise.
    * Transformed from `fieldErrors` with `severity = 'BLOCKER'`.

@@ -1,0 +1,48 @@
+<div class="flex flex-col gap-3">
+  @for (row of rows(); track row.key) {
+  <button
+    type="button"
+    class="flex flex-col gap-1.5 text-left cursor-pointer group focus:outline-none"
+    (click)="onRowClick(row)"
+    [attr.aria-pressed]="selectedKey() === row.key"
+  >
+    <!-- Metadata Line -->
+    <div class="flex items-center justify-between text-xs w-full">
+      <div class="flex items-center gap-2 min-w-0">
+        <!-- Country Code Badge -->
+        @if (row.code) {
+        <span class="w-15 h-5 rounded bg-slate-100 border border-slate-200/80 flex items-center justify-center font-mono font-semibold text-[10px] text-slate-700 shrink-0">
+              {{ row.code }}
+            </span>
+        }
+        <span class="font-medium text-slate-800 truncate group-hover:text-slate-900 transition-colors">
+            {{ row.label }}
+          </span>
+        <span class="text-slate-400 text-[11px] shrink-0">
+            {{ row.employeeCount | number }} {{ row.employeeCount > 1 ? 'Employees':'Employee'}}
+          </span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        @if (row.isWarning) {
+        <span class="text-rose-600 font-medium bg-rose-50 px-1.5 py-0.5 rounded text-[11px]">High Burden</span>
+        }
+        <span class="text-slate-500 font-mono text-xs">
+          {{ row.percentage | number:'1.1-1' }}%
+        </span>
+        <span class="font-semibold text-slate-900 font-mono text-xs">
+            {{ currency() }} {{ formatAmount(row.amount) }}
+          </span>
+      </div>
+    </div>
+
+    <!-- Tiered Progress Bar Track -->
+    <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex">
+      <div
+        class="h-full rounded-full transition-all duration-500"
+        [ngClass]="row.isTier1 ? 'bg-linear-to-r from-blue-700 to-indigo-600' : 'bg-blue-600'"
+        [style.width.%]="row.barPct"
+      ></div>
+    </div>
+  </button>
+  }
+</div>

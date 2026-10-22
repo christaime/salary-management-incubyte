@@ -5,7 +5,7 @@ import { ToastComponent } from './core/ui/toast/toast.component';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, ToastComponent],
+  imports: [RouterOutlet, ToastComponent ],
   template: `
     <router-outlet />
     <app-toast />

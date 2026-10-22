@@ -17,11 +17,11 @@ export interface AggregateLineDto {
   employeeCount: number;
 
   /** Present only when `COUNTRY` was requested as a group key. */
-  country?: string;
+  country?: RefDto;
   /** Present only when `DEPARTMENT` was requested as a group key. */
-  department?: string;
+  department?: RefDto;
   /** Present only when `ROLE` was requested as a group key. */
-  role?: string;
+  role?: RefDto;
   /** Present only when `EMPLOYMENT_TYPE` was requested as a group key. */
   employmentType?: string;
   /** Present only when `CURRENCY` was requested as a group key. */
@@ -32,4 +32,9 @@ export interface AggregateLineDto {
 
   /** Present only when `includeStatistics = true`. */
   statistics?: StatisticsDto;
+}
+
+export interface RefDto {
+  code: string;
+  name: string;
 }

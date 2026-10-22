@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
-
+import { apiUrl } from '@core/config/api-base-url';
 import {
   AggregateReportRequest,
   AggregateReportResponse,
@@ -11,7 +11,7 @@ import { ReportWarningDto } from '../models/report-warning.model';
 import { ReportsError } from './reports-error';
 
 /** Endpoint for the aggregate report. */
-const AGGREGATE_REPORT_URL = '/api/v1/reports/aggregate';
+const AGGREGATE_REPORT_URL = apiUrl('/api/v1/reports/aggregate');
 
 /**
  * Client for the reports API.

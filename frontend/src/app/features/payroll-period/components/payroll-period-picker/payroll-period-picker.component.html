@@ -1,0 +1,98 @@
+<mat-form-field appearance="outline" class="period-picker" subscriptSizing="dynamic">
+  <mat-label>{{ label() }}</mat-label>
+
+  <!-- Dynamic Year Trigger in PREFIX -->
+  <button type="button"
+          matPrefix
+          mat-button
+          [matMenuTriggerFor]="yearMenu"
+          (click)="$event.stopPropagation()"
+          [class]="selectedYear() ? 'w-16':'w-8'"
+          class="inline-flex items-center justify-between h-9 px-3 rounded-lg border border-gray-300 bg-white font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+    <!-- Selected Year comes first -->
+    @if (selectedYear()) {
+    <span class="truncate text-xs sm:text-sm">
+        {{ selectedYear() }}
+      </span>
+    }
+    <!-- Calendar icon comes after -->
+    <mat-icon [class]="selectedYear() ? 'h-2.5 w-2.5 text-[10px] !flex !items-center !justify-center' : 'h-5 w-5 text-lg !flex !items-center !justify-center'"
+              class="text-gray-500 transition-all shrink-0">
+      calendar_today
+    </mat-icon>
+  </button>
+
+  <!-- Autocomplete search input -->
+  <input
+    #searchInput
+    matInput
+    [matAutocomplete]="auto"
+    [value]="searchText()"
+    (input)="onInput(($any($event.target)).value)"
+    (blur)="onBlur()"
+    (click)="onOpenPicker()"
+  />
+
+  <!-- Clear button in SUFFIX -->
+  @if (selectedPeriod()) {
+  <button
+    matSuffix
+    mat-icon-button
+    type="button"
+    (click)="clear(); $event.stopPropagation()"
+    aria-label="Clear period"
+    class="suffix-btn"
+  >
+    <mat-icon>close</mat-icon>
+  </button>
+  }
+
+  <!-- Error Message inside the form field -->
+  @if (touched() && isRequired() && !selectedPeriod()) {
+  <mat-error>{{ label() }} is required.</mat-error>
+  }
+
+  <!-- Autocomplete panel -->
+  <mat-autocomplete
+    #auto="matAutocomplete"
+    [displayWith]="displayFn"
+    (optionSelected)="onSelectPeriod($event.option.value)"
+  >
+    @for (period of results(); track period.id) {
+    <mat-option [value]="period">
+        <span class="period-option">
+          <span class="period-option__name">{{ period.name }}</span>
+          <span class="period-option__dates">{{ period.startDate }} → {{ period.endDate }}</span>
+        </span>
+    </mat-option>
+    }
+    @if (results().length === 0) {
+    <mat-option disabled>No matching periods</mat-option>
+    }
+  </mat-autocomplete>
+</mat-form-field>
+
+<!-- Custom Year Picker Menu -->
+<mat-menu #yearMenu="matMenu" class="year-menu" xPosition="before">
+  <div class="year-menu__header" (click)="$event.stopPropagation()">
+    <span class="year-menu__title">Select Year</span>
+    @if (selectedYear()) {
+    <button mat-button class="year-menu__clear" (click)="clearYear($event)">
+      Clear Year
+    </button>
+    }
+  </div>
+
+  <div class="year-menu__grid" (click)="$event.stopPropagation()">
+    @for (year of availableYears(); track year) {
+    <button
+      type="button"
+      class="year-menu__btn"
+      [class.year-menu__btn--active]="selectedYear() === year"
+      (click)="selectYear(year); yearMenu.closed.emit()"
+    >
+      {{ year }}
+    </button>
+    }
+  </div>
+</mat-menu>

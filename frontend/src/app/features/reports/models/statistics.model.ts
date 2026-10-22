@@ -9,7 +9,15 @@ import { AmountDto } from './amount.model';
  * is small). The results table must render a placeholder (`—`) for null.
  */
 export interface StatisticsDto {
-  min: AmountDto | null;
-  max: AmountDto | null;
-  average: AmountDto | null;
+  monthly: CadenceData;
+  biWeekly: CadenceData;
+}
+
+export interface CadenceData {
+  min: AmountDto;
+  max: AmountDto;
+  average: AmountDto;
+  total: AmountDto;
+  employeeCount: number;
+  periodCount: number;
 }
