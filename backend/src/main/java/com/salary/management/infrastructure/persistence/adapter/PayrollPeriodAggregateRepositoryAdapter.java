@@ -12,11 +12,7 @@ import com.salary.management.infrastructure.persistence.entity.PayrollPeriodAggr
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEntity;
 import com.salary.management.infrastructure.persistence.entity.RoleEntity;
 import com.salary.management.infrastructure.persistence.mapper.PayrollPeriodAggregatePersistenceMapper;
-import com.salary.management.infrastructure.persistence.repository.CountryJpaRepository;
-import com.salary.management.infrastructure.persistence.repository.DepartmentJpaRepository;
-import com.salary.management.infrastructure.persistence.repository.PayrollPeriodAggregateJpaRepository;
-import com.salary.management.infrastructure.persistence.repository.PayrollPeriodJpaRepository;
-import com.salary.management.infrastructure.persistence.repository.RoleJpaRepository;
+import com.salary.management.infrastructure.persistence.repository.*;
 import com.salary.management.infrastructure.persistence.specification.PayrollPeriodAggregateSpecification;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;

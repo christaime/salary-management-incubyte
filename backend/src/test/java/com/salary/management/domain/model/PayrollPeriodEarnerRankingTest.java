@@ -46,34 +46,6 @@ class PayrollPeriodEarnerRankingTest {
     }
 
     @Test
-    @DisplayName("null country is rejected")
-    void nullCountryIsRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> valid().country(null).build());
-    }
-
-    @Test
-    @DisplayName("null department is rejected")
-    void nullDepartmentIsRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> valid().department(null).build());
-    }
-
-    @Test
-    @DisplayName("null role is rejected")
-    void nullRoleIsRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> valid().role(null).build());
-    }
-
-    @Test
-    @DisplayName("null employmentType is rejected")
-    void nullEmploymentTypeIsRejected() {
-        assertThrows(DomainValidationException.class,
-                () -> valid().employmentType(null).build());
-    }
-
-    @Test
     @DisplayName("null direction is rejected")
     void nullDirectionIsRejected() {
         assertThrows(DomainValidationException.class,

@@ -300,22 +300,19 @@ CREATE INDEX idx_payroll_period_aggregate_group
     ON payroll_period_aggregates (country_id, department_id, role_id, employment_type);
 
 
--- ---------------------------------------------------------------------------
--- payroll_period_earner_rankings
---
--- Each row carries the employee's total in two currencies: the assignment
--- currency (original_amount / original_currency) and the reference currency
--- (reference_amount / reference_currency). This mirrors
--- payroll_period_aggregates, so no downstream code has to convert or guess.
--- ---------------------------------------------------------------------------
+-- Recreate payroll_period_earner_rankings with nullable dimension columns and
+-- per-partition uniqueness. SQLite cannot drop NOT NULL in place, so the
+-- table is rebuilt. Existing rows are the FULL partition; the other four
+-- partition kinds start empty and are filled by the builder on the next run.
+
 CREATE TABLE payroll_period_earner_rankings (
     id                  TEXT PRIMARY KEY,
     payroll_period_id   TEXT NOT NULL,
     status              TEXT NOT NULL,
-    country_id          TEXT NOT NULL,
-    department_id       TEXT NOT NULL,
-    role_id             TEXT NOT NULL,
-    employment_type     TEXT NOT NULL,
+    country_id          TEXT,
+    department_id       TEXT,
+    role_id             TEXT,
+    employment_type     TEXT,
     direction           TEXT NOT NULL,
     rank                INTEGER NOT NULL,
     employee_id         TEXT NOT NULL,
@@ -342,3 +339,30 @@ CREATE INDEX idx_payroll_period_earner_ranking_payroll_period
     ON payroll_period_earner_rankings (payroll_period_id);
 CREATE INDEX idx_payroll_period_earner_ranking_employee
     ON payroll_period_earner_rankings (employee_id);
+
+-- Uniqueness per single-dimension partition and per global partition.
+-- The existing table-level UNIQUE handles the FULL partition.
+CREATE UNIQUE INDEX uk_ranking_by_country
+    ON payroll_period_earner_rankings (payroll_period_id, country_id, direction, rank)
+    WHERE country_id IS NOT NULL
+      AND department_id IS NULL AND role_id IS NULL AND employment_type IS NULL;
+
+CREATE UNIQUE INDEX uk_ranking_by_department
+    ON payroll_period_earner_rankings (payroll_period_id, department_id, direction, rank)
+    WHERE department_id IS NOT NULL
+      AND country_id IS NULL AND role_id IS NULL AND employment_type IS NULL;
+
+CREATE UNIQUE INDEX uk_ranking_by_role
+    ON payroll_period_earner_rankings (payroll_period_id, role_id, direction, rank)
+    WHERE role_id IS NOT NULL
+      AND country_id IS NULL AND department_id IS NULL AND employment_type IS NULL;
+
+CREATE UNIQUE INDEX uk_ranking_by_employment_type
+    ON payroll_period_earner_rankings (payroll_period_id, employment_type, direction, rank)
+    WHERE employment_type IS NOT NULL
+      AND country_id IS NULL AND department_id IS NULL AND role_id IS NULL;
+
+CREATE UNIQUE INDEX uk_ranking_global
+    ON payroll_period_earner_rankings (payroll_period_id, direction, rank)
+    WHERE country_id IS NULL AND department_id IS NULL AND role_id IS NULL
+      AND employment_type IS NULL;

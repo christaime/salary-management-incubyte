@@ -265,6 +265,14 @@ class AggregateReportServiceTest {
         p.sumEmployerTaxes = new BigDecimal("200.00");
         p.sumTotal = new BigDecimal("1350.00");
         p.sumEmployeeCount = 2L;
+        // The adapter computes employeeCount from the frequency counters. One monthly
+        // period with two employees gives monthlyAvg = round(2 / 1) = 2, biWeeklyAvg = 0,
+        // so employeeCount = 2 and the average is 1350.00 / 2 = 675.00.
+        p.monthlyEmployeeCount = 2L;
+        p.monthlyPeriodCount = 1L;
+        p.biWeeklyEmployeeCount = 0L;
+        p.biWeeklyPeriodCount = 0L;
+        p.employeeCount = 2L;
         return p;
     }
 

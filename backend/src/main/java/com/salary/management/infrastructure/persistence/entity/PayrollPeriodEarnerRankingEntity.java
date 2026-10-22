@@ -60,17 +60,17 @@ public class PayrollPeriodEarnerRankingEntity {
     @Column(name = "status", nullable = false)
     private PayrollSummaryStatus status;
 
-    @Column(name = "country_id", nullable = false)
+    @Column(name = "country_id")
     private UUID countryId;
 
-    @Column(name = "department_id", nullable = false)
+    @Column(name = "department_id")
     private UUID departmentId;
 
-    @Column(name = "role_id", nullable = false)
+    @Column(name = "role_id")
     private UUID roleId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "employment_type", nullable = false)
+    @Column(name = "employment_type")
     private EmploymentType employmentType;
 
     @Enumerated(EnumType.STRING)

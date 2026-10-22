@@ -31,16 +31,12 @@ public final class PayrollPeriodEarnerRanking {
     @NotNull
     private final PayrollSummaryStatus status;
 
-    @NotNull
     private final Country country;
 
-    @NotNull
     private final Department department;
 
-    @NotNull
     private final Role role;
 
-    @NotNull
     private final EmploymentType employmentType;
 
     @NotNull

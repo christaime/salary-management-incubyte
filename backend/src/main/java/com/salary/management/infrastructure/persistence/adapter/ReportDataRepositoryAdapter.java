@@ -4,7 +4,6 @@ import com.salary.management.application.dto.RefDto;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
-import com.salary.management.domain.model.values.AmountUtils;
 import com.salary.management.domain.repository.ReportDataRepository;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
@@ -13,8 +12,7 @@ import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodAggregateEntity;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEntity;
 import com.salary.management.infrastructure.persistence.entity.RoleEntity;
-import com.salary.management.infrastructure.persistence.projection.StatisticsRow;
-import com.salary.management.infrastructure.persistence.repository.PayrollPeriodEarnerRankingJpaRepository;
+import com.salary.management.infrastructure.persistence.repository.DynamicStatisticsBuilder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -42,7 +40,7 @@ import java.util.UUID;
 public class ReportDataRepositoryAdapter implements ReportDataRepository {
 
     private final EntityManager entityManager;
-    private final PayrollPeriodEarnerRankingJpaRepository rankingJpaRepository;
+    private final DynamicStatisticsBuilder dynamicStatisticsBuilder;
 
     @Override
     public List<AggregateRowProjection> queryAggregates(
@@ -163,49 +161,19 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
             List<GroupKey> groupKeys,
             ReportEffectiveFilters filters,
             String referenceCurrencyCode) {
-        List<StatisticsRow> rows = rankingJpaRepository.minMaxByGroup(
-                periodIds,
-                referenceCurrencyCode,
-                nullIfEmpty(filters.countryIds()),
+
+        GroupKey key = null;
+        if (groupKeys.size() == 1) {
+            key = groupKeys.get(0);
+        } else if (groupKeys.size() > 1) {
+            return List.of();
+        }
+        return dynamicStatisticsBuilder.minMax(
+                periodIds, key, referenceCurrencyCode, nullIfEmpty(filters.countryIds()),
                 nullIfEmpty(filters.departmentIds()),
                 nullIfEmpty(filters.roleIds()),
                 nullIfEmpty(filters.employmentTypes()));
 
-        List<AggregateRowProjection> projections = new ArrayList<>(rows.size());
-        for (StatisticsRow row : rows) {
-            projections.add(toStatisticsProjection(row, groupKeys));
-        }
-        return projections;
-    }
-
-    private AggregateRowProjection toStatisticsProjection(StatisticsRow row,
-                                                          List<GroupKey> groupKeys) {
-        AggregateRowProjection p = new AggregateRowProjection();
-        for (GroupKey key : groupKeys) {
-            switch (key) {
-                case COUNTRY -> p.country = new RefDto(row.getCountryCode(),
-                        row.getCountryName());
-                case DEPARTMENT -> p.department = new RefDto(
-                        String.valueOf(row.getDepartmentCode()),
-                        row.getDepartmentName());
-                case ROLE -> p.role = new RefDto(
-                        String.valueOf(row.getRoleCode()),
-                        row.getRoleName());
-                case EMPLOYMENT_TYPE -> p.employmentType =
-                        EmploymentType.valueOf(row.getEmploymentType());
-                default -> throw new IllegalStateException(
-                        "Unsupported statistics key: " + key);
-            }
-        }
-        p.minReferenceAmount = row.getMinReferenceAmount() != null
-                ? row.getMinReferenceAmount().setScale(
-                AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP)
-                : null;
-        p.maxReferenceAmount = row.getMaxReferenceAmount() != null
-                ? row.getMaxReferenceAmount().setScale(
-                AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP)
-                : null;
-        return p;
     }
 
     private AggregateRowProjection toAggregateProjection(Tuple t, List<GroupKey> groupKeys) {

@@ -3,10 +3,12 @@ package com.salary.management.infrastructure.persistence.adapter;
 import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.values.Amount;
 import com.salary.management.domain.model.values.RankedSummary;
 import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
 import com.salary.management.domain.repository.criteria.PayrollPeriodEarnerRankingCriteria;
+import com.salary.management.domain.repository.projection.AggregateRowProjection;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
 import com.salary.management.infrastructure.persistence.entity.CountryEntity;
 import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
@@ -16,18 +18,14 @@ import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEnti
 import com.salary.management.infrastructure.persistence.entity.RoleEntity;
 import com.salary.management.infrastructure.persistence.mapper.PayrollPeriodEarnerRankingPersistenceMapper;
 import com.salary.management.infrastructure.persistence.projection.RankedRow;
-import com.salary.management.infrastructure.persistence.repository.CountryJpaRepository;
-import com.salary.management.infrastructure.persistence.repository.DepartmentJpaRepository;
-import com.salary.management.infrastructure.persistence.repository.EmployeeJpaRepository;
-import com.salary.management.infrastructure.persistence.repository.PayrollPeriodEarnerRankingJpaRepository;
-import com.salary.management.infrastructure.persistence.repository.PayrollPeriodJpaRepository;
-import com.salary.management.infrastructure.persistence.repository.RoleJpaRepository;
+import com.salary.management.infrastructure.persistence.repository.*;
 import com.salary.management.infrastructure.persistence.specification.PayrollPeriodEarnerRankingSpecification;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,6 +42,7 @@ public class PayrollPeriodEarnerRankingRepositoryAdapter
     private final RoleJpaRepository roleJpaRepository;
     private final EmployeeJpaRepository employeeJpaRepository;
     private final PayrollPeriodEarnerRankingPersistenceMapper mapper;
+    private final DynamicRankingBuilder dynamicRankingBuilder;
 
     @Override
     public void saveAll(List<PayrollPeriodEarnerRanking> rankings) {
@@ -74,24 +73,15 @@ public class PayrollPeriodEarnerRankingRepositoryAdapter
     }
 
     @Override
-    public List<RankedSummary> topByGroup(
+    public List<PayrollPeriodEarnerRankingEntity> rank(
             UUID payrollPeriodId,
             String referenceCurrencyCode,
-            int limit) {
-        return jpaRepository.topByGroup(payrollPeriodId, referenceCurrencyCode, limit).stream()
-                .map(row -> toRankedSummary(row, EarnerRankingDirection.TOP))
-                .toList();
+            EarnerRankingDirection direction,
+            GroupKey key,
+            int limit){
+        return dynamicRankingBuilder.rank(payrollPeriodId, referenceCurrencyCode, direction, key, limit);
     }
 
-    @Override
-    public List<RankedSummary> bottomByGroup(
-            UUID payrollPeriodId,
-            String referenceCurrencyCode,
-            int limit) {
-        return jpaRepository.bottomByGroup(payrollPeriodId, referenceCurrencyCode, limit).stream()
-                .map(row -> toRankedSummary(row, EarnerRankingDirection.BOTTOM))
-                .toList();
-    }
 
     private RankedSummary toRankedSummary(RankedRow row, EarnerRankingDirection direction) {
         return new RankedSummary(

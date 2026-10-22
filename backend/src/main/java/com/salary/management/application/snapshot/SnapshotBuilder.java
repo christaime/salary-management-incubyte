@@ -10,6 +10,7 @@ import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
 import com.salary.management.domain.model.PayrollSummary;
 import com.salary.management.domain.model.Role;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
+import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.domain.model.enums.ReportWarningCode;
 import com.salary.management.domain.model.values.*;
@@ -21,6 +22,8 @@ import com.salary.management.domain.repository.PayrollPeriodEarnerRankingReposit
 import com.salary.management.domain.repository.PayrollSummaryRepository;
 import com.salary.management.domain.repository.RoleRepository;
 import com.salary.management.domain.repository.criteria.PayrollSummaryCriteria;
+import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarnerRankingEntity;
+import com.salary.management.infrastructure.persistence.repository.DynamicRankingBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -224,37 +227,41 @@ public class SnapshotBuilder {
 
     private List<PayrollPeriodEarnerRanking> buildRankings(PayrollPeriod period) {
         List<PayrollPeriodEarnerRanking> rankings = new ArrayList<>();
-        rankings.addAll(toRankings(period,
-                rankingRepository.topByGroup(period.getId(), currencyConverter.getReferenceCurrency(), RANKING_LIMIT),
-                EarnerRankingDirection.TOP));
-        rankings.addAll(toRankings(period,
-                rankingRepository.bottomByGroup(period.getId(),currencyConverter.getReferenceCurrency(), RANKING_LIMIT),
-                EarnerRankingDirection.BOTTOM));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, null, RANKING_LIMIT)));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, GroupKey.COUNTRY, RANKING_LIMIT)));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, GroupKey.DEPARTMENT, RANKING_LIMIT)));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, GroupKey.ROLE, RANKING_LIMIT)));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, GroupKey.EMPLOYMENT_TYPE, RANKING_LIMIT)));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, null, RANKING_LIMIT)));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, GroupKey.COUNTRY, RANKING_LIMIT)));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, GroupKey.DEPARTMENT, RANKING_LIMIT)));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, GroupKey.ROLE, RANKING_LIMIT)));
+        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, GroupKey.EMPLOYMENT_TYPE, RANKING_LIMIT)));
         return rankings;
     }
 
-    private List<PayrollPeriodEarnerRanking> toRankings(PayrollPeriod period,
-                                                        List<RankedSummary> rows, EarnerRankingDirection direction) {
+    private List<PayrollPeriodEarnerRanking> toRankings(PayrollPeriod period,List<PayrollPeriodEarnerRankingEntity> rankingEntities) {
         List<PayrollPeriodEarnerRanking> out = new ArrayList<>();
-        for (RankedSummary row : rows) {
-            Country country = countryRepository.findById(row.countryId()).orElseThrow();
-            Department department = departmentRepository.findById(row.departmentId()).orElseThrow();
-            Role role = roleRepository.findById(row.roleId()).orElseThrow();
-            Employee employee = employeeRepository.findById(row.employeeId()).orElseThrow();
+        for (PayrollPeriodEarnerRankingEntity row : rankingEntities) {
+            Country country = row.getCountryId() != null ? countryRepository.findById(row.getCountryId()).orElseThrow() : null;
+            Department department = row.getDepartmentId() != null ? departmentRepository.findById(row.getDepartmentId()).orElseThrow() : null;
+            Role role = row.getRoleId() != null ? roleRepository.findById(row.getRoleId()).orElseThrow() : null;
+            Employee employee = employeeRepository.findById(row.getEmployeeId()).orElseThrow();
             out.add(PayrollPeriodEarnerRanking.builder()
                     .payrollPeriod(period)
                     .status(PayrollSummaryStatus.DRAFT)
                     .country(country)
                     .department(department)
                     .role(role)
-                    .employmentType(row.employmentType())
-                    .direction(direction)
-                    .rank(row.rank())
+                    .employmentType(row.getEmploymentType())
+                    .direction(row.getDirection())
+                    .rank(row.getRank())
                     .employee(employee)
-                    .originalAmount(row.originalAmount())
-                    .referenceAmount(row.referenceAmount())
+                    .originalAmount(Amount.builder().amount(row.getOriginalAmount().getAmount()).currency(row.getOriginalAmount().getCurrency()).build())
+                    .referenceAmount(Amount.builder().amount(row.getReferenceAmount().getAmount()).currency(row.getReferenceAmount().getCurrency()).build())
                     .build());
         }
         return out;
     }
+
 }

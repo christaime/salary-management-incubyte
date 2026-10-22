@@ -93,7 +93,7 @@ class SnapshotBuilderTest {
     // ------------------------------------------------------------------
 
     @Test
-    @DisplayName("one USD group of three returns one aggregate and three TOP + three BOTTOM")
+    @DisplayName("one USD group of three returns one aggregate and fifteen TOP + fifteen BOTTOM")
     @Sql("/sql/snapshot-builder/case-3-one-group-three-summaries.sql")
     void oneGroupThreeSummaries() {
         PayrollPeriod period = payrollPeriodRepository.findById(OPEN_PERIOD).orElseThrow();
@@ -113,13 +113,15 @@ class SnapshotBuilderTest {
         assertEquals("USD", aggregate.getOriginalAmounts().getCurrency());
         assertEquals(new BigDecimal("6075.00"), aggregate.getReferenceAmounts().getTotal());
 
-        assertEquals(6, result.rankings().size());
+        // Five keys per direction (global, country, department, role, employment type),
+        // three employees per group, so 5 x 3 = 15 rows per direction.
         long tops = result.rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP).count();
         long bottoms = result.rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM).count();
-        assertEquals(3, tops);
-        assertEquals(3, bottoms);
+        assertEquals(15, tops);
+        assertEquals(15, bottoms);
+        assertEquals(30, result.rankings().size());
     }
 
     @Test
@@ -134,10 +136,17 @@ class SnapshotBuilderTest {
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
                 .sorted((a, b) -> Integer.compare(a.getRank(), b.getRank()))
                 .toList();
-        assertEquals(3, tops.size());
+        // Fifteen TOP rows, but only the three from the global partition carry rank 1..3
+        // for the whole period. Use the global partition by filtering on null dimensions.
+        List<PayrollPeriodEarnerRanking> globalTops = result.rankings().stream()
+                .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
+                .filter(r -> r.getCountry() == null && r.getDepartment() == null
+                        && r.getRole() == null && r.getEmploymentType() == null)
+                .sorted((a, b) -> Integer.compare(a.getRank(), b.getRank()))
+                .toList();
+        assertEquals(3, globalTops.size());
 
-        // Case 3 is USD only, so original and reference amounts are identical.
-        PayrollPeriodEarnerRanking top1 = tops.get(0);
+        PayrollPeriodEarnerRanking top1 = globalTops.get(0);
         assertEquals(1, top1.getRank());
         assertEquals("EMP-000002", top1.getEmployee().getMatricule());
         assertEquals("USD", top1.getOriginalAmount().getCurrency());
@@ -147,26 +156,27 @@ class SnapshotBuilderTest {
         assertEquals(0, top1.getReferenceAmount().getAmount()
                 .compareTo(new BigDecimal("2700.00")));
 
-        PayrollPeriodEarnerRanking top2 = tops.get(1);
+        PayrollPeriodEarnerRanking top2 = globalTops.get(1);
         assertEquals(2, top2.getRank());
         assertEquals("EMP-000003", top2.getEmployee().getMatricule());
         assertEquals(0, top2.getOriginalAmount().getAmount()
                 .compareTo(new BigDecimal("2025.00")));
 
-        PayrollPeriodEarnerRanking top3 = tops.get(2);
+        PayrollPeriodEarnerRanking top3 = globalTops.get(2);
         assertEquals(3, top3.getRank());
         assertEquals("EMP-000001", top3.getEmployee().getMatricule());
         assertEquals(0, top3.getOriginalAmount().getAmount()
                 .compareTo(new BigDecimal("1350.00")));
 
-        List<PayrollPeriodEarnerRanking> bottoms = result.rankings().stream()
+        List<PayrollPeriodEarnerRanking> globalBottoms = result.rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM)
+                .filter(r -> r.getCountry() == null && r.getDepartment() == null
+                        && r.getRole() == null && r.getEmploymentType() == null)
                 .sorted((a, b) -> Integer.compare(a.getRank(), b.getRank()))
                 .toList();
-        assertEquals(3, bottoms.size());
-        // Bottom rank 1 is the smallest total, i.e. EMP-000001 at 1350.00.
-        assertEquals("EMP-000001", bottoms.get(0).getEmployee().getMatricule());
-        assertEquals(0, bottoms.get(0).getOriginalAmount().getAmount()
+        assertEquals(3, globalBottoms.size());
+        assertEquals("EMP-000001", globalBottoms.get(0).getEmployee().getMatricule());
+        assertEquals(0, globalBottoms.get(0).getOriginalAmount().getAmount()
                 .compareTo(new BigDecimal("1350.00")));
     }
 
@@ -194,9 +204,10 @@ class SnapshotBuilderTest {
 
         assertEquals(1, result.aggregates().size());
         assertEquals(2, result.aggregates().get(0).getEmployeeCount());
-        assertEquals(2, result.rankings().stream()
+        // 2 employees x 5 keys per direction.
+        assertEquals(10, result.rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP).count());
-        assertEquals(2, result.rankings().stream()
+        assertEquals(10, result.rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM).count());
     }
 
@@ -212,13 +223,11 @@ class SnapshotBuilderTest {
 
         SnapshotBuildResult result = builder.build(period);
 
-        // One blocker for the missing XAF rate.
         assertEquals(1, result.blockers().size());
         ReportWarning blocker = result.blockers().get(0);
         assertEquals(ReportWarningCode.MISSING_FX_RATE, blocker.code());
         assertEquals("XAF", blocker.details().get("currency"));
 
-        // Two aggregates: FR with referenceAmounts, CM without.
         assertEquals(2, result.aggregates().size());
         PayrollPeriodAggregate fr = result.aggregates().stream()
                 .filter(a -> "EUR".equals(a.getOriginalAmounts().getCurrency()))
@@ -231,27 +240,26 @@ class SnapshotBuilderTest {
         assertEquals(3, fr.getEmployeeCount());
         assertEquals(3, cm.getEmployeeCount());
 
-        // Only the FR group produces rankings: the XAF group has no reference
-        // amount and is filtered out of the ranking query.
-        assertEquals(3, result.rankings().stream()
+        // Only FR rows survive the ranking query's rate filter. 3 employees x 5 keys.
+        assertEquals(15, result.rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP).count());
-        assertEquals(3, result.rankings().stream()
+        assertEquals(15, result.rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM).count());
-        // Every ranking belongs to the FR group; none to CM.
         assertTrue(result.rankings().stream()
                 .allMatch(r -> "EUR".equals(r.getOriginalAmount().getCurrency())));
         assertTrue(result.rankings().stream()
                 .allMatch(r -> "USD".equals(r.getReferenceAmount().getCurrency())));
 
-        // FR TOP rank 1 is the highest EUR total.
+        // The global TOP rank 1 is the highest FR total.
         PayrollPeriodEarnerRanking frTop1 = result.rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
                 .filter(r -> r.getRank() == 1)
+                .filter(r -> r.getCountry() == null && r.getDepartment() == null
+                        && r.getRole() == null && r.getEmploymentType() == null)
                 .findFirst()
                 .orElseThrow();
         assertEquals(0, frTop1.getOriginalAmount().getAmount()
                 .compareTo(new BigDecimal("2700.00")));
-        // 2700.00 EUR / 0.93 = 2903.2258..., rounds to 2903.23 USD.
         assertEquals(0, frTop1.getReferenceAmount().getAmount()
                 .compareTo(new BigDecimal("2903.23")));
     }
@@ -261,7 +269,7 @@ class SnapshotBuilderTest {
     // ------------------------------------------------------------------
 
     @Test
-    @DisplayName("two groups with rates produce two aggregates and 6 + 6 rankings")
+    @DisplayName("two groups with rates produce two aggregates and twenty top + twenty bottom")
     @Sql("/sql/snapshot-builder/case-6-two-groups.sql")
     void twoGroups() {
         PayrollPeriod period = payrollPeriodRepository.findById(OPEN_PERIOD).orElseThrow();
@@ -272,7 +280,16 @@ class SnapshotBuilderTest {
         assertTrue(result.warnings().isEmpty());
         assertEquals(2, result.aggregates().size());
         result.aggregates().forEach(a -> assertTrue(a.getReferenceAmounts() != null));
-        assertEquals(12, result.rankings().size());
+
+        long tops = result.rankings().stream()
+                .filter(r -> r.getDirection() == EarnerRankingDirection.TOP).count();
+        long bottoms = result.rankings().stream()
+                .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM).count();
+        // Per direction: global 5 (limit), country 3+3=6, department 5, role 5,
+        // employment type 5 = 26. Two directions = 52.
+        assertEquals(26, tops);
+        assertEquals(26, bottoms);
+        assertEquals(52, result.rankings().size());
     }
 
     @Test
@@ -285,13 +302,15 @@ class SnapshotBuilderTest {
 
         PayrollPeriodEarnerRanking xafTop1 = result.rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
-                .filter(r -> r.getRank() == 1)
                 .filter(r -> "XAF".equals(r.getOriginalAmount().getCurrency()))
+                .filter(r -> r.getCountry() != null)
+                .filter(r -> r.getDepartment() == null)
+                .filter(r -> r.getRole() == null)
+                .filter(r -> r.getEmploymentType() == null)
+                .filter(r -> r.getRank() == 1)
                 .findFirst()
                 .orElseThrow();
 
-        // Highest XAF total in case 6 is 1575477.00 XAF (Fatima Al-Hassan),
-        // converted at 583.51 XAF per USD -> 2700.00 USD (rounded to 2).
         assertEquals("XAF", xafTop1.getOriginalAmount().getCurrency());
         assertEquals(0, xafTop1.getOriginalAmount().getAmount()
                 .compareTo(new BigDecimal("1575477.00")));
