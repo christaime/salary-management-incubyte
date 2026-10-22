@@ -1,16 +1,11 @@
 package com.salary.management.infrastructure.persistence.repository;
 
-import com.salary.management.application.dto.RefDto;
-import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
-import com.salary.management.domain.model.enums.PayrollSummaryStatus;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
-import com.salary.management.infrastructure.persistence.embeddable.AmountEmbeddable;
-import com.salary.management.infrastructure.persistence.embeddable.AmountsEmbeddable;
 import com.salary.management.infrastructure.persistence.entity.CountryEntity;
 import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
-import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarnerRankingEntity;
 import com.salary.management.infrastructure.persistence.entity.RoleEntity;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
@@ -38,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,12 +45,8 @@ class DynamicStatisticsBuilderTest {
     private static final UUID DE = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID ENGINEERING =
             UUID.fromString("33333333-3333-3333-3333-333333333333");
-    private static final UUID FINANCE =
-            UUID.fromString("44444444-4444-4444-4444-444444444444");
     private static final UUID ENGINEER =
             UUID.fromString("55555555-5555-5555-5555-555555555555");
-    private static final UUID MANAGER =
-            UUID.fromString("66666666-6666-6666-6666-666666666666");
     private static final UUID JANUARY =
             UUID.fromString("77777777-7777-7777-7777-777777777777");
 
@@ -77,36 +69,59 @@ class DynamicStatisticsBuilderTest {
     private DynamicStatisticsBuilder builder;
 
     // ------------------------------------------------------------------
-    // Query-shape assertions (no rows returned)
+    // Query-shape assertions
     // ------------------------------------------------------------------
 
     @Test
-    @DisplayName("country statistics query groups by country and currency")
+    @DisplayName("country statistics query groups by country only")
     void countryQueryShape() {
         stubEmptyQuery();
 
-        builder.minMax(List.of(JANUARY), GroupKey.COUNTRY, "USD",
-                null, null, null, null);
+        builder.minMax(List.of(JANUARY), GroupKey.COUNTRY, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
 
         String jpql = captureJpql();
         assertTrue(jpql.contains("r.countryId IS NOT NULL"));
         assertTrue(jpql.contains("r.departmentId IS NULL"));
         assertTrue(jpql.contains("r.roleId IS NULL"));
         assertTrue(jpql.contains("r.employmentType IS NULL"));
-        assertTrue(jpql.contains("GROUP BY r.countryId, r.originalAmount.currency"));
+        assertTrue(jpql.contains("GROUP BY r.countryId"));
     }
 
     @Test
-    @DisplayName("global statistics query has no leading comma in GROUP BY")
-    void globalGroupByIsWellFormed() {
+    @DisplayName("statistics query filters by period frequency")
+    void frequencyFilterIsPresent() {
         stubEmptyQuery();
 
-        builder.minMax(List.of(JANUARY), null, "USD",
-                null, null, null, null);
+        builder.minMax(List.of(JANUARY), GroupKey.COUNTRY, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
 
         String jpql = captureJpql();
-        assertFalse(jpql.contains("GROUP BY ,"));
-        assertTrue(jpql.contains("GROUP BY r.originalAmount.currency"));
+        assertTrue(jpql.contains("p.frequency = :frequency"));
+        verify(query).setParameter("frequency", PayrollPeriodFrequency.MONTHLY);
+    }
+
+    @Test
+    @DisplayName("bi-weekly frequency is bound when requested")
+    void biWeeklyFrequencyIsBound() {
+        stubEmptyQuery();
+
+        builder.minMax(List.of(JANUARY), null, PayrollPeriodFrequency.BI_WEEKLY,
+                "USD", null, null, null, null);
+
+        verify(query).setParameter("frequency", PayrollPeriodFrequency.BI_WEEKLY);
+    }
+
+    @Test
+    @DisplayName("global statistics query has no GROUP BY keyword")
+    void globalQueryHasNoGroupBy() {
+        stubEmptyQuery();
+
+        builder.minMax(List.of(JANUARY), null, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
+
+        String jpql = captureJpql();
+        assertFalse(jpql.contains("GROUP BY"));
         assertTrue(jpql.contains("r.countryId IS NULL"));
         assertTrue(jpql.contains("r.employmentType IS NULL"));
     }
@@ -116,8 +131,8 @@ class DynamicStatisticsBuilderTest {
     void countryFilterBinding() {
         stubEmptyQuery();
 
-        builder.minMax(List.of(JANUARY), GroupKey.COUNTRY, "USD",
-                Set.of(FR), null, null, null);
+        builder.minMax(List.of(JANUARY), GroupKey.COUNTRY, PayrollPeriodFrequency.MONTHLY,
+                "USD", Set.of(FR), null, null, null);
 
         String jpql = captureJpql();
         assertTrue(jpql.contains("r.countryId IN :countryIds"));
@@ -129,30 +144,30 @@ class DynamicStatisticsBuilderTest {
     void noCountryFilterNoBinding() {
         stubEmptyQuery();
 
-        builder.minMax(List.of(JANUARY), GroupKey.COUNTRY, "USD",
-                null, null, null, null);
+        builder.minMax(List.of(JANUARY), GroupKey.COUNTRY, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
 
-        verify(query, org.mockito.Mockito.never())
-                .setParameter(eq("countryIds"), any());
+        verify(query, never()).setParameter(eq("countryIds"), any());
     }
 
     @Test
     @DisplayName("CURRENCY is rejected as a statistics key")
     void currencyKeyIsRejected() {
         assertThrows(IllegalArgumentException.class, () ->
-                builder.minMax(List.of(JANUARY), GroupKey.CURRENCY, "USD",
+                builder.minMax(List.of(JANUARY), GroupKey.CURRENCY,
+                        PayrollPeriodFrequency.MONTHLY, "USD",
                         null, null, null, null));
     }
 
     // ------------------------------------------------------------------
-    // Projection assertions (with rows returned)
+    // Projection assertions
     // ------------------------------------------------------------------
 
     @Test
     @DisplayName("country rows are projected with display values and scaled amounts")
     void countryRowsAreProjected() {
-        Tuple frTuple = countryTuple(FR, "USD", "1000.00", "2500.00");
-        Tuple deTuple = countryTuple(DE, "USD", "625.00", "625.00");
+        Tuple frTuple = countryTuple(FR, "1000.00", "2500.00");
+        Tuple deTuple = countryTuple(DE, "625.00", "625.00");
         when(entityManager.createQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(frTuple, deTuple));
@@ -162,8 +177,8 @@ class DynamicStatisticsBuilderTest {
                 CountryEntity.builder().id(DE).isoCode("DE").name("Germany").build()));
 
         List<AggregateRowProjection> rows = builder.minMax(
-                List.of(JANUARY), GroupKey.COUNTRY, "USD",
-                null, null, null, null);
+                List.of(JANUARY), GroupKey.COUNTRY, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
 
         assertEquals(2, rows.size());
         AggregateRowProjection fr = rows.stream()
@@ -187,8 +202,7 @@ class DynamicStatisticsBuilderTest {
     @Test
     @DisplayName("department rows resolve display values through the department repository")
     void departmentRowsAreProjected() {
-        Tuple engTuple = groupTuple("departmentId", ENGINEERING,
-                "USD", "1000.00", "2500.00");
+        Tuple engTuple = groupTuple("departmentId", ENGINEERING, "1000.00", "2500.00");
         when(entityManager.createQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(engTuple));
@@ -197,8 +211,8 @@ class DynamicStatisticsBuilderTest {
                         .id(ENGINEERING).code("ENG").name("Engineering").build()));
 
         List<AggregateRowProjection> rows = builder.minMax(
-                List.of(JANUARY), GroupKey.DEPARTMENT, "USD",
-                null, null, null, null);
+                List.of(JANUARY), GroupKey.DEPARTMENT, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
 
         assertEquals(1, rows.size());
         AggregateRowProjection eng = rows.get(0);
@@ -210,8 +224,7 @@ class DynamicStatisticsBuilderTest {
     @Test
     @DisplayName("role rows resolve display values through the role repository")
     void roleRowsAreProjected() {
-        Tuple engTuple = groupTuple("roleId", ENGINEER,
-                "USD", "1000.00", "2500.00");
+        Tuple engTuple = groupTuple("roleId", ENGINEER, "1000.00", "2500.00");
         when(entityManager.createQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(engTuple));
@@ -220,8 +233,8 @@ class DynamicStatisticsBuilderTest {
                         .id(ENGINEER).code("ENG_1").name("Engineer").build()));
 
         List<AggregateRowProjection> rows = builder.minMax(
-                List.of(JANUARY), GroupKey.ROLE, "USD",
-                null, null, null, null);
+                List.of(JANUARY), GroupKey.ROLE, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
 
         assertEquals(1, rows.size());
         AggregateRowProjection eng = rows.get(0);
@@ -233,13 +246,14 @@ class DynamicStatisticsBuilderTest {
     @Test
     @DisplayName("employment type rows carry the enum value")
     void employmentTypeRowsAreProjected() {
-        Tuple row = employmentTypeTuple("FULL_TIME", "USD", "625.00", "2500.00");
+        Tuple row = employmentTypeTuple("FULL_TIME", "625.00", "2500.00");
         when(entityManager.createQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(row));
 
         List<AggregateRowProjection> rows = builder.minMax(
-                List.of(JANUARY), GroupKey.EMPLOYMENT_TYPE, "USD",
+                List.of(JANUARY), GroupKey.EMPLOYMENT_TYPE,
+                PayrollPeriodFrequency.MONTHLY, "USD",
                 null, null, null, null);
 
         assertEquals(1, rows.size());
@@ -249,14 +263,14 @@ class DynamicStatisticsBuilderTest {
     @Test
     @DisplayName("global rows carry no group-key values")
     void globalRowsAreProjected() {
-        Tuple row = globalTuple("USD", "625.00", "2500.00");
+        Tuple row = globalTuple("625.00", "2500.00");
         when(entityManager.createQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(row));
 
         List<AggregateRowProjection> rows = builder.minMax(
-                List.of(JANUARY), null, "USD",
-                null, null, null, null);
+                List.of(JANUARY), null, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
 
         assertEquals(1, rows.size());
         AggregateRowProjection g = rows.get(0);
@@ -264,26 +278,57 @@ class DynamicStatisticsBuilderTest {
         assertNull(g.department);
         assertNull(g.role);
         assertNull(g.employmentType);
-        assertEquals("USD", g.currency);
         assertEquals(0, g.minReferenceAmount.compareTo(new BigDecimal("625.00")));
         assertEquals(0, g.maxReferenceAmount.compareTo(new BigDecimal("2500.00")));
     }
 
     @Test
-    @DisplayName("missing min or max is tolerated and left null")
-    void missingMinMaxIsTolerated() {
-        Tuple row = globalTuple("USD", null, "2500.00");
+    @DisplayName("a row with both min and max null is dropped")
+    void rowWithBothNullIsDropped() {
+        Tuple nullRow = globalTuple(null, null);
+        when(entityManager.createQuery(anyString(), eq(Tuple.class))).thenReturn(query);
+        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of(nullRow));
+
+        List<AggregateRowProjection> rows = builder.minMax(
+                List.of(JANUARY), null, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
+
+        assertTrue(rows.isEmpty());
+    }
+
+    @Test
+    @DisplayName("a row with only max set is kept, min left null")
+    void rowWithOnlyMaxIsKept() {
+        Tuple row = globalTuple(null, "2500.00");
         when(entityManager.createQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of(row));
 
         List<AggregateRowProjection> rows = builder.minMax(
-                List.of(JANUARY), null, "USD",
-                null, null, null, null);
+                List.of(JANUARY), null, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
 
         assertEquals(1, rows.size());
         assertNull(rows.get(0).minReferenceAmount);
         assertEquals(0, rows.get(0).maxReferenceAmount.compareTo(new BigDecimal("2500.00")));
+    }
+
+    @Test
+    @DisplayName("a row with only min set is kept, max left null")
+    void rowWithOnlyMinIsKept() {
+        Tuple row = globalTuple("625.00", null);
+        when(entityManager.createQuery(anyString(), eq(Tuple.class))).thenReturn(query);
+        when(query.setParameter(anyString(), any())).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of(row));
+
+        List<AggregateRowProjection> rows = builder.minMax(
+                List.of(JANUARY), null, PayrollPeriodFrequency.MONTHLY,
+                "USD", null, null, null, null);
+
+        assertEquals(1, rows.size());
+        assertEquals(0, rows.get(0).minReferenceAmount.compareTo(new BigDecimal("625.00")));
+        assertNull(rows.get(0).maxReferenceAmount);
     }
 
     // ------------------------------------------------------------------
@@ -302,39 +347,35 @@ class DynamicStatisticsBuilderTest {
         return captor.getValue();
     }
 
-    private Tuple countryTuple(UUID countryId, String currency,
-                               String min, String max) {
+    private Tuple countryTuple(UUID countryId, String min, String max) {
         Tuple t = org.mockito.Mockito.mock(Tuple.class);
         when(t.get("countryId", UUID.class)).thenReturn(countryId);
-        stubAmounts(t, currency, min, max);
+        stubAmounts(t, min, max);
         return t;
     }
 
-    private Tuple groupTuple(String idAlias, UUID id, String currency,
-                             String min, String max) {
+    private Tuple groupTuple(String idAlias, UUID id, String min, String max) {
         Tuple t = org.mockito.Mockito.mock(Tuple.class);
         when(t.get(idAlias, UUID.class)).thenReturn(id);
-        stubAmounts(t, currency, min, max);
+        stubAmounts(t, min, max);
         return t;
     }
 
-    private Tuple employmentTypeTuple(String employmentType, String currency,
-                                      String min, String max) {
+    private Tuple employmentTypeTuple(String employmentType, String min, String max) {
         Tuple t = org.mockito.Mockito.mock(Tuple.class);
         when(t.get("employmentType", EmploymentType.class))
                 .thenReturn(EmploymentType.valueOf(employmentType));
-        stubAmounts(t, currency, min, max);
+        stubAmounts(t, min, max);
         return t;
     }
 
-    private Tuple globalTuple(String currency, String min, String max) {
+    private Tuple globalTuple(String min, String max) {
         Tuple t = org.mockito.Mockito.mock(Tuple.class);
-        stubAmounts(t, currency, min, max);
+        stubAmounts(t, min, max);
         return t;
     }
 
-    private void stubAmounts(Tuple t, String currency, String min, String max) {
-        when(t.get("currency", String.class)).thenReturn(currency);
+    private void stubAmounts(Tuple t, String min, String max) {
         when(t.get("minReferenceAmount", BigDecimal.class))
                 .thenReturn(min == null ? null : new BigDecimal(min));
         when(t.get("maxReferenceAmount", BigDecimal.class))

@@ -1,6 +1,7 @@
 package com.salary.management.domain.repository;
 
 import com.salary.management.domain.model.enums.GroupKey;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
 
@@ -53,6 +54,7 @@ public interface ReportDataRepository {
     List<AggregateRowProjection> queryStatistics(
             List<UUID> periodIds,
             List<GroupKey> groupKeys,
+            PayrollPeriodFrequency frequency,
             ReportEffectiveFilters filters,
             String referenceCurrencyCode);
 }

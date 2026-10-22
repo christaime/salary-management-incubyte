@@ -3,6 +3,7 @@ package com.salary.management.infrastructure.persistence.repository;
 import com.salary.management.application.dto.RefDto;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.values.AmountUtils;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
 import com.salary.management.infrastructure.persistence.entity.CountryEntity;
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Component
@@ -30,12 +32,18 @@ public class DynamicStatisticsBuilder {
     private final RoleJpaRepository roleJpaRepository;
 
     /**
-     * Returns, per partition, the minimum and maximum reference amount among the rank-1
-     * rows of the given partition kind, converting each ranking row's original amount to
+     * Returns, per partition, the minimum and maximum reference amount among the ranked rows
+     * of the given frequency, converting each ranking row's original amount to
      * {@code referenceCurrencyCode} against the current rates.
+     *
+     * <p>Each row of the result corresponds to one partition instance, not to one
+     * (partition, currency) combination. The conversion to the reference currency happens
+     * inside the aggregate, so {@code MIN} and {@code MAX} compare reference amounts across
+     * currencies.</p>
      *
      * @param periodIds             periods to include
      * @param key                   partition dimension, or {@code null} for global
+     * @param frequency             period frequency to consider
      * @param referenceCurrencyCode currency to convert to
      * @param countryIds            country filter, or {@code null}
      * @param departmentIds         department filter, or {@code null}
@@ -46,6 +54,7 @@ public class DynamicStatisticsBuilder {
     public List<AggregateRowProjection> minMax(
             List<UUID> periodIds,
             GroupKey key,
+            PayrollPeriodFrequency frequency,
             String referenceCurrencyCode,
             Collection<UUID> countryIds,
             Collection<UUID> departmentIds,
@@ -53,14 +62,12 @@ public class DynamicStatisticsBuilder {
             Collection<EmploymentType> employmentTypes) {
 
         String selectGroupColumn = selectGroupColumn(key);
-        String groupByColumn = groupByColumn(key);
+        String groupByClause = groupByClause(key);
         String partitionFilter = partitionFilter(key);
-
         String filter = buildFilter(key, countryIds, departmentIds, roleIds, employmentTypes);
 
         String jpql = """
                 SELECT %s
-                       r.originalAmount.currency         AS currency,
                        MIN(
                          CASE
                            WHEN r.originalAmount.currency = :referenceCurrencyCode
@@ -76,21 +83,23 @@ public class DynamicStatisticsBuilder {
                          END
                        )                                 AS maxReferenceAmount
                 FROM PayrollPeriodEarnerRankingEntity r
+                JOIN PayrollPeriodEntity p ON p.id = r.payrollPeriodId
                 LEFT JOIN CurrencyRateEntity cr
                   ON cr.currencyCode = r.originalAmount.currency
                  AND cr.referenceCurrencyCode = :referenceCurrencyCode
                 WHERE r.payrollPeriodId IN :periodIds
                   AND r.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.VALIDATED
-                  AND r.rank = 1
+                  AND p.frequency = :frequency
                   AND %s
                   %s
                   AND (r.originalAmount.currency = :referenceCurrencyCode
                        OR cr.rate IS NOT NULL)
-                GROUP BY %s
-                """.formatted(selectGroupColumn, partitionFilter, filter, groupByColumn);
+                %s
+                """.formatted(selectGroupColumn, partitionFilter, filter, groupByClause);
 
         TypedQuery<Tuple> query = entityManager.createQuery(jpql, Tuple.class)
                 .setParameter("periodIds", periodIds)
+                .setParameter("frequency", frequency)
                 .setParameter("referenceCurrencyCode", referenceCurrencyCode);
         if (key == GroupKey.COUNTRY && countryIds != null) {
             query.setParameter("countryIds", countryIds);
@@ -107,6 +116,7 @@ public class DynamicStatisticsBuilder {
 
         return query.getResultList().stream()
                 .map(t -> toProjection(t, key))
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -124,15 +134,19 @@ public class DynamicStatisticsBuilder {
         };
     }
 
-    private String groupByColumn(GroupKey key) {
+    /**
+     * Returns the complete {@code GROUP BY} clause, including the keyword, or the empty
+     * string for the global partition where no grouping is required.
+     */
+    private String groupByClause(GroupKey key) {
         if (key == null) {
-            return "r.originalAmount.currency";
+            return "";
         }
-        return switch (key) {
-            case COUNTRY -> "r.countryId, r.originalAmount.currency";
-            case DEPARTMENT -> "r.departmentId, r.originalAmount.currency";
-            case ROLE -> "r.roleId, r.originalAmount.currency";
-            case EMPLOYMENT_TYPE -> "r.employmentType, r.originalAmount.currency";
+        return "GROUP BY " + switch (key) {
+            case COUNTRY -> "r.countryId";
+            case DEPARTMENT -> "r.departmentId";
+            case ROLE -> "r.roleId";
+            case EMPLOYMENT_TYPE -> "r.employmentType";
             case CURRENCY, ORIGIN_COUNTRY ->
                     throw new IllegalArgumentException("Unsupported statistics key: " + key);
         };
@@ -199,28 +213,29 @@ public class DynamicStatisticsBuilder {
 
     private AggregateRowProjection toProjection(Tuple t, GroupKey key) {
         AggregateRowProjection p = new AggregateRowProjection();
-        // group-key display values, per the partition:
         if (key == GroupKey.COUNTRY) {
             UUID countryId = t.get("countryId", UUID.class);
             CountryEntity c = countryJpaRepository.findById(countryId).orElseThrow();
-            p.country = new RefDto(c.getId(),c.getIsoCode(), c.getName());
+            p.country = new RefDto(c.getId(), c.getIsoCode(), c.getName());
         }
         if (key == GroupKey.DEPARTMENT) {
             UUID departmentId = t.get("departmentId", UUID.class);
             DepartmentEntity d = departmentJpaRepository.findById(departmentId).orElseThrow();
-            p.department = new RefDto(d.getId(),d.getCode(), d.getName());
+            p.department = new RefDto(d.getId(), d.getCode(), d.getName());
         }
         if (key == GroupKey.ROLE) {
             UUID roleId = t.get("roleId", UUID.class);
             RoleEntity r = roleJpaRepository.findById(roleId).orElseThrow();
-            p.role = new RefDto(r.getId(),r.getCode(), r.getName());
+            p.role = new RefDto(r.getId(), r.getCode(), r.getName());
         }
         if (key == GroupKey.EMPLOYMENT_TYPE) {
             p.employmentType = t.get("employmentType", EmploymentType.class);
         }
-        p.currency = t.get("currency", String.class);
         BigDecimal min = t.get("minReferenceAmount", BigDecimal.class);
         BigDecimal max = t.get("maxReferenceAmount", BigDecimal.class);
+        if (min == null && max == null) {
+            return null;
+        }
         p.minReferenceAmount = min == null ? null
                 : min.setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP);
         p.maxReferenceAmount = max == null ? null

@@ -1,11 +1,20 @@
 package com.salary.management.application.service;
 
-import com.salary.management.application.dto.*;
+import com.salary.management.application.dto.AggregateLineDto;
+import com.salary.management.application.dto.AggregateReportRequest;
+import com.salary.management.application.dto.AggregateReportResponse;
+import com.salary.management.application.dto.DateRange;
+import com.salary.management.application.dto.RefDto;
+import com.salary.management.application.dto.StatisticsDto;
 import com.salary.management.application.exception.ReportBlockedException;
 import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.PayrollPeriod;
-import com.salary.management.domain.model.enums.*;
+import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.GroupKey;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
+import com.salary.management.domain.model.enums.ReportKind;
+import com.salary.management.domain.model.enums.ReportWarningCode;
 import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.model.values.SnapshotBuildResult;
 import com.salary.management.domain.repository.CurrencyRateRepository;
@@ -13,24 +22,32 @@ import com.salary.management.domain.repository.PayrollPeriodAggregateRepository;
 import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
 import com.salary.management.domain.repository.PayrollPeriodRepository;
 import com.salary.management.domain.repository.ReportDataRepository;
+import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,12 +79,17 @@ class AggregateReportServiceTest {
     @InjectMocks
     private AggregateReportService service;
 
-    private UUID FR_UUID = UUID.randomUUID();
+    private UUID FR_UUID;
 
     @BeforeEach
-    void setupReferenceCurrency() {
+    void setup() {
+        FR_UUID = UUID.randomUUID();
         when(currencyRateRepository.getReferenceCurrencyCode()).thenReturn(REFERENCE_CURRENCY);
     }
+
+    // ------------------------------------------------------------------
+    // Validation
+    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("reversed date range throws DomainValidationException")
@@ -88,6 +110,20 @@ class AggregateReportServiceTest {
 
         assertThrows(DomainValidationException.class, () -> service.generate(request));
     }
+
+    @Test
+    @DisplayName("includeStatistics with more than one group key throws")
+    void statisticsWithMultipleGroupKeysThrows() {
+        AggregateReportRequest request = request(
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                List.of(GroupKey.COUNTRY, GroupKey.DEPARTMENT), false, true);
+
+        assertThrows(DomainValidationException.class, () -> service.generate(request));
+    }
+
+    // ------------------------------------------------------------------
+    // Period resolution and snapshots
+    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("no periods in range returns empty response")
@@ -166,9 +202,13 @@ class AggregateReportServiceTest {
         verify(payrollPeriodAggregateRepository, never()).saveAll(anyList());
     }
 
+    // ------------------------------------------------------------------
+    // Filters and breakdown
+    // ------------------------------------------------------------------
+
     @Test
-    @DisplayName("filter is dropped when the dimension is a group key")
-    void filterDroppedWhenGrouped() {
+    @DisplayName("the filter is preserved and passed to the query")
+    void filterPreservedWhenGrouped() {
         PayrollPeriod period = period(true);
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
@@ -178,17 +218,16 @@ class AggregateReportServiceTest {
         AggregateReportRequest request = new AggregateReportRequest(
                 new DateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)),
                 List.of(GroupKey.COUNTRY),
-                java.util.Set.of(countryId),
+                Set.of(countryId),
                 null, null, null,
                 false, false);
 
         service.generate(request);
 
-        ArgumentCaptor<com.salary.management.domain.repository.criteria.ReportEffectiveFilters>
-                captor = ArgumentCaptor.forClass(
-                com.salary.management.domain.repository.criteria.ReportEffectiveFilters.class);
+        ArgumentCaptor<ReportEffectiveFilters> captor =
+                ArgumentCaptor.forClass(ReportEffectiveFilters.class);
         verify(reportDataRepository).queryAggregates(anyList(), anyList(), captor.capture());
-        assertNull(captor.getValue().countryIds());
+        assertEquals(Set.of(countryId), captor.getValue().countryIds());
     }
 
     @Test
@@ -208,21 +247,24 @@ class AggregateReportServiceTest {
         assertEquals(0, line.breakdown().total().compareTo(new BigDecimal("1350.00")));
     }
 
+    // ------------------------------------------------------------------
+    // Statistics — per frequency
+    // ------------------------------------------------------------------
+
     @Test
-    @DisplayName("statistics populated from the statistics query min and max")
-    void statisticsPopulatedFromStatisticsQuery() {
+    @DisplayName("monthly statistics populate the monthly block")
+    void monthlyStatisticsPopulateMonthlyBlock() {
         PayrollPeriod period = period(true);
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of(aggregateRow()));
 
-        AggregateRowProjection statsRow = new AggregateRowProjection();
-        statsRow.country = new RefDto(FR_UUID,"FR", "France");
-        statsRow.minReferenceAmount = new BigDecimal("1000.00");
-        statsRow.maxReferenceAmount = new BigDecimal("9000.00");
-
-        when(reportDataRepository.queryStatistics(anyList(), anyList(), any(), any()))
-                .thenReturn(List.of(statsRow));
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.MONTHLY), any(), any()))
+                .thenReturn(List.of(statsRow("1000.00", "9000.00")));
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.BI_WEEKLY), any(), any()))
+                .thenReturn(List.of());
 
         AggregateReportResponse response = service.generate(
                 request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
@@ -230,18 +272,108 @@ class AggregateReportServiceTest {
 
         AggregateLineDto line = response.lines().get(0);
         assertNotNull(line.statistics());
-        assertEquals(0, line.statistics().min().amount()
+        assertNotNull(line.statistics().monthly());
+        assertNull(line.statistics().biWeekly());
+        assertEquals(0, line.statistics().monthly().min().amount()
                 .compareTo(new BigDecimal("1000.00")));
-        assertEquals(0, line.statistics().max().amount()
+        assertEquals(0, line.statistics().monthly().max().amount()
                 .compareTo(new BigDecimal("9000.00")));
-        // Average is computed from the aggregate, not from the statistics query:
-        // 1350.00 / 2 = 675.00.
-        assertEquals(0, line.statistics().average().amount()
+        // Average is monthlyTotal / monthlyEmployeeCount = 1350.00 / 2 = 675.00.
+        assertEquals(0, line.statistics().monthly().average().amount()
                 .compareTo(new BigDecimal("675.00")));
     }
 
+    @Test
+    @DisplayName("bi-weekly statistics populate the bi-weekly block")
+    void biWeeklyStatisticsPopulateBiWeeklyBlock() {
+        PayrollPeriod period = period(true);
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
+        AggregateRowProjection row = aggregateRow();
+        row.biWeeklyTotal = new BigDecimal("600.00");
+        row.biWeeklyEmployeeCount = 2L;
+        row.biWeeklyPeriodCount = 1L;
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(row));
+
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.MONTHLY), any(), any()))
+                .thenReturn(List.of());
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.BI_WEEKLY), any(), any()))
+                .thenReturn(List.of(statsRow("300.00", "500.00")));
+
+        AggregateReportResponse response = service.generate(
+                request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                        List.of(GroupKey.COUNTRY), false, true));
+
+        AggregateLineDto line = response.lines().get(0);
+        assertNotNull(line.statistics());
+        assertNull(line.statistics().monthly());
+        assertNotNull(line.statistics().biWeekly());
+        assertEquals(0, line.statistics().biWeekly().min().amount()
+                .compareTo(new BigDecimal("300.00")));
+        assertEquals(0, line.statistics().biWeekly().max().amount()
+                .compareTo(new BigDecimal("500.00")));
+        // Average is biWeeklyTotal / biWeeklyEmployeeCount = 600.00 / 2 = 300.00.
+        assertEquals(0, line.statistics().biWeekly().average().amount()
+                .compareTo(new BigDecimal("300.00")));
+    }
+
+    @Test
+    @DisplayName("both blocks are populated when the group has both frequencies")
+    void bothBlocksPopulatedWhenBothFrequenciesPresent() {
+        PayrollPeriod period = period(true);
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
+        AggregateRowProjection row = aggregateRow();
+        row.biWeeklyTotal = new BigDecimal("600.00");
+        row.biWeeklyEmployeeCount = 2L;
+        row.biWeeklyPeriodCount = 1L;
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(row));
+
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.MONTHLY), any(), any()))
+                .thenReturn(List.of(statsRow("1000.00", "9000.00")));
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.BI_WEEKLY), any(), any()))
+                .thenReturn(List.of(statsRow("300.00", "500.00")));
+
+        AggregateReportResponse response = service.generate(
+                request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                        List.of(GroupKey.COUNTRY), false, true));
+
+        AggregateLineDto line = response.lines().get(0);
+        assertNotNull(line.statistics());
+        assertNotNull(line.statistics().monthly());
+        assertNotNull(line.statistics().biWeekly());
+        assertEquals(0, line.statistics().monthly().average().amount()
+                .compareTo(new BigDecimal("675.00")));
+        assertEquals(0, line.statistics().biWeekly().average().amount()
+                .compareTo(new BigDecimal("300.00")));
+    }
+
+    @Test
+    @DisplayName("statistics query is skipped when includeStatistics is false")
+    void statisticsQuerySkippedWhenNotRequested() {
+        PayrollPeriod period = period(true);
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(aggregateRow()));
+
+        service.generate(request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                List.of(GroupKey.COUNTRY), false, false));
+
+        verify(reportDataRepository, never()).queryStatistics(
+                anyList(), anyList(), any(), any(), any());
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
     private AggregateReportRequest request(LocalDate start, LocalDate end,
-                                           List<GroupKey> groupKeys, boolean breakdown, boolean statistics) {
+                                           List<GroupKey> groupKeys, boolean breakdown,
+                                           boolean statistics) {
         return new AggregateReportRequest(
                 new DateRange(start, end), groupKeys,
                 null, null, null, null, breakdown, statistics);
@@ -260,32 +392,28 @@ class AggregateReportServiceTest {
 
     private AggregateRowProjection aggregateRow() {
         AggregateRowProjection p = new AggregateRowProjection();
-        p.country = new com.salary.management.application.dto.RefDto(FR_UUID,"FR", "France");
+        p.country = new RefDto(FR_UUID, "FR", "France");
         p.sumBase = new BigDecimal("1000.00");
         p.sumVariable = new BigDecimal("100.00");
         p.sumAllowances = new BigDecimal("50.00");
         p.sumEmployerTaxes = new BigDecimal("200.00");
         p.sumTotal = new BigDecimal("1350.00");
         p.sumEmployeeCount = 2L;
-        // The adapter computes employeeCount from the frequency counters. One monthly
-        // period with two employees gives monthlyAvg = round(2 / 1) = 2, biWeeklyAvg = 0,
-        // so employeeCount = 2 and the average is 1350.00 / 2 = 675.00.
+        p.monthlyTotal = new BigDecimal("1350.00");
         p.monthlyEmployeeCount = 2L;
         p.monthlyPeriodCount = 1L;
+        p.biWeeklyTotal = BigDecimal.ZERO;
         p.biWeeklyEmployeeCount = 0L;
         p.biWeeklyPeriodCount = 0L;
         p.employeeCount = 2L;
         return p;
     }
 
-    private AggregateRowProjection statisticsRow(EarnerRankingDirection direction, BigDecimal amount) {
+    private AggregateRowProjection statsRow(String min, String max) {
         AggregateRowProjection p = new AggregateRowProjection();
-        p.country = new com.salary.management.application.dto.RefDto(FR_UUID,"FR", "France");
-        if(EarnerRankingDirection.TOP.equals(direction)){
-            p.maxReferenceAmount = amount;
-        }else{
-            p.minReferenceAmount = amount;
-        }
+        p.country = new RefDto(FR_UUID, "FR", "France");
+        p.minReferenceAmount = new BigDecimal(min);
+        p.maxReferenceAmount = new BigDecimal(max);
         return p;
     }
 }

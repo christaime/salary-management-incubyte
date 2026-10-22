@@ -127,6 +127,12 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         selections.add(cb.sum(root.get("referenceAmounts").get("total")).alias("sumTotal"));
         selections.add(cb.sum(root.get("employeeCount")).alias("sumEmployeeCount"));
 
+        Expression<BigDecimal> monthlyTotal = cb.sum(
+                cb.<BigDecimal>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
+                                root.get("referenceAmounts").get("total"))
+                        .otherwise(BigDecimal.ZERO));
+
         Expression<Long> monthlyEmployees = cb.sum(
                 cb.<Long>selectCase()
                         .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
@@ -138,6 +144,12 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                         .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
                                 period.get("id"))
                         .otherwise(cb.nullLiteral(UUID.class)));
+
+        Expression<BigDecimal> biWeeklyTotal = cb.sum(
+                cb.<BigDecimal>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY),
+                                root.get("referenceAmounts").get("total"))
+                        .otherwise(BigDecimal.ZERO));
 
         Expression<Long> biWeeklyEmployees = cb.sum(
                 cb.<Long>selectCase()
@@ -151,8 +163,10 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                                 period.get("id"))
                         .otherwise(cb.nullLiteral(UUID.class)));
 
+        selections.add(monthlyTotal.alias("monthlyTotal"));
         selections.add(monthlyEmployees.alias("monthlyEmployeeCount"));
         selections.add(monthlyPeriods.alias("monthlyPeriodCount"));
+        selections.add(biWeeklyTotal.alias("biWeeklyTotal"));
         selections.add(biWeeklyEmployees.alias("biWeeklyEmployeeCount"));
         selections.add(biWeeklyPeriods.alias("biWeeklyPeriodCount"));
 
@@ -173,6 +187,7 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
     public List<AggregateRowProjection> queryStatistics(
             List<UUID> periodIds,
             List<GroupKey> groupKeys,
+            PayrollPeriodFrequency frequency,
             ReportEffectiveFilters filters,
             String referenceCurrencyCode) {
 
@@ -183,20 +198,20 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
             return List.of();
         }
         return dynamicStatisticsBuilder.minMax(
-                periodIds, key, referenceCurrencyCode, nullIfEmpty(filters.countryIds()),
+                periodIds, key, frequency, referenceCurrencyCode,
+                nullIfEmpty(filters.countryIds()),
                 nullIfEmpty(filters.departmentIds()),
                 nullIfEmpty(filters.roleIds()),
                 nullIfEmpty(filters.employmentTypes()));
-
     }
 
     private AggregateRowProjection toAggregateProjection(Tuple t, List<GroupKey> groupKeys) {
         AggregateRowProjection p = new AggregateRowProjection();
         for (GroupKey key : groupKeys) {
             switch (key) {
-                case COUNTRY -> p.country = ref(t, "countryId","countryCode", "countryName");
-                case DEPARTMENT -> p.department = ref(t,"departmentId", "departmentCode", "departmentName");
-                case ROLE -> p.role = ref(t,"roleId", "roleCode", "roleName");
+                case COUNTRY -> p.country = ref(t, "countryId", "countryCode", "countryName");
+                case DEPARTMENT -> p.department = ref(t, "departmentId", "departmentCode", "departmentName");
+                case ROLE -> p.role = ref(t, "roleId", "roleCode", "roleName");
                 case EMPLOYMENT_TYPE -> p.employmentType =
                         t.get("employmentType", EmploymentType.class);
                 case CURRENCY -> p.currency = t.get("currency", String.class);
@@ -209,8 +224,10 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         p.sumEmployerTaxes = t.get("sumEmployerTaxes", BigDecimal.class);
         p.sumTotal = t.get("sumTotal", BigDecimal.class);
         p.sumEmployeeCount = number(t.get("sumEmployeeCount"));
+        p.monthlyTotal = t.get("monthlyTotal", BigDecimal.class);
         p.monthlyEmployeeCount = number(t.get("monthlyEmployeeCount"));
         p.monthlyPeriodCount = number(t.get("monthlyPeriodCount"));
+        p.biWeeklyTotal = t.get("biWeeklyTotal", BigDecimal.class);
         p.biWeeklyEmployeeCount = number(t.get("biWeeklyEmployeeCount"));
         p.biWeeklyPeriodCount = number(t.get("biWeeklyPeriodCount"));
         p.employeeCount = computeAverageEmployeeCount(
@@ -246,14 +263,14 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         return Long.parseLong(value.toString());
     }
 
-    private RefDto ref(Tuple t,String idAlias, String codeAlias, String nameAlias) {
+    private RefDto ref(Tuple t, String idAlias, String codeAlias, String nameAlias) {
         UUID id = t.get(idAlias, UUID.class);
         String code = t.get(codeAlias, String.class);
         String name = t.get(nameAlias, String.class);
         if (id == null && code == null && name == null) {
             return null;
         }
-        return new RefDto(id,code, name);
+        return new RefDto(id, code, name);
     }
 
     private <T> Collection<T> nullIfEmpty(Set<T> set) {

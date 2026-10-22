@@ -2,6 +2,7 @@ package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
 import org.junit.jupiter.api.DisplayName;
@@ -69,6 +70,28 @@ class ReportDataRepositoryAdapterTest {
         assertEquals(0, fr.sumBase.compareTo(new BigDecimal("925.93")));
         assertEquals(0, fr.sumTotal.compareTo(new BigDecimal("1250.01")));
         assertEquals(3L, fr.sumEmployeeCount);
+    }
+
+    @Test
+    @DisplayName("queryAggregates splits monthly totals per group")
+    void queryAggregatesSplitsMonthlyTotals() {
+        ReportEffectiveFilters filters = new ReportEffectiveFilters(
+                null, null, null, null);
+
+        List<AggregateRowProjection> rows = adapter.queryAggregates(
+                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters);
+
+        AggregateRowProjection fr = rows.stream()
+                .filter(r -> "FR".equals(r.country.code()))
+                .findFirst()
+                .orElseThrow();
+        // January is monthly, so the whole total is in the monthly bucket.
+        assertEquals(0, fr.monthlyTotal.compareTo(new BigDecimal("1250.01")));
+        assertEquals(3L, fr.monthlyEmployeeCount);
+        assertEquals(1L, fr.monthlyPeriodCount);
+        assertTrue(fr.biWeeklyTotal == null || fr.biWeeklyTotal.signum() == 0);
+        assertEquals(0L, fr.biWeeklyEmployeeCount);
+        assertEquals(0L, fr.biWeeklyPeriodCount);
     }
 
     @Test
@@ -174,17 +197,18 @@ class ReportDataRepositoryAdapterTest {
     }
 
     // ------------------------------------------------------------------
-    // queryStatistics
+    // queryStatistics — MONTHLY
     // ------------------------------------------------------------------
 
     @Test
-    @DisplayName("queryStatistics by COUNTRY returns one row per country")
+    @DisplayName("queryStatistics by COUNTRY returns one monthly row per country")
     void queryStatisticsByCountry() {
         ReportEffectiveFilters filters = new ReportEffectiveFilters(
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters, REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(2, rows.size());
         AggregateRowProjection fr = rows.stream()
@@ -209,7 +233,8 @@ class ReportDataRepositoryAdapterTest {
                 Set.of(FR), null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters, REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
         assertEquals("FR", rows.get(0).country.code());
@@ -218,13 +243,14 @@ class ReportDataRepositoryAdapterTest {
     }
 
     @Test
-    @DisplayName("queryStatistics by DEPARTMENT returns one row per department")
+    @DisplayName("queryStatistics by DEPARTMENT returns one monthly row per department")
     void queryStatisticsByDepartment() {
         ReportEffectiveFilters filters = new ReportEffectiveFilters(
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.DEPARTMENT), filters, REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.DEPARTMENT),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(2, rows.size());
         AggregateRowProjection eng = rows.stream()
@@ -249,21 +275,22 @@ class ReportDataRepositoryAdapterTest {
                 null, Set.of(FINANCE), null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.DEPARTMENT), filters,
-                REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.DEPARTMENT),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
         assertEquals("Finance", rows.get(0).department.name());
     }
 
     @Test
-    @DisplayName("queryStatistics by ROLE returns one row per role")
+    @DisplayName("queryStatistics by ROLE returns one monthly row per role")
     void queryStatisticsByRole() {
         ReportEffectiveFilters filters = new ReportEffectiveFilters(
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.ROLE), filters, REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.ROLE),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(2, rows.size());
         AggregateRowProjection eng = rows.stream()
@@ -288,21 +315,22 @@ class ReportDataRepositoryAdapterTest {
                 null, null, Set.of(MANAGER), null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.ROLE), filters, REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.ROLE),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
         assertEquals("Manager", rows.get(0).role.name());
     }
 
     @Test
-    @DisplayName("queryStatistics by EMPLOYMENT_TYPE returns one row per type")
+    @DisplayName("queryStatistics by EMPLOYMENT_TYPE returns one monthly row per type")
     void queryStatisticsByEmploymentType() {
         ReportEffectiveFilters filters = new ReportEffectiveFilters(
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.EMPLOYMENT_TYPE), filters,
-                REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.EMPLOYMENT_TYPE),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
         AggregateRowProjection row = rows.get(0);
@@ -318,21 +346,22 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, Set.of(EmploymentType.FULL_TIME));
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.EMPLOYMENT_TYPE), filters,
-                REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.EMPLOYMENT_TYPE),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
         assertEquals(EmploymentType.FULL_TIME, rows.get(0).employmentType);
     }
 
     @Test
-    @DisplayName("queryStatistics with no group keys returns the global row")
+    @DisplayName("queryStatistics with no group keys returns the monthly global row")
     void queryStatisticsGlobal() {
         ReportEffectiveFilters filters = new ReportEffectiveFilters(
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(), filters, REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(), PayrollPeriodFrequency.MONTHLY,
+                filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
         AggregateRowProjection row = rows.get(0);
@@ -344,6 +373,49 @@ class ReportDataRepositoryAdapterTest {
         assertEquals(0, row.maxReferenceAmount.compareTo(new BigDecimal("2500.00")));
     }
 
+    // ------------------------------------------------------------------
+    // queryStatistics — BI_WEEKLY
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("queryStatistics for BI_WEEKLY returns empty when no bi-weekly periods")
+    void queryStatisticsBiWeeklyIsEmpty() {
+        ReportEffectiveFilters filters = new ReportEffectiveFilters(
+                null, null, null, null);
+
+        List<AggregateRowProjection> rows = adapter.queryStatistics(
+                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                PayrollPeriodFrequency.BI_WEEKLY, filters, REFERENCE_CURRENCY);
+
+        // The seed has only a monthly period, so the frequency filter excludes all rows.
+        assertTrue(rows.isEmpty());
+    }
+
+    @Test
+    @DisplayName("queryStatistics for BI_WEEKLY is empty for every partition kind")
+    void queryStatisticsBiWeeklyIsEmptyForEveryKey() {
+        ReportEffectiveFilters filters = new ReportEffectiveFilters(
+                null, null, null, null);
+
+        for (GroupKey key : List.of(
+                GroupKey.COUNTRY, GroupKey.DEPARTMENT,
+                GroupKey.ROLE, GroupKey.EMPLOYMENT_TYPE)) {
+            assertTrue(adapter.queryStatistics(
+                                    List.of(JANUARY), List.of(key),
+                                    PayrollPeriodFrequency.BI_WEEKLY, filters, REFERENCE_CURRENCY)
+                            .isEmpty(),
+                    "Expected empty for " + key);
+        }
+        var stats = adapter.queryStatistics(
+                List.of(JANUARY), List.of(),
+                PayrollPeriodFrequency.BI_WEEKLY, filters, REFERENCE_CURRENCY);
+        assertTrue(stats.isEmpty());
+    }
+
+    // ------------------------------------------------------------------
+    // queryStatistics — edge cases
+    // ------------------------------------------------------------------
+
     @Test
     @DisplayName("queryStatistics with more than one group key returns empty")
     void queryStatisticsWithMultipleGroupKeysReturnsEmpty() {
@@ -353,7 +425,7 @@ class ReportDataRepositoryAdapterTest {
         List<AggregateRowProjection> rows = adapter.queryStatistics(
                 List.of(JANUARY),
                 List.of(GroupKey.COUNTRY, GroupKey.DEPARTMENT),
-                filters, REFERENCE_CURRENCY);
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertTrue(rows.isEmpty());
     }
@@ -365,7 +437,8 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(MISSING), List.of(GroupKey.COUNTRY), filters, REFERENCE_CURRENCY);
+                List.of(MISSING), List.of(GroupKey.COUNTRY),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertTrue(rows.isEmpty());
     }
@@ -378,7 +451,8 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters, REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertTrue(rows.isEmpty());
     }
@@ -390,7 +464,8 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY), filters, REFERENCE_CURRENCY);
+                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertNotNull(rows);
         for (AggregateRowProjection row : rows) {
@@ -401,5 +476,20 @@ class ReportDataRepositoryAdapterTest {
                 assertEquals(2, row.maxReferenceAmount.scale());
             }
         }
+    }
+
+    @Test
+    @DisplayName("queryStatistics return one row for null groupKey")
+    void queryStatisticsOnNullGroupKey() {
+        ReportEffectiveFilters filters = new ReportEffectiveFilters(
+                null, null, null, null);
+
+        List<AggregateRowProjection> rows = adapter.queryStatistics(
+                List.of(JANUARY), List.of(),
+                PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
+
+        assertNotNull(rows);
+        assertEquals(1,rows.size());
+
     }
 }

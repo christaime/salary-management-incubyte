@@ -9,22 +9,22 @@ import java.util.UUID;
 /**
  * Mutable projection for one row of the report queries.
  *
- * <p>For the aggregate query, the {@code sum*} fields, {@code sumEmployeeCount}, and the
- * four frequency counters are populated, and the group-key fields
- * ({@code country}, {@code department}, {@code role}, {@code employmentType},
- * {@code currency}) are filled only for the keys the client asked for. For the statistics
- * query, the group-key fields are populated the same way and {@code minReferenceAmount} and
- * {@code maxReferenceAmount} carry the per-group minimum and maximum.</p>
+ * <p>For the aggregate query, the {@code sum*} fields, the frequency totals, and the four
+ * frequency counters are populated, and the group-key fields ({@code country},
+ * {@code department}, {@code role}, {@code employmentType}, {@code currency}) are filled only
+ * for the keys the client asked for. For the statistics query, the group-key fields are
+ * populated the same way and {@code minReferenceAmount} and {@code maxReferenceAmount} carry
+ * the per-group minimum and maximum of the requested frequency.</p>
  */
 public class AggregateRowProjection {
 
-    /** COUNTRY group key value: code and name. */
+    /** COUNTRY group key value. */
     public RefDto country;
 
-    /** DEPARTMENT group key value: code and name. */
+    /** DEPARTMENT group key value. */
     public RefDto department;
 
-    /** ROLE group key value: code and name. */
+    /** ROLE group key value. */
     public RefDto role;
 
     /** EMPLOYMENT_TYPE group key value. */
@@ -33,7 +33,7 @@ public class AggregateRowProjection {
     /** CURRENCY group key value. */
     public String currency;
 
-    /** Aggregate query totals. */
+    /** Aggregate query totals across all frequencies. */
     public BigDecimal sumBase;
     public BigDecimal sumVariable;
     public BigDecimal sumAllowances;
@@ -42,18 +42,22 @@ public class AggregateRowProjection {
 
     /**
      * Raw sum of employee counts across all periods in the group. Kept for diagnostics; the
-     * value the response uses is {@code employeeCount}, computed from the four frequency
-     * counters below.
+     * value the response uses is {@code employeeCount}.
      */
     public Long sumEmployeeCount;
 
-    /** Numerator: sum of {@code employeeCount} over MONTHLY aggregate rows. */
+    /** Total reference amount over MONTHLY aggregate rows. */
+    public BigDecimal monthlyTotal;
+    /** Sum of {@code employeeCount} over MONTHLY aggregate rows, i.e. monthly payslips. */
     public Long monthlyEmployeeCount;
-    /** Denominator: number of MONTHLY aggregate rows. */
+    /** Number of distinct MONTHLY periods in the group. */
     public Long monthlyPeriodCount;
-    /** Numerator: sum of {@code employeeCount} over BI_WEEKLY aggregate rows. */
+
+    /** Total reference amount over BI_WEEKLY aggregate rows. */
+    public BigDecimal biWeeklyTotal;
+    /** Sum of {@code employeeCount} over BI_WEEKLY aggregate rows, i.e. bi-weekly payslips. */
     public Long biWeeklyEmployeeCount;
-    /** Denominator: number of BI_WEEKLY aggregate rows. */
+    /** Number of distinct BI_WEEKLY periods in the group. */
     public Long biWeeklyPeriodCount;
 
     /**
@@ -64,7 +68,33 @@ public class AggregateRowProjection {
      */
     public Long employeeCount;
 
-    /** Statistics query results. */
+    /** Statistics query results for the requested frequency. */
     public BigDecimal minReferenceAmount;
     public BigDecimal maxReferenceAmount;
+
+    @Override
+    public String toString() {
+        return "AggregateRowProjection{" +
+                "country=" + country +
+                ", department=" + department +
+                ", role=" + role +
+                ", employmentType=" + employmentType +
+                ", currency='" + currency + '\'' +
+                ", sumBase=" + sumBase +
+                ", sumVariable=" + sumVariable +
+                ", sumAllowances=" + sumAllowances +
+                ", sumEmployerTaxes=" + sumEmployerTaxes +
+                ", sumTotal=" + sumTotal +
+                ", sumEmployeeCount=" + sumEmployeeCount +
+                ", monthlyTotal=" + monthlyTotal +
+                ", monthlyEmployeeCount=" + monthlyEmployeeCount +
+                ", monthlyPeriodCount=" + monthlyPeriodCount +
+                ", biWeeklyTotal=" + biWeeklyTotal +
+                ", biWeeklyEmployeeCount=" + biWeeklyEmployeeCount +
+                ", biWeeklyPeriodCount=" + biWeeklyPeriodCount +
+                ", employeeCount=" + employeeCount +
+                ", minReferenceAmount=" + minReferenceAmount +
+                ", maxReferenceAmount=" + maxReferenceAmount +
+                '}';
+    }
 }

@@ -7,6 +7,7 @@ import com.salary.management.application.dto.AmountDto;
 import com.salary.management.application.dto.AmountsDto;
 import com.salary.management.application.dto.DateRange;
 import com.salary.management.application.dto.StatisticsDto;
+import com.salary.management.application.dto.StatisticsPerFrequency;
 import com.salary.management.application.exception.ReportBlockedException;
 import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
@@ -14,6 +15,7 @@ import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.ReportKind;
 import com.salary.management.domain.model.values.AmountUtils;
 import com.salary.management.domain.model.values.ReportWarning;
@@ -85,11 +87,23 @@ public class AggregateReportService {
                 ? singleKeyOf(request.groupKeys())
                 : null;
 
-        Map<StatisticsKey, StatisticsPair> statistics = request.includeStatistics() && request.groupKeys().size() <= 1
-                ? buildStatistics(reportDataRepository.queryStatistics(periodIds, request.groupKeys(), filters, referenceCurrency), statisticsKey)
-                : Map.of();
+        Map<StatisticsKey, StatisticsPair> monthlyStatistics = Map.of();
+        Map<StatisticsKey, StatisticsPair> biWeeklyStatistics = Map.of();
+        if (request.includeStatistics()) {
+            monthlyStatistics = buildStatistics(
+                    reportDataRepository.queryStatistics(
+                            periodIds, request.groupKeys(),
+                            PayrollPeriodFrequency.MONTHLY, filters, referenceCurrency),
+                    statisticsKey);
+            biWeeklyStatistics = buildStatistics(
+                    reportDataRepository.queryStatistics(
+                            periodIds, request.groupKeys(),
+                            PayrollPeriodFrequency.BI_WEEKLY, filters, referenceCurrency),
+                    statisticsKey);
+        }
 
-        List<AggregateLineDto> lines = assembleLines(aggregateRows, statistics, statisticsKey, request);
+        List<AggregateLineDto> lines = assembleLines(
+                aggregateRows, monthlyStatistics, biWeeklyStatistics, statisticsKey, request);
 
         return new AggregateReportResponse(
                 ReportKind.AGGREGATE,
@@ -149,10 +163,10 @@ public class AggregateReportService {
     private ReportEffectiveFilters effectiveFilters(AggregateReportRequest request) {
         Set<GroupKey> keys = Set.copyOf(request.groupKeys());
         return new ReportEffectiveFilters(
-                keys.contains(GroupKey.COUNTRY) ? null : request.anyCountryIds(),
-                keys.contains(GroupKey.DEPARTMENT) ? null : request.anyDepartmentIds(),
-                keys.contains(GroupKey.ROLE) ? null : request.anyRoleIds(),
-                keys.contains(GroupKey.EMPLOYMENT_TYPE) ? null : request.anyEmploymentTypes());
+                request.anyCountryIds(),
+                request.anyDepartmentIds(),
+                request.anyRoleIds(),
+                request.anyEmploymentTypes());
     }
 
     private List<PayrollPeriod> resolvePeriods(DateRange range) {
@@ -194,7 +208,7 @@ public class AggregateReportService {
     // ------------------------------------------------------------------
 
     /**
-     * Builds the statistics map for one period. Throws if the query returned two rows for
+     * Builds the statistics map for one frequency. Throws if the query returned two rows for
      * the same key, which would indicate a bug in the query or the projection.
      */
     private Map<StatisticsKey, StatisticsPair> buildStatistics(
@@ -243,7 +257,8 @@ public class AggregateReportService {
 
     private List<AggregateLineDto> assembleLines(
             List<AggregateRowProjection> rows,
-            Map<StatisticsKey, StatisticsPair> statistics,
+            Map<StatisticsKey, StatisticsPair> monthlyStatistics,
+            Map<StatisticsKey, StatisticsPair> biWeeklyStatistics,
             GroupKey statisticsKey,
             AggregateReportRequest request) {
         List<AggregateLineDto> lines = new ArrayList<>(rows.size());
@@ -256,24 +271,14 @@ public class AggregateReportService {
                     : null;
             StatisticsDto stats = null;
             if (request.includeStatistics()) {
-                StatisticsPair pair = statistics.get(keyOf(row, statisticsKey));
-                AmountDto min = pair != null && pair.min() != null
-                        ? new AmountDto(pair.min().setScale(
-                        AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
-                        referenceCurrency)
-                        : null;
-                AmountDto max = pair != null && pair.max() != null
-                        ? new AmountDto(pair.max().setScale(
-                        AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
-                        referenceCurrency)
-                        : null;
-                AmountDto average = row.employeeCount != null && row.employeeCount > 0
-                        ? new AmountDto(row.sumTotal.divide(
-                        BigDecimal.valueOf(row.employeeCount),
-                        AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
-                        referenceCurrency)
-                        : null;
-                stats = new StatisticsDto(min, max, average);
+                StatisticsKey key = keyOf(row, statisticsKey);
+                StatisticsPerFrequency monthly = toPerFrequency(
+                        monthlyStatistics.get(key),
+                        row.monthlyTotal, row.monthlyEmployeeCount, row.monthlyPeriodCount);
+                StatisticsPerFrequency biWeekly = toPerFrequency(
+                        biWeeklyStatistics.get(key),
+                        row.biWeeklyTotal, row.biWeeklyEmployeeCount, row.biWeeklyPeriodCount);
+                stats = new StatisticsDto(monthly, biWeekly);
             }
             lines.add(new AggregateLineDto(
                     amount,
@@ -289,6 +294,45 @@ public class AggregateReportService {
         return lines;
     }
 
+    /**
+     * Builds one per-frequency statistics block. Returns a block with zero counts and null
+     * amounts when the group has no rows of that frequency, rather than {@code null}, so the
+     * reader can distinguish "no bi-weekly employees" from "field missing".
+     */
+    private StatisticsPerFrequency toPerFrequency(
+            StatisticsPair pair,
+            BigDecimal total,
+            Long employeeCount,
+            Long periodCount) {
+
+        if (pair == null) return null;
+
+        int employees = employeeCount == null ? 0 : employeeCount.intValue();
+        int periods = periodCount == null ? 0 : periodCount.intValue();
+        BigDecimal totalAmount = total == null ? BigDecimal.ZERO : total;
+
+        AmountDto min = pair.min() != null
+                ? new AmountDto(pair.min().setScale(
+                AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
+                referenceCurrency)
+                : null;
+        AmountDto max = pair.max() != null
+                ? new AmountDto(pair.max().setScale(
+                AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
+                referenceCurrency)
+                : null;
+        AmountDto average = employees > 0
+                ? new AmountDto(totalAmount.divide(
+                BigDecimal.valueOf(employees),
+                AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
+                referenceCurrency)
+                : null;
+        AmountDto totalDto = new AmountDto(
+                totalAmount.setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
+                referenceCurrency);
+        int averageEmployees = periods > 0 ? (int) Math.round((double) employees / periods) : 0;
+        return new StatisticsPerFrequency(min, max, average, totalDto, averageEmployees, periods);
+    }
     // ------------------------------------------------------------------
     // Small value types
     // ------------------------------------------------------------------
@@ -306,7 +350,7 @@ public class AggregateReportService {
             EmploymentType employmentType) {
     }
 
-    /** Min and max reference amount for one partition instance. */
+    /** Min and max reference amount for one partition instance, of one frequency. */
     private record StatisticsPair(BigDecimal min, BigDecimal max) {
     }
 }
