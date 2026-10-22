@@ -62,6 +62,8 @@ class AggregateReportServiceTest {
     @InjectMocks
     private AggregateReportService service;
 
+    private UUID FR_UUID = UUID.randomUUID();
+
     @BeforeEach
     void setupReferenceCurrency() {
         when(currencyRateRepository.getReferenceCurrencyCode()).thenReturn(REFERENCE_CURRENCY);
@@ -215,7 +217,7 @@ class AggregateReportServiceTest {
                 .thenReturn(List.of(aggregateRow()));
 
         AggregateRowProjection statsRow = new AggregateRowProjection();
-        statsRow.country = new RefDto("FR", "France");
+        statsRow.country = new RefDto(FR_UUID,"FR", "France");
         statsRow.minReferenceAmount = new BigDecimal("1000.00");
         statsRow.maxReferenceAmount = new BigDecimal("9000.00");
 
@@ -258,7 +260,7 @@ class AggregateReportServiceTest {
 
     private AggregateRowProjection aggregateRow() {
         AggregateRowProjection p = new AggregateRowProjection();
-        p.country = new com.salary.management.application.dto.RefDto("FR", "France");
+        p.country = new com.salary.management.application.dto.RefDto(FR_UUID,"FR", "France");
         p.sumBase = new BigDecimal("1000.00");
         p.sumVariable = new BigDecimal("100.00");
         p.sumAllowances = new BigDecimal("50.00");
@@ -278,7 +280,7 @@ class AggregateReportServiceTest {
 
     private AggregateRowProjection statisticsRow(EarnerRankingDirection direction, BigDecimal amount) {
         AggregateRowProjection p = new AggregateRowProjection();
-        p.country = new com.salary.management.application.dto.RefDto("FR", "France");
+        p.country = new com.salary.management.application.dto.RefDto(FR_UUID,"FR", "France");
         if(EarnerRankingDirection.TOP.equals(direction)){
             p.maxReferenceAmount = amount;
         }else{

@@ -12,13 +12,17 @@ import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.PayrollPeriod;
-import com.salary.management.domain.model.enums.EarnerRankingDirection;
+import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.ReportKind;
 import com.salary.management.domain.model.values.AmountUtils;
 import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.model.values.SnapshotBuildResult;
-import com.salary.management.domain.repository.*;
+import com.salary.management.domain.repository.CurrencyRateRepository;
+import com.salary.management.domain.repository.PayrollPeriodAggregateRepository;
+import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
+import com.salary.management.domain.repository.PayrollPeriodRepository;
+import com.salary.management.domain.repository.ReportDataRepository;
 import com.salary.management.domain.repository.criteria.PayrollPeriodCriteria;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
@@ -34,7 +38,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -78,14 +81,15 @@ public class AggregateReportService {
         List<AggregateRowProjection> aggregateRows = reportDataRepository.queryAggregates(
                 periodIds, request.groupKeys(), filters);
 
-        Map<GroupTuple, StatisticsPair> statistics = request.includeStatistics()
-                ? buildStatistics(reportDataRepository.queryStatistics(
-                        periodIds, request.groupKeys(), filters, referenceCurrency),
-                request.groupKeys())
+        GroupKey statisticsKey = request.includeStatistics()
+                ? singleKeyOf(request.groupKeys())
+                : null;
+
+        Map<StatisticsKey, StatisticsPair> statistics = request.includeStatistics() && request.groupKeys().size() <= 1
+                ? buildStatistics(reportDataRepository.queryStatistics(periodIds, request.groupKeys(), filters, referenceCurrency), statisticsKey)
                 : Map.of();
 
-        List<AggregateLineDto> lines =
-                assembleLines(aggregateRows, statistics, request);
+        List<AggregateLineDto> lines = assembleLines(aggregateRows, statistics, statisticsKey, request);
 
         return new AggregateReportResponse(
                 ReportKind.AGGREGATE,
@@ -129,6 +133,11 @@ public class AggregateReportService {
             errors.add(new ValidationError(
                     "groupKeys", "Unsupported",
                     "ORIGIN_COUNTRY is not supported as a group key", Map.of()));
+        }
+        if (request.includeStatistics() && request.groupKeys().size() > 1) {
+            errors.add(new ValidationError(
+                    "groupKeys", "StatisticsSingleDimension",
+                    "includeStatistics supports at most one group key", Map.of()));
         }
 
         if (!errors.isEmpty()) {
@@ -180,32 +189,65 @@ public class AggregateReportService {
         return collectedWarnings;
     }
 
-    private Map<GroupTuple, StatisticsPair> buildStatistics(
+    // ------------------------------------------------------------------
+    // Statistics
+    // ------------------------------------------------------------------
+
+    /**
+     * Builds the statistics map for one period. Throws if the query returned two rows for
+     * the same key, which would indicate a bug in the query or the projection.
+     */
+    private Map<StatisticsKey, StatisticsPair> buildStatistics(
             List<AggregateRowProjection> rows,
-            List<GroupKey> groupKeys) {
-        Map<GroupTuple, StatisticsPair> map = new LinkedHashMap<>();
+            GroupKey key) {
+        Map<StatisticsKey, StatisticsPair> map = new LinkedHashMap<>();
         for (AggregateRowProjection row : rows) {
-            GroupTuple key = rowToKey(row, groupKeys);
-            StatisticsPair pair = map.computeIfAbsent(key, k -> new StatisticsPair());
-            if (row.minReferenceAmount != null
-                    && (pair.min == null || row.minReferenceAmount.compareTo(pair.min) < 0)) {
-                pair.min = row.minReferenceAmount;
+            StatisticsKey k = keyOf(row, key);
+            if (map.containsKey(k)) {
+                throw new IllegalStateException(
+                        "Statistics query returned more than one row for key " + k);
             }
-            if (row.maxReferenceAmount != null
-                    && (pair.max == null || row.maxReferenceAmount.compareTo(pair.max) > 0)) {
-                pair.max = row.maxReferenceAmount;
-            }
+            map.put(k, new StatisticsPair(row.minReferenceAmount, row.maxReferenceAmount));
         }
         return map;
     }
 
+    private StatisticsKey keyOf(AggregateRowProjection row, GroupKey key) {
+        if (key == null) {
+            return new StatisticsKey(null, null, null, null);
+        }
+        return switch (key) {
+            case COUNTRY -> new StatisticsKey(row.country.id(), null, null, null);
+            case DEPARTMENT -> new StatisticsKey(null, row.department.id(), null, null);
+            case ROLE -> new StatisticsKey(null, null, row.role.id(), null);
+            case EMPLOYMENT_TYPE -> new StatisticsKey(null, null, null, row.employmentType);
+            case CURRENCY, ORIGIN_COUNTRY ->
+                    throw new IllegalArgumentException("Unsupported statistics key: " + key);
+        };
+    }
+
+    private GroupKey singleKeyOf(List<GroupKey> groupKeys) {
+        if (groupKeys.isEmpty()) {
+            return null;
+        }
+        if (groupKeys.size() == 1) {
+            return groupKeys.get(0);
+        }
+        throw new IllegalStateException(
+                "Statistics are only available for a single dimension; got " + groupKeys);
+    }
+
+    // ------------------------------------------------------------------
+    // Lines
+    // ------------------------------------------------------------------
+
     private List<AggregateLineDto> assembleLines(
             List<AggregateRowProjection> rows,
-            Map<GroupTuple, StatisticsPair> statistics,
+            Map<StatisticsKey, StatisticsPair> statistics,
+            GroupKey statisticsKey,
             AggregateReportRequest request) {
         List<AggregateLineDto> lines = new ArrayList<>(rows.size());
         for (AggregateRowProjection row : rows) {
-            GroupTuple key = rowToKey(row, request.groupKeys());
             AmountDto amount = new AmountDto(row.sumTotal, referenceCurrency);
             AmountsDto breakdown = request.breakdownRequested()
                     ? new AmountsDto(
@@ -214,14 +256,14 @@ public class AggregateReportService {
                     : null;
             StatisticsDto stats = null;
             if (request.includeStatistics()) {
-                StatisticsPair pair = statistics.get(key);
-                AmountDto min = pair != null && pair.min != null
-                        ? new AmountDto(pair.min.setScale(
+                StatisticsPair pair = statistics.get(keyOf(row, statisticsKey));
+                AmountDto min = pair != null && pair.min() != null
+                        ? new AmountDto(pair.min().setScale(
                         AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
                         referenceCurrency)
                         : null;
-                AmountDto max = pair != null && pair.max != null
-                        ? new AmountDto(pair.max.setScale(
+                AmountDto max = pair != null && pair.max() != null
+                        ? new AmountDto(pair.max().setScale(
                         AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
                         referenceCurrency)
                         : null;
@@ -247,37 +289,24 @@ public class AggregateReportService {
         return lines;
     }
 
-    private GroupTuple rowToKey(AggregateRowProjection row, List<GroupKey> groupKeys) {
-        GroupTuple key = new GroupTuple();
-        for (GroupKey k : groupKeys) {
-            switch (k) {
-                case COUNTRY -> key.values.put(k, row.country);
-                case DEPARTMENT -> key.values.put(k, row.department);
-                case ROLE -> key.values.put(k, row.role);
-                case EMPLOYMENT_TYPE -> key.values.put(k, row.employmentType);
-                case CURRENCY -> key.values.put(k, row.currency);
-                default -> throw new IllegalStateException("Unsupported group key: " + k);
-            }
-        }
-        return key;
+    // ------------------------------------------------------------------
+    // Small value types
+    // ------------------------------------------------------------------
+
+    /**
+     * Key for the statistics map. Exactly one field is non-null for a single-dimension
+     * partition, and all four are null for the global partition. The record's generated
+     * {@code equals} and {@code hashCode} compare all four fields, so two keys are equal
+     * only when they describe the same partition instance.
+     */
+    private record StatisticsKey(
+            UUID countryId,
+            UUID departmentId,
+            UUID roleId,
+            EmploymentType employmentType) {
     }
 
-    private static final class GroupTuple {
-        private final Map<GroupKey, Object> values = new LinkedHashMap<>();
-
-        @Override
-        public boolean equals(Object o) {
-            return o instanceof GroupTuple g && values.equals(g.values);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(values);
-        }
-    }
-
-    private static final class StatisticsPair {
-        private BigDecimal min;
-        private BigDecimal max;
+    /** Min and max reference amount for one partition instance. */
+    private record StatisticsPair(BigDecimal min, BigDecimal max) {
     }
 }

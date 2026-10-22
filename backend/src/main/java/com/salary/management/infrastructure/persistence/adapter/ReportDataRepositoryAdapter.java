@@ -72,6 +72,7 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                 case COUNTRY -> {
                     Root<CountryEntity> country = cq.from(CountryEntity.class);
                     predicates.add(cb.equal(country.get("id"), root.get("countryId")));
+                    selections.add(country.get("id").alias("countryId"));
                     selections.add(country.get("isoCode").alias("countryCode"));
                     selections.add(country.get("name").alias("countryName"));
                     groupBy.add(country.get("id"));
@@ -82,8 +83,10 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                 case DEPARTMENT -> {
                     Root<DepartmentEntity> dept = cq.from(DepartmentEntity.class);
                     predicates.add(cb.equal(dept.get("id"), root.get("departmentId")));
+                    selections.add(dept.get("id").alias("departmentId"));
                     selections.add(dept.get("code").alias("departmentCode"));
                     selections.add(dept.get("name").alias("departmentName"));
+                    groupBy.add(dept.get("id"));
                     groupBy.add(dept.get("code"));
                     groupBy.add(dept.get("name"));
                     orders.add(cb.asc(dept.get("name")));
@@ -91,8 +94,10 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                 case ROLE -> {
                     Root<RoleEntity> role = cq.from(RoleEntity.class);
                     predicates.add(cb.equal(role.get("id"), root.get("roleId")));
+                    selections.add(role.get("id").alias("roleId"));
                     selections.add(role.get("code").alias("roleCode"));
                     selections.add(role.get("name").alias("roleName"));
+                    groupBy.add(role.get("id"));
                     groupBy.add(role.get("code"));
                     groupBy.add(role.get("name"));
                     orders.add(cb.asc(role.get("name")));
@@ -122,25 +127,34 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         selections.add(cb.sum(root.get("referenceAmounts").get("total")).alias("sumTotal"));
         selections.add(cb.sum(root.get("employeeCount")).alias("sumEmployeeCount"));
 
-        Expression<Long> monthlyEmployees = cb.<Long>selectCase()
-                .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
-                        cb.toLong(root.get("employeeCount")))
-                .otherwise(0L);
-        Expression<Long> monthlyPeriods = cb.<Long>selectCase()
-                .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY), 1L)
-                .otherwise(0L);
-        Expression<Long> biWeeklyEmployees = cb.<Long>selectCase()
-                .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY),
-                        cb.toLong(root.get("employeeCount")))
-                .otherwise(0L);
-        Expression<Long> biWeeklyPeriods = cb.<Long>selectCase()
-                .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY), 1L)
-                .otherwise(0L);
+        Expression<Long> monthlyEmployees = cb.sum(
+                cb.<Long>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
+                                cb.toLong(root.get("employeeCount")))
+                        .otherwise(0L));
 
-        selections.add(cb.sum(monthlyEmployees).alias("monthlyEmployeeCount"));
-        selections.add(cb.sum(monthlyPeriods).alias("monthlyPeriodCount"));
-        selections.add(cb.sum(biWeeklyEmployees).alias("biWeeklyEmployeeCount"));
-        selections.add(cb.sum(biWeeklyPeriods).alias("biWeeklyPeriodCount"));
+        Expression<Long> monthlyPeriods = cb.countDistinct(
+                cb.<UUID>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
+                                period.get("id"))
+                        .otherwise(cb.nullLiteral(UUID.class)));
+
+        Expression<Long> biWeeklyEmployees = cb.sum(
+                cb.<Long>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY),
+                                cb.toLong(root.get("employeeCount")))
+                        .otherwise(0L));
+
+        Expression<Long> biWeeklyPeriods = cb.countDistinct(
+                cb.<UUID>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY),
+                                period.get("id"))
+                        .otherwise(cb.nullLiteral(UUID.class)));
+
+        selections.add(monthlyEmployees.alias("monthlyEmployeeCount"));
+        selections.add(monthlyPeriods.alias("monthlyPeriodCount"));
+        selections.add(biWeeklyEmployees.alias("biWeeklyEmployeeCount"));
+        selections.add(biWeeklyPeriods.alias("biWeeklyPeriodCount"));
 
         cq.multiselect(selections);
         cq.where(cb.and(predicates.toArray(new Predicate[0])));
@@ -180,9 +194,9 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         AggregateRowProjection p = new AggregateRowProjection();
         for (GroupKey key : groupKeys) {
             switch (key) {
-                case COUNTRY -> p.country = ref(t, "countryCode", "countryName");
-                case DEPARTMENT -> p.department = ref(t, "departmentCode", "departmentName");
-                case ROLE -> p.role = ref(t, "roleCode", "roleName");
+                case COUNTRY -> p.country = ref(t, "countryId","countryCode", "countryName");
+                case DEPARTMENT -> p.department = ref(t,"departmentId", "departmentCode", "departmentName");
+                case ROLE -> p.role = ref(t,"roleId", "roleCode", "roleName");
                 case EMPLOYMENT_TYPE -> p.employmentType =
                         t.get("employmentType", EmploymentType.class);
                 case CURRENCY -> p.currency = t.get("currency", String.class);
@@ -232,13 +246,14 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         return Long.parseLong(value.toString());
     }
 
-    private RefDto ref(Tuple t, String codeAlias, String nameAlias) {
+    private RefDto ref(Tuple t,String idAlias, String codeAlias, String nameAlias) {
+        UUID id = t.get(idAlias, UUID.class);
         String code = t.get(codeAlias, String.class);
         String name = t.get(nameAlias, String.class);
-        if (code == null && name == null) {
+        if (id == null && code == null && name == null) {
             return null;
         }
-        return new RefDto(code, name);
+        return new RefDto(id,code, name);
     }
 
     private <T> Collection<T> nullIfEmpty(Set<T> set) {

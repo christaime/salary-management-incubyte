@@ -203,17 +203,17 @@ public class DynamicStatisticsBuilder {
         if (key == GroupKey.COUNTRY) {
             UUID countryId = t.get("countryId", UUID.class);
             CountryEntity c = countryJpaRepository.findById(countryId).orElseThrow();
-            p.country = new RefDto(c.getIsoCode(), c.getName());
+            p.country = new RefDto(c.getId(),c.getIsoCode(), c.getName());
         }
         if (key == GroupKey.DEPARTMENT) {
             UUID departmentId = t.get("departmentId", UUID.class);
             DepartmentEntity d = departmentJpaRepository.findById(departmentId).orElseThrow();
-            p.department = new RefDto(d.getCode(), d.getName());
+            p.department = new RefDto(d.getId(),d.getCode(), d.getName());
         }
         if (key == GroupKey.ROLE) {
             UUID roleId = t.get("roleId", UUID.class);
             RoleEntity r = roleJpaRepository.findById(roleId).orElseThrow();
-            p.role = new RefDto(r.getCode(), r.getName());
+            p.role = new RefDto(r.getId(),r.getCode(), r.getName());
         }
         if (key == GroupKey.EMPLOYMENT_TYPE) {
             p.employmentType = t.get("employmentType", EmploymentType.class);
