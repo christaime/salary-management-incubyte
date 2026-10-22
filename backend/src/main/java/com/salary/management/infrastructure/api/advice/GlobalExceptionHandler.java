@@ -25,7 +25,8 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-
+    private static final String BLOCKER_SEVERITY = "BLOCKER";
+    private static final String WARNING_SEVERITY = "WARNING";
     /**
      * Handles domain validation failures.
      *
@@ -39,7 +40,7 @@ public class GlobalExceptionHandler {
             Map<String, Object> details = new LinkedHashMap<>();
             details.put("field", ve.field());
             details.put("attributes", ve.attributes() == null ? Map.of() : ve.attributes());
-            errors.add(new ApiError(ve.code(), ve.message(), details));
+            errors.add(new ApiError(ve.code(), ve.message(), BLOCKER_SEVERITY, details));
         }
         ErrorResponse body = new ErrorResponse(
                 ErrorResponse.VALIDATION_FAILED,
@@ -59,10 +60,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleReportBlocked(ReportBlockedException ex) {
         List<ApiError> errors = new ArrayList<>();
         for (ReportWarning w : ex.getBlockers()) {
-            errors.add(toApiError(w, "BLOCKER"));
+            errors.add(toApiError(w, BLOCKER_SEVERITY));
         }
         for (ReportWarning w : ex.getWarnings()) {
-            errors.add(toApiError(w, "WARNING"));
+            errors.add(toApiError(w, WARNING_SEVERITY));
         }
         ErrorResponse body = new ErrorResponse(
                 ErrorResponse.REPORT_BLOCKED,
@@ -81,7 +82,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
         ApiError error = new ApiError(
-                ErrorResponse.NOT_FOUND, ex.getMessage(), Map.of());
+                ErrorResponse.NOT_FOUND, ex.getMessage(), BLOCKER_SEVERITY, Map.of());
         ErrorResponse body = new ErrorResponse(
                 ErrorResponse.NOT_FOUND, ex.getMessage(), List.of(error), Instant.now());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
@@ -105,7 +106,7 @@ public class GlobalExceptionHandler {
             }
             String code = fe.getCode() == null ? ErrorResponse.INVALID_REQUEST : fe.getCode();
             String message = fe.getDefaultMessage() == null ? "invalid" : fe.getDefaultMessage();
-            errors.add(new ApiError(code, message, details));
+            errors.add(new ApiError(code, message,BLOCKER_SEVERITY, details));
         });
         ErrorResponse body = new ErrorResponse(
                 ErrorResponse.INVALID_REQUEST,
@@ -124,7 +125,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
         ApiError error = new ApiError(
-                ErrorResponse.INVALID_REQUEST, ex.getMessage(), Map.of());
+                ErrorResponse.INVALID_REQUEST, ex.getMessage(), BLOCKER_SEVERITY, Map.of());
         ErrorResponse body = new ErrorResponse(
                 ErrorResponse.INVALID_REQUEST, ex.getMessage(), List.of(error), Instant.now());
         return ResponseEntity.badRequest().body(body);
@@ -143,7 +144,7 @@ public class GlobalExceptionHandler {
             message = "Invalid value for '" + ife.getPath().get(0).getFieldName()
                     + "': " + ife.getValue();
         }
-        ApiError error = new ApiError(ErrorResponse.INVALID_REQUEST, message, Map.of());
+        ApiError error = new ApiError(ErrorResponse.INVALID_REQUEST, message, BLOCKER_SEVERITY, Map.of());
         ErrorResponse body = new ErrorResponse(
                 ErrorResponse.INVALID_REQUEST, message, List.of(error), Instant.now());
         return ResponseEntity.badRequest().body(body);
@@ -159,7 +160,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unhandled exception", ex);
         ApiError error = new ApiError(
-                ErrorResponse.INTERNAL_ERROR, "An unexpected error occurred", Map.of());
+                ErrorResponse.INTERNAL_ERROR, "An unexpected error occurred",BLOCKER_SEVERITY, Map.of());
         ErrorResponse body = new ErrorResponse(
                 ErrorResponse.INTERNAL_ERROR,
                 "An unexpected error occurred",
@@ -169,9 +170,10 @@ public class GlobalExceptionHandler {
     }
 
     private ApiError toApiError(ReportWarning w, String severity) {
-        Map<String, Object> details = new LinkedHashMap<>();
-        details.put("severity", severity);
-        details.put("details", w.details() == null ? Map.of() : w.details());
-        return new ApiError(w.code().name(), w.message(), details);
+        return new ApiError(
+                w.code().name(),
+                w.message(),
+                severity,
+                w.details() == null ? Map.of() : w.details());
     }
 }

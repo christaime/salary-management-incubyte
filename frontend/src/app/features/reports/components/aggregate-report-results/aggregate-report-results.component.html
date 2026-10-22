@@ -4,41 +4,29 @@
     <p class="text-sm text-slate-500 m-0">No data for this selection.</p>
   </div>
   } @else if (isTotal()) {
-  <!-- Total View: KPI Card + Donut -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-    <!-- Left Side: Total Cost Header + Compensation Cadence Card Stacked (9 Columns) -->
     <div class="lg:col-span-9 flex flex-col gap-6">
-
-      <!-- Total Payroll Cost Header Card -->
       <div class="p-6 rounded-xl border border-slate-200/80 bg-white shadow-xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
         <p class="text-xs font-semibold text-slate-500 m-0 uppercase tracking-wider whitespace-nowrap">Total payroll cost</p>
-
         <p class="text-3xl font-bold text-slate-900 m-0 tracking-tight whitespace-nowrap">
           {{ currency() }} {{ formatAmount(totalAmount()) }}
         </p>
-
         <span class="px-3 py-1.5 rounded bg-slate-100 text-slate-700 text-sm font-medium whitespace-nowrap">
           {{ totalEmployees() | number }} {{ totalEmployees() > 1 ? 'Employees' : 'Employee' }}
         </span>
       </div>
 
-      <!-- Compensation Cadence Card underneath -->
       @if (statistics(response().lines[0]); as stats) {
       <app-compensation-cadence-card [data]="stats"></app-compensation-cadence-card>
       }
     </div>
 
-    <!-- Right Side: Reduced Donut Column Width (3 Columns) -->
     <div class="lg:col-span-3">
       <app-breakdown-donut [line]="response().lines[0]" />
     </div>
-
   </div>
   } @else {
-  <!-- Two-column Layout -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Left Column: Bar List (2/3 width) -->
     <div class="lg:col-span-2 rounded-xl border border-slate-200/80 bg-white shadow-xs p-6 flex flex-col gap-4">
       <div>
         <h2 class="text-base font-semibold text-slate-900 tracking-tight m-0">
@@ -56,28 +44,9 @@
       />
     </div>
 
-    <!-- Right Column: Donut (1/3 width) -->
     <div class="lg:col-span-1">
       <app-breakdown-donut [line]="selectedLine()" />
     </div>
   </div>
-  }
-
-  <!-- Warnings panel -->
-  @if (hasWarnings()) {
-  <details class="rounded-lg border border-slate-200/80 p-4 bg-slate-50">
-    <summary class="cursor-pointer text-sm font-semibold text-slate-800">
-      {{ response().warnings.length }} warning{{ response().warnings.length === 1 ? '' : 's' }}
-    </summary>
-    <ul class="mt-3 ml-4 space-y-1">
-      @for (w of response().warnings; track w.code + w.message) {
-      <li class="text-sm"
-          [class.text-rose-600]="w.severity === 'BLOCKER'"
-          [class.text-amber-600]="w.severity === 'WARNING'">
-        <strong>{{ w.severity }}</strong> — {{ w.message }}
-      </li>
-      }
-    </ul>
-  </details>
   }
 </div>

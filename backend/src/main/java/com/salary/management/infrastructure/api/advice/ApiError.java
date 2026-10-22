@@ -15,5 +15,9 @@ import java.util.Map;
  * @param message human-readable message
  * @param details additional structured details
  */
-public record ApiError(String code, String message, Map<String, Object> details) {
+public record ApiError(
+        String code,
+        String message,
+        String severity,
+        Map<String, Object> details) {
 }

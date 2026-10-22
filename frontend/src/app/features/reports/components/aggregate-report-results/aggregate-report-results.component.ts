@@ -2,9 +2,9 @@ import { CommonModule } from '@angular/common';
 import {
   Component,
   computed,
+  effect,
   input,
   signal,
-  effect,
 } from '@angular/core';
 
 import {
@@ -18,19 +18,22 @@ import { CompensationCadenceCardComponent } from '../compensation-cadence-card/c
 @Component({
   selector: 'app-aggregate-report-results',
   standalone: true,
-  imports: [CommonModule, TieredBarListComponent, BreakdownDonutComponent, CompensationCadenceCardComponent],
+  imports: [
+    CommonModule,
+    TieredBarListComponent,
+    BreakdownDonutComponent,
+    CompensationCadenceCardComponent,
+  ],
   templateUrl: './aggregate-report-results.component.html',
   styleUrl: './aggregate-report-results.component.scss',
 })
 export class AggregateReportResultsComponent {
   readonly response = input.required<AggregateReportResponse>();
 
-  /** Selected line for the donut. Reset when the response changes. */
   readonly selectedLine = signal<AggregateLineDto | null>(null);
 
   readonly isEmpty = computed(() => this.response().lines.length === 0);
 
-  /** True when the report has zero group keys — a single-row "total" view. */
   readonly isTotal = computed(() => this.response().groupKeys.length === 0);
 
   readonly totalAmount = computed(() => {
@@ -45,12 +48,11 @@ export class AggregateReportResultsComponent {
     this.response().lines.reduce((sum, l) => sum + l.employeeCount, 0),
   );
 
-  statistics(line: AggregateLineDto){
+  statistics(line: AggregateLineDto) {
     return line.statistics;
   }
 
   constructor() {
-    // Reset selection whenever the response changes.
     effect(() => {
       this.response();
       this.selectedLine.set(null);
@@ -68,13 +70,16 @@ export class AggregateReportResultsComponent {
     });
   }
 
-  readonly hasWarnings = computed(() => this.response().warnings.length > 0);
-
   readonly selectedKey = computed<string | null>(() => {
     const line = this.selectedLine();
     if (!line) return null;
     return (
-      line.country?.code ?? line.department?.code ?? line.role?.code ?? line.employmentType ?? line.currency ?? null
+      line.country?.code ??
+      line.department?.code ??
+      line.role?.code ??
+      line.employmentType ??
+      line.currency ??
+      null
     );
   });
 
@@ -94,14 +99,21 @@ export class AggregateReportResultsComponent {
 
   readonly reportSubtitle = computed(() => {
     const keys = this.response().groupKeys;
-    if (keys.length === 0) return 'Total employer expenditure for the selected period';
+    if (keys.length === 0) {
+      return 'Total employer expenditure for the selected period';
+    }
 
     switch (keys[0]) {
-      case 'COUNTRY': return 'Comparative employer expenditure ranked by country budget share';
-      case 'DEPARTMENT': return 'Comparative employer expenditure ranked by department budget share';
-      case 'ROLE': return 'Comparative employer expenditure ranked by role budget share';
-      case 'EMPLOYMENT_TYPE': return 'Comparative employer expenditure ranked by employment type';
-      default: return 'Comparative employer expenditure';
+      case 'COUNTRY':
+        return 'Comparative employer expenditure ranked by country budget share';
+      case 'DEPARTMENT':
+        return 'Comparative employer expenditure ranked by department budget share';
+      case 'ROLE':
+        return 'Comparative employer expenditure ranked by role budget share';
+      case 'EMPLOYMENT_TYPE':
+        return 'Comparative employer expenditure ranked by employment type';
+      default:
+        return 'Comparative employer expenditure';
     }
   });
 }

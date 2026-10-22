@@ -19,13 +19,6 @@ const AGGREGATE_REPORT_URL = apiUrl('/api/v1/reports/aggregate');
  * Every error path is normalized to `ReportsError` so the page can switch
  * on `code` without dealing with `HttpErrorResponse` or the generic
  * `ApiError` produced by the HTTP error interceptor.
- *
- * Note on double-handling: the app-level `httpErrorInterceptor` maps every
- * failed HTTP response into an `ApiError` and rethrows it. This service
- * re-maps the (already-intercepted) `ApiError` back into `ReportsError`.
- * That's deliberate — the interceptor's job is generic (toast + normalise
- * for generic consumers), the service's job is report-specific (expose
- * `blockers` and the raw `ValidationError[]` for the form).
  */
 @Injectable({ providedIn: 'root' })
 export class ReportsService {
@@ -34,8 +27,7 @@ export class ReportsService {
   /**
    * Calls `POST /api/v1/reports/aggregate`.
    *
-   * Sends the request as-is (filters are `null` when no filter is applied —
-   * the request model guarantees this). On any error, throws `ReportsError`.
+   * On any error, throws `ReportsError`.
    */
   generateAggregateReport(
     request: AggregateReportRequest,
@@ -51,16 +43,14 @@ export class ReportsService {
  * `ReportsError`. Handles three cases:
  *
  *  1. `ApiError` (the interceptor's output) — the common case.
- *  2. A raw `HttpErrorResponse` (e.g. if the interceptor is not registered).
+ *  2. A raw `HttpErrorResponse` (if the interceptor is not registered).
  *  3. Anything else (network failure shaped as `ProgressEvent`, etc.).
  */
 function toReportsError(err: unknown): ReportsError {
-  // Case 2 & 3: raw HttpErrorResponse / unknown.
   if (err instanceof HttpErrorResponse) {
     return fromHttpErrorResponse(err);
   }
 
-  // Case 1: ApiError from the interceptor.
   if (isApiErrorShape(err)) {
     const code = err.code;
     const fieldErrors = err.fieldErrors;
@@ -76,7 +66,6 @@ function toReportsError(err: unknown): ReportsError {
     };
   }
 
-  // Unknown — shouldn't happen, but don't crash the UI.
   return {
     code: 'CLIENT_ERROR',
     message: 'An unexpected error occurred.',
@@ -127,8 +116,11 @@ function fromHttpErrorResponse(err: HttpErrorResponse): ReportsError {
 
 /**
  * Transforms validation errors into displayable blockers.
- * The `attributes` are folded into `details` so the page can show them in
- * a tooltip without inventing a second field.
+ *
+ * <p>The interceptor's `FieldError.attributes` carries the whole backend
+ * {@code details} map for a {@code REPORT_BLOCKED} entry. Lifting it into
+ * {@code details} here means the page sees the backend's payload directly,
+ * e.g. {@code blocker.details['count']} and {@code blocker.details['employees']}.</p>
  */
 function toBlockers(
   fieldErrors: ReadonlyArray<{
@@ -142,7 +134,7 @@ function toBlockers(
     code: e.code,
     severity: 'BLOCKER',
     message: e.message,
-    details: { field: e.field, attributes: e.attributes },
+    details: e.attributes,
   }));
 }
 

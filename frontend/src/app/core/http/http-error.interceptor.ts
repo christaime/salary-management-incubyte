@@ -6,19 +6,25 @@ import { ToastService } from '../ui/toast/toast.service';
 import { ApiError, FieldError } from './api-error';
 
 /**
- * Backend `ErrorResponse` shape (see backend `ErrorResponse.java`).
- * Kept local to the interceptor — the reports feature has its own typed copy
- * in `features/reports/models/error-response.model.ts` when it needs it.
+ * One entry of the API `ErrorResponse.errors` array.
+ * The shape is `{ code, message, details }`, with the field name and any structured
+ * context carried inside `details`.
  */
-interface BackendErrorResponse {
+interface ApiErrorEntry {
+  code: string;
+  message: string;
+  severity?: string | null;
+  details?: Record<string, unknown> | null;
+}
+
+/**
+ * API `ErrorResponse` shape.
+ */
+interface ApiErrorEnvelope {
   code?: string;
   message?: string;
-  errors?: Array<{
-    field: string;
-    code: string;
-    message: string;
-    attributes?: Record<string, unknown>;
-  }> | null;
+  errors?: ApiErrorEntry[] | null;
+  timestamp?: string;
 }
 
 /**
@@ -33,9 +39,6 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((err: unknown) => {
       const apiError = toApiError(err);
 
-      // 4xx with a parseable body should be handled by the caller
-      // (e.g. inline form errors, REPORT_BLOCKED banner).
-      // 0 / 5xx and unparsable errors get a toast as a safety net.
       const shouldToast =
         apiError.status === 0 ||
         apiError.status >= 500 ||
@@ -52,7 +55,7 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
 
 function isParsedBody(err: unknown): boolean {
   if (!(err instanceof HttpErrorResponse)) return false;
-  const body = err.error as BackendErrorResponse | string | null;
+  const body = err.error as ApiErrorEnvelope | string | null;
   return typeof body === 'object' && body !== null && typeof body.code === 'string';
 }
 
@@ -66,9 +69,8 @@ function toApiError(err: unknown): ApiError {
     };
   }
 
-  const body = err.error as BackendErrorResponse | null;
+  const body = err.error as ApiErrorEnvelope | null;
 
-  // Network failure or CORS error — no body.
   if (err.status === 0) {
     return {
       code: 'NETWORK_ERROR',
@@ -78,7 +80,6 @@ function toApiError(err: unknown): ApiError {
     };
   }
 
-  // Body wasn't the expected shape (HTML error page, empty 500, etc.).
   if (!body || typeof body.code !== 'string') {
     return {
       code: err.status >= 500 ? 'SERVER_ERROR' : 'HTTP_ERROR',
@@ -91,17 +92,32 @@ function toApiError(err: unknown): ApiError {
     };
   }
 
-  const fieldErrors: FieldError[] = (body.errors ?? []).map((e) => ({
-    field: e.field,
-    code: e.code,
-    message: e.message,
-    attributes: e.attributes ?? {},
-  }));
+  const fieldErrors: FieldError[] = (body.errors ?? []).map(toFieldError);
 
   return {
     code: body.code,
     message: body.message ?? 'Request failed.',
     fieldErrors,
     status: err.status,
+  };
+}
+
+/**
+ * Converts one API `ApiErrorEntry` into a frontend `FieldError`.
+ *
+ * <p>The field name and any structured context are carried inside `details`. When
+ * `details.field` is absent, the entry is not a field error (it is a form-level error,
+ * a blocker, or a warning), and `field` is left empty so the caller can still surface
+ * `message` at the top of the form.</p>
+ */
+function toFieldError(entry: ApiErrorEntry): FieldError {
+  const details = entry.details ?? {};
+  const field =
+    typeof details['field'] === 'string' ? (details['field'] as string) : '';
+  return {
+    field,
+    code: entry.code,
+    message: entry.message,
+    attributes: details,
   };
 }
