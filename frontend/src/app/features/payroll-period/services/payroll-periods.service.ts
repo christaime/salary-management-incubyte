@@ -11,7 +11,7 @@ import { apiUrl } from '@core/config/api-base-url';
 export class PayrollPeriodsService {
   private readonly http = inject(HttpClient);
 
-  list(criteria: PayrollPeriodCriteria = {}): Observable<DataPage<PayrollPeriodDto>> {
+  search(criteria: PayrollPeriodCriteria = {}): Observable<DataPage<PayrollPeriodDto>> {
     let params = new HttpParams();
 
     // Map criteria to HttpParams if they exist

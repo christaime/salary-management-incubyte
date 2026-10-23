@@ -1,15 +1,19 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, ViewChild, computed, effect, inject, input, output, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { PayrollPeriodPickerComponent } from '../../../payroll-period/components/payroll-period-picker/payroll-period-picker.component';
 import { PayrollPeriodCriteria } from '../../../payroll-period/models/payroll-period-criteria.model';
 import { PayrollPeriodDto } from '../../../payroll-period/models/payroll-period.model';
-import { EmploymentType } from '../../models';
-import { AggregateReportFilterDrawerComponent, FilterFormGroup } from '../aggregate-report-filter-drawer/aggregate-report-filter-drawer.component';
+
+import { EMPLOYMENT_TYPES, EmploymentType } from '../../models';
+import { AggregateReportFilterDrawerComponent } from '../aggregate-report-filter-drawer/aggregate-report-filter-drawer.component';
 
 export interface AggregateReportFormValue {
   startPeriod: PayrollPeriodDto;
@@ -28,7 +32,11 @@ export interface AggregateReportFormValue {
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatCheckboxModule,
     MatButtonModule,
+    MatTooltipModule,
     MatIconModule,
     PayrollPeriodPickerComponent,
     AggregateReportFilterDrawerComponent,
@@ -37,18 +45,25 @@ export interface AggregateReportFormValue {
   styleUrl: './aggregate-report-form.component.scss',
 })
 export class AggregateReportFormComponent {
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly fb = inject(FormBuilder);
-
   readonly submitting = input<boolean>(false);
-
-  /** Emits when the user clicks Generate. */
   readonly submitForm = output<AggregateReportFormValue>();
   readonly cancel = output<void>();
+  readonly formChange = output<void>();
 
-  @ViewChild('filterDrawer') readonly filterDrawer!: AggregateReportFilterDrawerComponent;
+  readonly currentYear = new Date().getFullYear();
 
-  readonly form = this.fb.group({
+  readonly employmentTypes: ReadonlyArray<EmploymentType> = EMPLOYMENT_TYPES;
+
+  private readonly fb = new FormBuilder();
+
+  readonly form: FormGroup<{
+    startPeriod: FormControl<PayrollPeriodDto | null>;
+    endPeriod: FormControl<PayrollPeriodDto | null>;
+    countries: FormControl<string[]>;
+    departments: FormControl<string[]>;
+    roles: FormControl<string[]>;
+    employmentTypes: FormControl<EmploymentType[]>;
+  }> = this.fb.group({
     startPeriod: new FormControl<PayrollPeriodDto | null>(null, [Validators.required]),
     endPeriod: new FormControl<PayrollPeriodDto | null>(null),
     countries: new FormControl<string[]>([], { nonNullable: true }),
@@ -57,41 +72,66 @@ export class AggregateReportFormComponent {
     employmentTypes: new FormControl<EmploymentType[]>([], { nonNullable: true }),
   });
 
-  get filterFormGroup(): FilterFormGroup {
-    return this.form as unknown as FilterFormGroup;
-  }
-
   readonly startPeriod = signal<PayrollPeriodDto | null>(null);
   readonly endPeriod = signal<PayrollPeriodDto | null>(null);
+  readonly formValid = signal<boolean>(false);
+
+  // Tracks the year selected in the start picker
+  readonly startPickerSelectedYear = signal<number | null>(null);
 
   readonly canSubmit = computed(() => this.startPeriod() !== null && !this.submitting());
 
-  readonly startPeriodFilter = computed<PayrollPeriodCriteria>(() => ({}));
+  // --- Picker Logic ---
 
+  // Range for the Start picker: [currentYear - 5, currentYear]
+  readonly startPickerYearRange = computed<[number, number]>(() => [
+    this.currentYear - 5,
+    this.currentYear,
+  ]);
+
+  // The End picker year is the Start picker year (if set), otherwise the current year
+  readonly endPickerSelectedYear = computed<number>(() => {
+    return this.startPickerSelectedYear() ?? this.currentYear;
+  });
+
+  // Range for the End picker: [startPickerSelectedYear (or currentYear - 5), currentYear]
+  readonly endPickerYearRange = computed<[number, number]>(() => [
+    this.startPickerSelectedYear() ?? (this.currentYear - 5),
+    this.currentYear,
+  ]);
+
+  // Filter for the End picker: starts from the endDate of the selected start period
   readonly endPeriodFilter = computed<PayrollPeriodCriteria>(() => {
     const start = this.startPeriod();
     if (!start) return {};
     return { startDate: start.endDate };
   });
 
-  readonly endPickerMinYear = computed<number>(() => {
-    const start = this.startPeriod();
-    if (!start) return new Date().getFullYear() - 5;
-    return Number(start.startDate.slice(0, 4));
-  });
-
   constructor() {
-    this.form.controls.startPeriod.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((p) => {
+    this.form.controls.startPeriod.valueChanges.subscribe((p) => {
       this.startPeriod.set(p);
+
+      // Sync the startPickerSelectedYear when a period is picked directly
+      if (p && p.startDate) {
+        this.startPickerSelectedYear.set(Number(p.startDate.slice(0, 4)));
+      }
+
       const end = this.endPeriod();
       if (p && end && p.endDate > end.startDate) {
         this.form.controls.endPeriod.setValue(null);
       }
+      this.formChange.emit();
     });
 
-    this.form.controls.endPeriod.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((p) => {
+    this.form.controls.endPeriod.valueChanges.subscribe((p) => {
       this.endPeriod.set(p);
+      this.formChange.emit();
     });
+
+    this.form.statusChanges.subscribe(() => {
+      this.formValid.set(this.form.valid);
+    });
+    this.formValid.set(this.form.valid);
 
     effect(() => {
       const submitting = this.submitting();
@@ -99,8 +139,24 @@ export class AggregateReportFormComponent {
         if (d) c.disable({ emitEvent: false });
         else c.enable({ emitEvent: false });
       };
-      Object.values(this.form.controls).forEach((ctrl) => setDisabled(ctrl, submitting));
+      setDisabled(this.form.controls.startPeriod, submitting);
+      setDisabled(this.form.controls.endPeriod, submitting);
+      setDisabled(this.form.controls.countries, submitting);
+      setDisabled(this.form.controls.departments, submitting);
+      setDisabled(this.form.controls.roles, submitting);
+      setDisabled(this.form.controls.employmentTypes, submitting);
     });
+  }
+
+  // Handler for the Start picker's year selection
+  onStartYearChange(year: number): void {
+    this.startPickerSelectedYear.set(year);
+
+    // Reset end period if it no longer fits the new start year
+    const end = this.endPeriod();
+    if (end && Number(end.startDate.slice(0, 4)) < year) {
+      this.form.controls.endPeriod.setValue(null);
+    }
   }
 
   onSubmit(): void {
@@ -121,7 +177,9 @@ export class AggregateReportFormComponent {
       roles: [],
       employmentTypes: [],
     });
+    this.startPickerSelectedYear.set(null);
     this.cancel.emit();
+    this.formChange.emit();
   }
 
   private toFormValue(): AggregateReportFormValue | null {

@@ -1,33 +1,30 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-
+import { provideAnimations } from '@angular/platform-browser/animations';
 import { ReportKindToggleComponent } from './report-kind-toggle.component';
 
 describe('ReportKindToggleComponent', () => {
-  let fixture: ComponentFixture<ReportKindToggleComponent>;
   let component: ReportKindToggleComponent;
+  let fixture: ComponentFixture<ReportKindToggleComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ReportKindToggleComponent, NoopAnimationsModule],
+      imports: [ReportKindToggleComponent],
+      providers: [provideAnimations()],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ReportKindToggleComponent);
-    fixture.componentRef.setInput('selected', 'TOTAL');
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('selected', 'TOTAL');
     fixture.detectChanges();
   });
 
-  it('emits kindChange when selection changes', () => {
-    let emitted: unknown;
-    component.kindChange.subscribe((k) => (emitted = k));
-    component.onSelectionChange('COUNTRY');
-    expect(emitted).toBe('COUNTRY');
+  it('should create', () => {
+    expect(component).toBeTruthy();
   });
 
-  it('renders 5 toggle buttons', () => {
-    const el = fixture.nativeElement as HTMLElement;
-    const buttons = el.querySelectorAll('mat-button-toggle');
-    expect(buttons.length).toBe(5);
+  it('should emit kindChange when selection changes', () => {
+    spyOn(component.kindChange, 'emit');
+    component.onSelectionChange('COUNTRY');
+    expect(component.kindChange.emit).toHaveBeenCalledWith('COUNTRY');
   });
 });

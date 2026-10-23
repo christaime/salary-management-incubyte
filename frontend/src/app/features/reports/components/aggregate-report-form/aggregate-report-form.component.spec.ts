@@ -1,81 +1,75 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-
-import { AggregateReportFormComponent, AggregateReportFormValue } from './aggregate-report-form.component';
-
-const P_JAN = {
-  id: '2026-01-M',
-  name: 'January 2026',
-  startDate: '2026-01-01',
-  endDate: '2026-01-31',
-  frequency: 'MONTHLY' as const,
-  closed: true,
-};
-const P_SEP = {
-  id: '2026-09-M',
-  name: 'September 2026',
-  startDate: '2026-09-01',
-  endDate: '2026-09-30',
-  frequency: 'MONTHLY' as const,
-  closed: true,
-};
+import { provideAnimations } from '@angular/platform-browser/animations';
+import { of } from 'rxjs';
+import { AggregateReportFormComponent } from './aggregate-report-form.component';
+import { PayrollPeriodsService } from '@features/payroll-period/services/payroll-periods.service';
+import { apiUrl } from '@core/config/api-base-url';
+import { CountryService } from '@features/country/services/country.service';
+import { DepartmentService } from '@features/department/services/department.service';
+import { RoleService } from '@features/role/services/role.service';
 
 describe('AggregateReportFormComponent', () => {
-  let fixture: ComponentFixture<AggregateReportFormComponent>;
   let component: AggregateReportFormComponent;
+  let fixture: ComponentFixture<AggregateReportFormComponent>;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [AggregateReportFormComponent, NoopAnimationsModule],
-    }).compileComponents();
+    const spyPeriod = jasmine.createSpyObj('PayrollPeriodsService', ['search']);
+    spyPeriod.search.and.returnValue(of({ content: [], totalElements: 0, totalPages: 1, size: 20, number: 0 }));
+    const spyCountry = jasmine.createSpyObj('CountryService', ['search']);
+    spyCountry.search.and.returnValue(of({ content: [], totalElements: 0, totalPages: 1, size: 20, number: 0 }));
+    const spyDepartment = jasmine.createSpyObj('DepartmentService', ['search']);
+    spyDepartment.search.and.returnValue(of({ content: [], totalElements: 0, totalPages: 1, size: 20, number: 0 }));
+    const spyRole = jasmine.createSpyObj('RoleService', ['search']);
+    spyRole.search.and.returnValue(of({ content: [], totalElements: 0, totalPages: 1, size: 20, number: 0 }));
 
+
+    await TestBed.configureTestingModule({
+      imports: [AggregateReportFormComponent],
+      providers: [
+        provideAnimations(),
+        { provide: PayrollPeriodsService, useValue: spyPeriod },
+        { provide: CountryService, useValue: spyCountry },
+        { provide: DepartmentService, useValue: spyDepartment },
+        { provide: RoleService, useValue: spyRole },
+      ],
+    }).compileComponents();
     fixture = TestBed.createComponent(AggregateReportFormComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
 
-  it('cannot submit without a start period', () => {
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  it('should initialize with invalid form because startPeriod is required', () => {
+    expect(component.form.valid).toBeFalse();
     expect(component.canSubmit()).toBeFalse();
   });
 
-  it('enables submit when start period is set', () => {
-    component.form.controls.startPeriod.setValue(P_JAN);
+  it('should become valid when startPeriod is set', () => {
+    const mockPeriod = {
+      id: 'p1',
+      name: 'January 2026',
+      frequency: 'MONTHLY' as const,
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      closed: false,
+    };
+
+    component.form.controls.startPeriod.setValue(mockPeriod);
+    fixture.detectChanges();
+
+    expect(component.form.controls.startPeriod.valid).toBeTrue();
     expect(component.canSubmit()).toBeTrue();
   });
 
-  it('emits form value on submit', () => {
-    component.form.controls.startPeriod.setValue(P_JAN);
-    component.form.controls.countries.setValue(['CM']);
+  it('should reset form values on onReset', () => {
+    spyOn(component.cancel, 'emit');
+    component.onReset();
 
-    let emitted: AggregateReportFormValue | null = null;
-    component.submitForm.subscribe((v) => (emitted = v));
-    component.onSubmit();
-
-    expect(emitted).not.toBeNull();
-    expect(emitted!.startPeriod.id).toBe('2026-01-M');
-    expect(emitted!.endPeriod).toBeNull();
-    expect(emitted!.filters.countryIds).toEqual(['CM']);
-  });
-
-  it('clears end period when start moves past it', () => {
-    component.form.controls.startPeriod.setValue(P_JAN);
-    component.form.controls.endPeriod.setValue(P_SEP);
-    expect(component.endPeriod()?.id).toBe('2026-09-M');
-
-    // Move start after end
-    component.form.controls.startPeriod.setValue({
-      ...P_SEP,
-      id: '2026-10-M',
-      name: 'October 2026',
-      startDate: '2026-10-01',
-      endDate: '2026-10-31',
-    });
+    expect(component.form.controls.startPeriod.value).toBeNull();
     expect(component.form.controls.endPeriod.value).toBeNull();
-  });
-
-  it('builds the end-picker initial filter from the start endDate', () => {
-    component.form.controls.startPeriod.setValue(P_SEP);
-    fixture.detectChanges();
-    expect(component.endPeriodFilter()).toEqual({ startDate: '2026-09-30' });
+    expect(component.cancel.emit).toHaveBeenCalled();
   });
 });

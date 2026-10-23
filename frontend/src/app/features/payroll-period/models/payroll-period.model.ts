@@ -15,3 +15,4 @@ export interface PayrollPeriodDto {
   frequency: PayrollPeriodFrequency;
   closed: boolean;
 }
+

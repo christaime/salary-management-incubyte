@@ -6,7 +6,11 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "cy:run": "cypress run",
+    "start:e2e": "ng serve --port 4400",
+    "e2e": "CYPRESS_BASE_URL=http://localhost:4400 start-server-and-test start:e2e http-get://localhost:4400 cy:run",
+    "e2e:open": "CYPRESS_BASE_URL=http://localhost:4400 start-server-and-test start:e2e http-get://localhost:4400 'cypress open'"
   },
   "private": true,
   "dependencies": {
@@ -34,6 +38,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@types/jasmine": "~5.1.0",
     "autoprefixer": "^10.6.1",
+    "cypress": "^16.2.0",
     "jasmine-core": "~5.6.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
@@ -41,6 +46,7 @@
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
     "postcss": "^8.5.30",
+    "start-server-and-test": "^3.0.13",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.7.2"
   }

@@ -1,6 +1,7 @@
 import { AggregateLineDto } from './aggregate-line.model';
 import { DateRange } from './date-range.model';
 import { GroupKey } from './group-key.model';
+import { ReportWarningDto } from './report-warning.model';
 
 /**
  * Response body for `POST /api/v1/reports/aggregate`.
@@ -18,4 +19,5 @@ export interface AggregateReportResponse {
   groupKeys: GroupKey[];
   referenceCurrency: string;
   lines: AggregateLineDto[];
+  warnings?: ReportWarningDto[];
 }

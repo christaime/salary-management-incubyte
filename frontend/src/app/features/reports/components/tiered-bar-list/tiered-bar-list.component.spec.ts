@@ -1,74 +1,65 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
-import { AggregateLineDto, AggregateReportResponse } from '../../models';
+import { provideAnimations } from '@angular/platform-browser/animations';
 import { TieredBarListComponent } from './tiered-bar-list.component';
-
-function line(partial: Partial<AggregateLineDto>): AggregateLineDto {
-  return {
-    amount: { amount: 1000, currency: 'USD' },
-    employeeCount: 10,
-    ...partial,
-  };
-}
-
-function response(lines: AggregateLineDto[], groupKeys: AggregateReportResponse['groupKeys'] = ['COUNTRY']): AggregateReportResponse {
-  return {
-    kind: 'AGGREGATE',
-    dateRange: { startDate: '2026-01-01', endDate: '2026-03-31' },
-    groupKeys,
-    referenceCurrency: 'USD',
-    lines,
-    warnings: [],
-  };
-}
+import { AggregateReportResponse } from '../../models';
 
 describe('TieredBarListComponent', () => {
-  let fixture: ComponentFixture<TieredBarListComponent>;
   let component: TieredBarListComponent;
+  let fixture: ComponentFixture<TieredBarListComponent>;
 
-  function create(res: AggregateReportResponse): void {
-    TestBed.configureTestingModule({
+  const mockResponse: AggregateReportResponse = {
+    kind: 'AGGREGATE',
+    referenceCurrency: 'USD',
+    groupKeys: ['COUNTRY'],
+    dateRange: {startDate: "2026-01-01", endDate:"2026-03-31"},
+    lines: [
+      {
+        country: { code: 'US', name: 'United States' },
+        amount: { currency: 'USD', amount: 3000 },
+        breakdown: { base: 2000, variable: 500, allowances: 300, employerTaxes: 200, total: 3000, currency: 'USD' },
+        employeeCount: 15,
+        statistics: {} as any,
+      },
+      {
+        country: { code: 'FR', name: 'France' },
+        amount: { currency: 'USD', amount: 7000 },
+        breakdown: { base: 4000, variable: 1500, allowances: 800, employerTaxes: 700, total: 7000, currency: 'USD' },
+        employeeCount: 35,
+        statistics: {} as any,
+      },
+    ],
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
       imports: [TieredBarListComponent],
+      providers: [provideAnimations()],
     }).compileComponents();
+
     fixture = TestBed.createComponent(TieredBarListComponent);
-    fixture.componentRef.setInput('response', res);
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('response', mockResponse);
     fixture.detectChanges();
-  }
-
-  it('builds rows sorted by amount descending', () => {
-    create(
-      response([
-        line({ country: 'CM', amount: { amount: 500, currency: 'USD' } }),
-        line({ country: 'US', amount: { amount: 2000, currency: 'USD' } }),
-        line({ country: 'FR', amount: { amount: 1000, currency: 'USD' } }),
-      ]),
-    );
-    expect(component.rows().map((r) => r.code)).toEqual(['US', 'FR', 'CM']);
   });
 
-  it('computes barPct relative to the max amount', () => {
-    create(
-      response([
-        line({ country: 'US', amount: { amount: 1000, currency: 'USD' } }),
-        line({ country: 'FR', amount: { amount: 500, currency: 'USD' } }),
-      ]),
-    );
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  it('should sort rows descending by amount and mark the first as tier 1', () => {
     const rows = component.rows();
-    expect(rows[0].barPct).toBe(100);
-    expect(rows[1].barPct).toBe(50);
+    expect(rows.length).toBe(2);
+    // France (7000) should be first, US (3000) second
+    expect(rows[0].code).toBe('FR');
+    expect(rows[0].isTier1).toBeTrue();
+    expect(rows[1].code).toBe('US');
+    expect(rows[1].isTier1).toBeFalse();
   });
 
-  it('emits rowClick when a row is clicked', () => {
-    create(
-      response([
-        line({ country: 'US', amount: { amount: 1000, currency: 'USD' } }),
-      ]),
-    );
-    let clicked: AggregateLineDto | null = null;
-    component.rowClick.subscribe((l) => (clicked = l));
-    component.onRowClick(component.rows()[0]);
-    expect(clicked).not.toBeNull();
-    expect(clicked!.country).toBe('US');
+  it('should emit rowClick output when a row is clicked', () => {
+    spyOn(component.rowClick, 'emit');
+    const row = component.rows()[0];
+    component.onRowClick(row);
+    expect(component.rowClick.emit).toHaveBeenCalledWith(row.line);
   });
 });

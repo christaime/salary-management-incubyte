@@ -1,30 +1,54 @@
-import { ValidationError } from '../models/error-response.model';
-import { ReportWarningDto } from '../models/report-warning.model';
 
-/**
- * Report-specific error shape produced by `ReportsService`.
- *
- * Unlike the generic `ApiError` from `core/http/api-error.ts`, this carries
- * the raw `ValidationError[]` (needed for inline field errors on the form)
- * and a `blockers` array (populated when the backend rejects the request
- * with `REPORT_BLOCKED`).
- *
- * Note: the backend's `ErrorResponse` does not carry warnings — warnings
- * only appear in successful `AggregateReportResponse`. So this type has no
- * `warnings` field by design.
- */
-export interface ReportsError {
-  /** Backend error code, e.g. `VALIDATION_FAILED`, `REPORT_BLOCKED`. */
-  code: string;
-  /** Human-readable message. */
+export type ReportWarningCode =
+  | 'PERIOD_CLOSED'
+  | 'MISSING_PAYROLL_SUMMARY'
+  | 'UNVALIDATED_PAYROLL_SUMMARY'
+  | 'MISSING_FX_RATE'
+  | 'MISSING_REFERENCE_CURRENCY';
+
+export interface ConcernedEmployee {
+  id: string;
+  matricule: string;
+  name: string;
+}
+
+// --- Base Type ---
+export interface BaseReportWarning {
+  code: ReportWarningCode;
   message: string;
-  /** Raw per-field validation errors. Empty array when none. */
-  fieldErrors: readonly ValidationError[];
-  /**
-   * Populated when `code === 'REPORT_BLOCKED'`. Empty array otherwise.
-   * Transformed from `fieldErrors` with `severity = 'BLOCKER'`.
-   */
-  blockers: ReportWarningDto[];
-  /** HTTP status, when available. */
-  status: number;
+  severity: 'WARNING' | 'BLOCKER';
+}
+
+// --- Specific Types ---
+export interface EmployeeWarning extends BaseReportWarning {
+  code: 'MISSING_PAYROLL_SUMMARY' | 'UNVALIDATED_PAYROLL_SUMMARY';
+  countConcerned: number;
+  employees: ConcernedEmployee[];
+}
+
+export interface MissingCurrencyRateWarning extends BaseReportWarning {
+  code: 'MISSING_FX_RATE';
+  currency: string;
+}
+
+export interface MissingReferenceCurrencyWarning extends BaseReportWarning {
+  code: 'MISSING_REFERENCE_CURRENCY';
+  currency?: string; // Might be missing or present depending on how the backend sends it
+}
+
+export interface PeriodClosedWarning extends BaseReportWarning {
+  code: 'PERIOD_CLOSED';
+}
+
+// --- The Union ---
+export type ReportWarning =
+  | EmployeeWarning
+  | MissingCurrencyRateWarning
+  | MissingReferenceCurrencyWarning
+  | PeriodClosedWarning;
+
+export interface ReportsError {
+  code: string;
+  message: string;
+  warnings: ReportWarning[];
 }

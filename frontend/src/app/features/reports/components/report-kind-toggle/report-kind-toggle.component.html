@@ -1,12 +1,13 @@
 <mat-button-toggle-group
   class="report-kind-toggle w-full"
+  data-testid="report-kind-toggle-group"
   [value]="selected()"
   [disabled]="disabled()"
   hideSingleSelectionIndicator
   (change)="onSelectionChange($event.value)"
 >
   @for (kind of kinds; track kind) {
-  <mat-button-toggle [value]="kind" class="flex-1">
+  <mat-button-toggle [value]="kind" class="flex-1" [attr.data-testid]="'toggle-btn-' + kind">
     {{ labels[kind] }}
   </mat-button-toggle>
   }

@@ -1,10 +1,10 @@
 <div class="flex flex-col gap-4 p-6 rounded-xl border border-slate-200/80 bg-white shadow-xs h-full">
-  <h3 class="text-base font-semibold text-slate-900 tracking-tight m-0">
+  <h3 data-testid="donut-title" class="text-base font-semibold text-slate-900 tracking-tight m-0">
     Breakdown — {{ title() }}
   </h3>
 
   @if (!line() || !hasBreakdown()) {
-  <p class="text-xs text-slate-500 m-0">
+  <p data-testid="donut-empty-state" class="text-xs text-slate-500 m-0">
     Select a row to see its payroll breakdown.
   </p>
   } @else {
@@ -13,12 +13,11 @@
     <!-- SVG Donut -->
     <div class="relative w-44 h-44 flex items-center justify-center">
       <svg class="w-full h-full -rotate-90 transform" viewBox="0 0 160 160">
-        <!-- Background Track -->
         <circle cx="80" cy="80" r="60" fill="transparent" stroke="#f1f5f9" stroke-width="22" />
 
-        <!-- Slices -->
         @for (slice of slices(); track slice.key) {
         <circle
+          [attr.data-testid]="'donut-slice-' + slice.key"
           cx="80" cy="80" r="60" fill="transparent"
           [attr.stroke]="slice.color"
           stroke-width="22"
@@ -28,31 +27,31 @@
         }
       </svg>
 
-      <!-- Center Badge / Stat Cutout -->
-      <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span class="text-xs font-semibold text-slate-900 tracking-tight">
-            {{ currency() }}
-          </span>
-        <span class="text-[10px] text-slate-400 font-medium">
-            {{ formatAmount(total()) }}
-          </span>
+      <!-- Center Badge -->
+      <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+        <span data-testid="donut-total-currency" class="text-xs font-semibold text-slate-900 tracking-tight">
+          {{ currency() }}
+        </span>
+        <span data-testid="donut-total-amount" [attr.data-value]="total()" class="text-[10px] text-slate-400 font-medium">
+          {{ formatAmount(total()) }}
+        </span>
       </div>
     </div>
 
     <!-- Legend System -->
     <div class="w-full space-y-2.5 text-xs text-slate-600">
       @for (slice of slices(); track slice.key) {
-      <div class="flex items-center justify-between">
-            <span class="flex items-center">
-              <span class="w-2.5 h-2.5 rounded-sm mr-2 inline-block" [style.background-color]="slice.color"></span>
-              {{ slice.label }}
-            </span>
+      <div [attr.data-testid]="'donut-legend-' + slice.key" class="flex items-center justify-between">
+        <span class="flex items-center">
+          <span class="w-2.5 h-2.5 rounded-sm mr-2 inline-block" [style.background-color]="slice.color"></span>
+          {{ slice.label }}
+        </span>
         <span class="text-right">
-              <span class="font-semibold text-slate-900">{{ slice.percent | number:'1.1-1' }}%</span>
-              <span class="text-slate-400 text-[11px] ml-1">
-                ({{ formatAmount(slice.value) }})
-              </span>
-            </span>
+          <span [attr.data-testid]="'donut-pct-' + slice.key" [attr.data-value]="slice.percent" class="font-semibold text-slate-900">{{ slice.percent | number:'1.1-1' }}%</span>
+          <span [attr.data-testid]="'donut-val-' + slice.key" [attr.data-value]="slice.value" class="text-slate-400 text-[11px] ml-1">
+            ({{ formatAmount(slice.value) }})
+          </span>
+        </span>
       </div>
       }
     </div>

@@ -1,26 +1,19 @@
 import { CommonModule } from '@angular/common';
-import {
-  Component,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { take } from 'rxjs';
 
 import { ToastService } from '../../../../core/ui/toast/toast.service';
-import { ReportsService } from '../../services/reports.service';
-import { ReportsError } from '../../services/reports-error';
+import { ReportsService, mapReportWarning } from '../../services/reports.service';
+import { ReportsError, BaseReportWarning } from '../../services/reports-error';
 import {
   AggregateReportRequest,
   AggregateReportResponse,
   groupKeysFor,
   ReportKind,
-  ReportWarningDto,
 } from '../../models';
-import { ValidationError } from '../../models/error-response.model';
 import {
   AggregateReportFormComponent,
   AggregateReportFormValue,
@@ -29,13 +22,6 @@ import { AggregateReportResultsComponent } from '../../components/aggregate-repo
 import { ReportKindToggleComponent } from '../../components/report-kind-toggle/report-kind-toggle.component';
 
 type PageState = 'idle' | 'submitting' | 'success' | 'error';
-
-/** Typed employee entry inside a blocker's details. */
-interface BlockerEmployee {
-  id: string;
-  matricule: string;
-  name: string;
-}
 
 @Component({
   selector: 'app-aggregate-report-page',
@@ -56,89 +42,71 @@ export class AggregateReportPageComponent {
   private readonly reports = inject(ReportsService);
   private readonly toast = inject(ToastService);
 
-  // --- State --------------------------------------------------------------
-
   readonly state = signal<PageState>('idle');
   readonly selectedKind = signal<ReportKind>('TOTAL');
 
-  private readonly cache = signal<
+  // The Map indicating which reports have been fetched for the current criteria
+  private readonly reportCache = signal<
     Partial<Record<ReportKind, AggregateReportResponse>>
   >({});
 
   readonly reportResponse = signal<AggregateReportResponse | null>(null);
   readonly reportError = signal<ReportsError | null>(null);
 
-  private lastFormValue: AggregateReportFormValue | null = null;
-
-  // --- Derived ------------------------------------------------------------
+  // Stores the criteria used for the current generation cycle
+  private lastSubmittedFormValue: AggregateReportFormValue | null = null;
 
   readonly isLoading = computed(() => this.state() === 'submitting');
 
-  readonly blockers = computed(() => this.reportError()?.blockers ?? []);
-
-  readonly fieldErrors = computed<readonly ValidationError[]>(
-    () => this.reportError()?.fieldErrors ?? [],
+  readonly blockers = computed<BaseReportWarning[]>(
+    () => (this.reportError()?.warnings ?? []) as BaseReportWarning[]
   );
+
+  readonly warnings = computed<BaseReportWarning[]>(() => {
+    const res = this.reportResponse();
+    if (!res?.warnings) return [];
+    return res.warnings.map(mapReportWarning) as BaseReportWarning[];
+  });
 
   readonly showBlockerBanner = computed(() => this.blockers().length > 0);
-
-  readonly showFieldErrors = computed(
-    () =>
-      this.state() === 'error' &&
-      this.reportError()?.code === 'VALIDATION_FAILED' &&
-      this.fieldErrors().length > 0,
-  );
+  readonly showWarningsBanner = computed(() => this.warnings().length > 0);
 
   readonly showResults = computed(
     () => this.state() === 'success' && this.reportResponse() !== null,
   );
 
-  readonly hasEverGenerated = computed(
-    () => Object.keys(this.cache()).length > 0,
-  );
-
-  // --- Blocker detail accessors ------------------------------------------
-
   /**
-   * Typed `count` from a blocker's details, or `0` when absent.
-   *
-   * <p>{@code details} is an open map from the backend, so the narrowing lives here
-   * rather than in the template.</p>
+   * Called when the form emits formChange.
+   * This happens when the period changes OR when the user clicks Apply in the drawer.
+   * We clear the map, the current results, and the last submitted value.
    */
-  blockerCount(blocker: ReportWarningDto): number {
-    const count = blocker.details?.['count'];
-    return typeof count === 'number' ? count : 0;
+  onFormChange(): void {
+    this.reportResponse.set(null);
+    this.reportError.set(null);
+    this.reportCache.set({});
+    this.state.set('idle');
+    this.selectedKind.set('TOTAL');
+    this.lastSubmittedFormValue = null;
   }
 
   /**
-   * Typed employee list from a blocker's details, or an empty array when absent
-   * or malformed.
+   * Called when the user clicks the Generate button.
    */
-  blockerEmployees(blocker: ReportWarningDto): BlockerEmployee[] {
-    const employees = blocker.details?.['employees'];
-    if (!Array.isArray(employees)) return [];
-    return employees.filter(
-      (e): e is BlockerEmployee =>
-        typeof e === 'object' &&
-        e !== null &&
-        typeof (e as { id?: unknown }).id === 'string' &&
-        typeof (e as { matricule?: unknown }).matricule === 'string' &&
-        typeof (e as { name?: unknown }).name === 'string',
-    );
-  }
-
-  // --- Actions ------------------------------------------------------------
-
   onFormSubmit(value: AggregateReportFormValue): void {
-    this.lastFormValue = value;
+    this.lastSubmittedFormValue = value;
+    this.reportCache.set({});
     this.fetch(this.selectedKind(), value);
   }
 
+  /**
+   * Called when the user clicks a toggle button.
+   */
   onKindChange(kind: ReportKind): void {
     if (kind === this.selectedKind() && this.reportResponse()) return;
     this.selectedKind.set(kind);
 
-    const cached = this.cache()[kind];
+    // Check the Map: Do we already have this report for the current criteria?
+    const cached = this.reportCache()[kind];
     if (cached) {
       this.reportResponse.set(cached);
       this.reportError.set(null);
@@ -146,26 +114,20 @@ export class AggregateReportPageComponent {
       return;
     }
 
-    if (this.lastFormValue) {
-      this.fetch(kind, this.lastFormValue);
+    // If not cached, but we have a valid form value, fetch it
+    if (this.lastSubmittedFormValue) {
+      this.fetch(kind, this.lastSubmittedFormValue);
     }
   }
 
   onFormReset(): void {
-    this.cache.set({});
-    this.reportResponse.set(null);
-    this.reportError.set(null);
-    this.state.set('idle');
-    this.selectedKind.set('TOTAL');
-    this.lastFormValue = null;
+    this.onFormChange();
   }
 
   dismissBanner(): void {
     this.reportError.set(null);
     if (this.state() === 'error') this.state.set('idle');
   }
-
-  // --- Fetch --------------------------------------------------------------
 
   private fetch(kind: ReportKind, formValue: AggregateReportFormValue): void {
     this.state.set('submitting');
@@ -179,7 +141,7 @@ export class AggregateReportPageComponent {
       .subscribe({
         next: (response) => {
           this.reportResponse.set(response);
-          this.cache.update((m) => ({ ...m, [kind]: response }));
+          this.reportCache.update((m) => ({ ...m, [kind]: response }));
           this.reportError.set(null);
           this.state.set('success');
         },
@@ -187,7 +149,11 @@ export class AggregateReportPageComponent {
           this.reportError.set(err);
           this.reportResponse.set(null);
           this.state.set('error');
-          this.handleError(err);
+          if (err.code === 'REPORT_BLOCKED') {
+            this.toast.error('Report could not be generated. Fix the data and try again.');
+          } else {
+            this.toast.error(err.message || 'Report request failed.');
+          }
         },
       });
   }
@@ -212,26 +178,5 @@ export class AggregateReportPageComponent {
       includeBreakdown: true,
       includeStatistics: kind === 'TOTAL',
     };
-  }
-
-  private handleError(err: ReportsError): void {
-    switch (err.code) {
-      case 'REPORT_BLOCKED':
-        this.toast.error(
-          'Report could not be generated. Fix the data and try again.',
-        );
-        return;
-
-      case 'VALIDATION_FAILED':
-        return;
-
-      case 'INTERNAL_ERROR':
-      case 'SERVER_ERROR':
-      case 'NETWORK_ERROR':
-        return;
-
-      default:
-        this.toast.error(err.message || 'Report request failed.');
-    }
   }
 }

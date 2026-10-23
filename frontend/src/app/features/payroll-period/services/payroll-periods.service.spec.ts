@@ -1,41 +1,50 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
-
-import { DataPage } from '@core/models/data-page.model';
-import { PayrollPeriodCriteria } from '../models/payroll-period-criteria.model';
-import { PayrollPeriodDto } from '../models/payroll-period.model';
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { PayrollPeriodsService } from './payroll-periods.service';
 import { apiUrl } from '@core/config/api-base-url';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { httpErrorInterceptor } from '@core/http/http-error.interceptor';
 
-@Injectable({ providedIn: 'root' })
-export class PayrollPeriodsService {
-  private readonly http = inject(HttpClient);
+describe('PayrollPeriodsService', () => {
+  let service: PayrollPeriodsService;
+  let httpMock: HttpTestingController;
 
-  /**
-   * Fetches a paginated list of payroll periods based on the provided criteria.
-   * Maps the criteria object to HTTP query parameters.
-   */
-  list(criteria: PayrollPeriodCriteria = {}): Observable<DataPage<PayrollPeriodDto>> {
-    let params = new HttpParams();
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        PayrollPeriodsService,
+        provideHttpClient(withInterceptors([httpErrorInterceptor])),
+        provideHttpClientTesting(),
+      ],
+    });
+    service = TestBed.inject(PayrollPeriodsService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
 
-    if (criteria.keyword) params = params.set('keyword', criteria.keyword);
-    if (criteria.startDate) params = params.set('startDate', criteria.startDate);
-    if (criteria.endDate) params = params.set('endDate', criteria.endDate);
-    if (criteria.frequency) params = params.set('frequency', criteria.frequency);
+  afterEach(() => {
+    httpMock.verify();
+  });
 
-    if (criteria.isClosed !== undefined && criteria.isClosed !== null) {
-      params = params.set('isClosed', criteria.isClosed.toString());
-    }
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
 
-    // Default pagination and sorting
-    params = params.set('page', (criteria.page ?? 0).toString());
-    params = params.set('size', (criteria.size ?? 20).toString());
-    params = params.set('sortBy', criteria.sortBy ?? 'startDate');
-    params = params.set('sortDirection', criteria.sortDirection ?? 'DESC');
+  it('should fetch payroll periods with criteria and default sorting/pagination parameters', () => {
+    service.search({ keyword: 'January', page: 0, size: 20 }).subscribe({
+      next: (res) => {
+        expect(res).toBeDefined();
+      },
+    });
 
-    return this.http.get<DataPage<PayrollPeriodDto>>(
-      apiUrl('/api/v1/payroll-periods'),
-      { params }
+    const req = httpMock.expectOne(
+      (r) => r.url === apiUrl('/api/v1/payroll-periods') && r.params.get('keyword') === 'January'
     );
-  }
-}
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('page')).toBe('0');
+    expect(req.request.params.get('size')).toBe('20');
+    expect(req.request.params.get('sortBy')).toBe('startDate');
+    expect(req.request.params.get('sortDirection')).toBe('DESC');
+
+    req.flush({ content: [], totalElements: 0 });
+  });
+});

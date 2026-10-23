@@ -1,150 +1,93 @@
-import { CommonModule } from '@angular/common';
 import {
   Component,
   ElementRef,
+  HostListener,
   ViewChild,
   computed,
+  effect,
   forwardRef,
   inject,
   input,
   output,
   signal,
 } from '@angular/core';
-import {
-  AbstractControl,
-  ControlValueAccessor,
-  NG_VALIDATORS,
-  NG_VALUE_ACCESSOR,
-  ReactiveFormsModule,
-  ValidationErrors,
-  Validator,
-} from '@angular/forms';
-import { MatAutocompleteModule, MatAutocompleteTrigger } from '@angular/material/autocomplete';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
+import { CommonModule } from '@angular/common';
+import { FormsModule, ReactiveFormsModule, FormControl, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatMenuModule } from '@angular/material/menu';
-import { debounceTime, distinctUntilChanged, switchMap, catchError, of } from 'rxjs';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-
-import { PayrollPeriodDto } from '../../models/payroll-period.model';
-import { PayrollPeriodCriteria } from '../../models/payroll-period-criteria.model';
+import { debounceTime, distinctUntilChanged, startWith, switchMap, catchError, map, of } from 'rxjs';
+import { PayrollPeriodDto, PayrollPeriodCriteria } from '../../models';
 import { PayrollPeriodsService } from '../../services/payroll-periods.service';
+
+export interface PeriodPayload {
+  year: number;
+  period: PayrollPeriodDto;
+}
 
 @Component({
   selector: 'app-payroll-period-picker',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatAutocompleteModule,
-    MatMenuModule,
-    MatButtonModule,
-    MatIconModule,
-  ],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatIconModule],
   templateUrl: './payroll-period-picker.component.html',
-  styleUrl: './payroll-period-picker.component.scss',
+  styleUrls: ['./payroll-period-picker.component.scss'],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
       useExisting: forwardRef(() => PayrollPeriodPickerComponent),
       multi: true,
     },
-    {
-      provide: NG_VALIDATORS,
-      useExisting: forwardRef(() => PayrollPeriodPickerComponent),
-      multi: true,
-    },
   ],
 })
-export class PayrollPeriodPickerComponent implements ControlValueAccessor, Validator {
-  private readonly periodsService = inject(PayrollPeriodsService);
+export class PayrollPeriodPickerComponent implements ControlValueAccessor {
+  private readonly periodService: PayrollPeriodsService = inject(PayrollPeriodsService);
 
-  // --- Inputs / Outputs ---------------------------------------------------
-  readonly label = input<string>('Period');
-  readonly startYearAllowed = input<number>(new Date().getFullYear() - 5);
+  // --- Inputs (@Input) ---
+  readonly required = input<boolean>(false);
+  readonly label = input<string>("Payroll Cycle Period");
+  readonly yearRange = input<[number, number]>([2021, 2026]);
+  readonly selectedYear = input<number | null>(null);
+  readonly auditBadgeEnabled = input<boolean>(true);
   readonly initialFilter = input<PayrollPeriodCriteria>({});
-  readonly isRequired = input<boolean>(false);
 
-  readonly yearSelected = output<number>();
-  readonly periodSelected = output<PayrollPeriodDto>();
+  // --- Outputs (@Output) ---
+  readonly yearChange = output<number>();
+  readonly periodChange = output<PeriodPayload>();
+  readonly cleared = output<void>();
 
-  // --- Internal state -----------------------------------------------------
-  readonly searchText = signal<string>('');
-  readonly selectedYear = signal<number | null>(null);
-  readonly selectedPeriod = signal<PayrollPeriodDto | null>(null);
+  // --- Internal State (Signals) ---
+  @ViewChild('periodInput') periodInputElement?: ElementRef<HTMLInputElement>;
+  @ViewChild('pickerContainer') pickerContainer?: ElementRef<HTMLDivElement>;
+
+  readonly internalYear = signal<number | null>(null);
+  readonly isYearPopoverOpen = signal<boolean>(false);
+  readonly isPeriodDropdownOpen = signal<boolean>(false);
+
+  // Writable local signal synced via ControlValueAccessor
+  readonly activeSelectedPeriod = signal<PayrollPeriodDto | null>(null);
+  readonly searchControl = new FormControl<string>('');
+
+  // --- Validation State ---
   readonly touched = signal<boolean>(false);
-
-  // Generate a list of years from current year down to startYearAllowed
-  readonly availableYears = computed(() => {
-    const currentYear = new Date().getFullYear();
-    const startYear = this.startYearAllowed();
-    const years: number[] = [];
-    for (let y = currentYear; y >= startYear; y--) {
-      years.push(y);
-    }
-    return years;
+  readonly isInvalid = computed(() => {
+    return this.required() && this.touched() && !this.activeSelectedPeriod();
   });
 
-  // --- Search Logic -------------------------------------------------------
-  private readonly resultsPage = toSignal(
-    toObservable(
-      computed(() => {
-        const text = this.searchText();
-        const year = this.selectedYear();
-
-        const criteria: PayrollPeriodCriteria = {
-          ...this.initialFilter(),
-          size: 20,
-        };
-
-        if (text) criteria.keyword = text;
-
-        if (year != null) {
-          criteria.startDate = `${year}-01-01`;
-          criteria.endDate = `${year}-12-31`;
-        }
-
-        return criteria;
-      }),
-    ).pipe(
-      debounceTime(300),
-      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-      switchMap((criteria) => {
-        // Allow fetch if either a search keyword or a year filter is provided
-        if (!criteria.keyword && !criteria.startDate) {
-          return of({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true, empty: true });
-        }
-        return this.periodsService.list(criteria).pipe(
-          catchError(() => of({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true, empty: true }))
-        );
-      }),
-    ),
-    {
-      initialValue: { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, first: true, last: true, empty: true },
-    },
-  );
-
-  readonly results = computed<PayrollPeriodDto[]>(() => this.resultsPage()?.content ?? []);
-
-  // --- CVA plumbing -------------------------------------------------------
-  private onChange: (v: PayrollPeriodDto | null) => void = () => {};
+  // --- ControlValueAccessor Callbacks ---
+  private onChange: (value: PayrollPeriodDto | null) => void = () => {};
   private onTouched: () => void = () => {};
 
-  writeValue(value: PayrollPeriodDto | null): void {
-    this.selectedPeriod.set(value);
-    this.searchText.set(value?.name ?? '');
-    if (value) {
-      const year = Number(value.startDate.slice(0, 4));
-      this.selectedYear.set(year);
+  writeValue(obj: PayrollPeriodDto | null): void {
+    if (obj) {
+      this.activeSelectedPeriod.set(obj);
+      if (obj.startDate) {
+        this.internalYear.set(this.getYear(obj.startDate));
+      }
+    } else {
+      this.activeSelectedPeriod.set(null);
     }
-    // Note: Removed clearing of selectedYear here so the year stays when period is deselected/nullified
   }
 
-  registerOnChange(fn: (v: PayrollPeriodDto | null) => void): void {
+  registerOnChange(fn: (value: PayrollPeriodDto | null) => void): void {
     this.onChange = fn;
   }
 
@@ -152,76 +95,168 @@ export class PayrollPeriodPickerComponent implements ControlValueAccessor, Valid
     this.onTouched = fn;
   }
 
-  setDisabledState(_disabled: boolean): void {}
-
-  validate(_control: AbstractControl): ValidationErrors | null {
-    if (this.isRequired() && !this.selectedPeriod()) {
-      return { required: true };
-    }
-    return null;
+  setDisabledState?(isDisabled: boolean): void {
+    // Optional: handle disabled styling/state if needed
   }
 
-  // --- View interactions --------------------------------------------------
-  @ViewChild('searchInput', { static: true }) searchInput?: ElementRef<HTMLInputElement>;
-  @ViewChild(MatAutocompleteTrigger) autocompleteTrigger?: MatAutocompleteTrigger;
+  // --- Computed Year Short Strings for Header Badge ---
+  readonly minYearShort = computed(() => String(this.yearRange()[0]).slice(2));
+  readonly maxYearShort = computed(() => String(this.yearRange()[1]).slice(2));
 
-  onInput(value: string): void {
-    this.searchText.set(value);
-    if (!value) {
-      this.selectedPeriod.set(null);
+  // --- API Dynamic Search Pipeline ---
+  private readonly year$ = toObservable(this.internalYear);
+  private readonly search$ = this.searchControl.valueChanges.pipe(
+    startWith(''),
+    debounceTime(300),
+    distinctUntilChanged()
+  );
+
+  readonly filteredPeriods = toSignal(
+    this.year$.pipe(
+      switchMap((year) =>
+        this.search$.pipe(
+          switchMap((query) => {
+            const baseCriteria = this.initialFilter();
+            const startDateFilter = year ? `${year}-01-01` : baseCriteria.startDate;
+            const endDateFilter = year ? `${year}-12-31` : baseCriteria.endDate;
+
+            return this.periodService.search({
+              ...baseCriteria,
+              keyword: query?.trim() || baseCriteria.keyword || undefined,
+              startDate: startDateFilter,
+              endDate: endDateFilter,
+              size: 50,
+            }).pipe(
+              map((page) => page.content ?? []),
+              catchError(() => of([]))
+            );
+          })
+        )
+      )
+    ),
+    { initialValue: [] }
+  );
+
+  constructor() {
+    effect(() => {
+      const yr = this.selectedYear();
+      if (yr !== undefined && yr !== null) {
+        this.internalYear.set(yr);
+      }
+    });
+  }
+
+  getYear(startDate: string): number {
+    return startDate ? parseInt(startDate.split('-')[0], 10) : new Date().getFullYear();
+  }
+
+  readonly availableYears = computed(() => {
+    const [minYear, maxYear] = this.yearRange();
+    const years: { year: number; isDisabled: boolean; isCurrent: boolean }[] = [];
+    const currentCalendarYear = new Date().getFullYear();
+
+    for (let y = minYear - 1; y <= maxYear + 1; y++) {
+      years.push({
+        year: y,
+        isDisabled: y < minYear || y > maxYear,
+        isCurrent: y === currentCalendarYear,
+      });
+    }
+    return years;
+  });
+
+  toggleYearPopover(event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    this.isYearPopoverOpen.update((v) => !v);
+    this.isPeriodDropdownOpen.set(false);
+  }
+
+  selectYear(year: number, isDisabled: boolean): void {
+    if (isDisabled) return;
+    this.internalYear.set(year);
+    this.yearChange.emit(year);
+    this.isYearPopoverOpen.set(false);
+
+    const currentSelected = this.activeSelectedPeriod();
+    if (currentSelected && this.getYear(currentSelected.startDate) !== year) {
+      this.activeSelectedPeriod.set(null);
       this.onChange(null);
     }
+
+    setTimeout(() => {
+      this.periodInputElement?.nativeElement.focus();
+      this.isPeriodDropdownOpen.set(true);
+    }, 100);
   }
 
-  onSelectPeriod(period: PayrollPeriodDto): void {
-    this.selectedPeriod.set(period);
-    this.searchText.set(period.name);
+  clearYearRange(event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    this.internalYear.set(null);
+    this.activeSelectedPeriod.set(null);
+    this.onChange(null);
+    this.isYearPopoverOpen.set(false);
+    this.cleared.emit();
+  }
+
+  onPeriodInputFocus(): void {
+    this.isPeriodDropdownOpen.set(true);
+    this.isYearPopoverOpen.set(false);
+  }
+
+  onPeriodSearchInput(): void {
+    this.isPeriodDropdownOpen.set(true);
+  }
+
+  selectPeriod(period: PayrollPeriodDto): void {
+    this.activeSelectedPeriod.set(period);
+    this.internalYear.set(this.getYear(period.startDate));
+    this.isPeriodDropdownOpen.set(false);
+    this.searchControl.setValue('');
+    this.touched.set(true);
+
+    // Notify reactive forms parent
     this.onChange(period);
-    this.periodSelected.emit(period);
-    this.markAsTouched();
+    this.onTouched();
+
+    this.periodChange.emit({ year: this.getYear(period.startDate), period });
+  }
+
+  clearSelectedPeriod(event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    this.activeSelectedPeriod.set(null);
+    this.searchControl.setValue('');
+    this.touched.set(true);
+
+    // Notify reactive forms parent
+    this.onChange(null);
+    this.onTouched();
+
+    this.cleared.emit();
+    setTimeout(() => {
+      this.periodInputElement?.nativeElement.focus();
+      this.isPeriodDropdownOpen.set(true);
+    }, 50);
   }
 
   onBlur(): void {
-    this.markAsTouched();
-    const typed = this.searchText().trim();
-    const selected = this.selectedPeriod();
-    if (selected && typed !== selected.name) {
-      this.searchText.set(selected.name);
-    } else if (!typed && selected) {
-      this.selectedPeriod.set(null);
-      this.onChange(null);
+    this.touched.set(true);
+    this.onTouched();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (
+      this.pickerContainer &&
+      !this.pickerContainer.nativeElement.contains(event.target as Node)
+    ) {
+      this.isYearPopoverOpen.set(false);
+      this.isPeriodDropdownOpen.set(false);
     }
   }
 
-  onOpenPicker(): void {
-    setTimeout(() => this.autocompleteTrigger?.openPanel());
+  @HostListener('keydown.escape')
+  onEscape(): void {
+    this.isYearPopoverOpen.set(false);
+    this.isPeriodDropdownOpen.set(false);
   }
-
-  selectYear(year: number): void {
-    this.selectedYear.set(year);
-    this.yearSelected.emit(year);
-    setTimeout(() => this.autocompleteTrigger?.openPanel());
-  }
-
-  clearYear(event: Event): void {
-    event.stopPropagation();
-    this.selectedYear.set(null);
-    setTimeout(() => this.autocompleteTrigger?.openPanel());
-  }
-
-  clear(): void {
-    this.selectedPeriod.set(null);
-    this.searchText.set('');
-    // Note: Removed selectedYear.set(null) here so clicking the clear button preserves the chosen year
-    this.onChange(null);
-  }
-
-  private markAsTouched(): void {
-    if (!this.touched()) {
-      this.touched.set(true);
-      this.onTouched();
-    }
-  }
-
-  displayFn = (period: PayrollPeriodDto | null): string => period?.name ?? '';
 }

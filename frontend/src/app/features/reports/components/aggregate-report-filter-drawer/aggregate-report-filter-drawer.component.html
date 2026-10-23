@@ -1,36 +1,23 @@
-<!-- Backdrop & Drawer -->
 @if (isOpen()) {
-<div
-  class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 transition-opacity"
-  (click)="close()"
-></div>
+<div class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 transition-opacity" (click)="close()"></div>
 
-<aside
-  class="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-250"
->
-  <!-- Drawer Header -->
+<aside class="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-250">
   <div class="p-5 border-b border-gray-200 flex items-center justify-between">
     <div class="flex items-center gap-2">
       <mat-icon class="text-indigo-600">tune</mat-icon>
-      <h2 class="text-lg font-bold text-gray-900">Customize the report</h2>
+      <h2 data-testid="drawer-title" class="text-lg font-bold text-gray-900">Customize the report</h2>
     </div>
-    <button
-      type="button"
-      (click)="close()"
-      class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
-    >
+    <button data-testid="btn-drawer-close" type="button" (click)="close()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors">
       <mat-icon>close</mat-icon>
     </button>
   </div>
 
-
-  <!-- Drawer Body -->
   <div class="p-6 flex-1 overflow-y-auto flex flex-col gap-4" [formGroup]="form()">
-    <p>Restrict the report to certain countries, departments, roles or employment types</p>
-    <!-- Countries -->
+    <p class="text-sm text-gray-500">Restrict the report to certain countries, departments, roles or employment types</p>
+
     <mat-form-field appearance="outline" class="w-full">
       <mat-label>Countries</mat-label>
-      <mat-select multiple formControlName="countries" [matTooltip]="countryTooltip()" [matTooltipDisabled]="!countryTooltip()">
+      <mat-select data-testid="filter-countries" multiple formControlName="countries" [matTooltip]="countryTooltip()" [matTooltipDisabled]="!countryTooltip()">
         <mat-select-trigger>{{ countryDisplayText() }}</mat-select-trigger>
         @for (c of countries(); track c.id) {
         <mat-option [value]="c.id">{{ c.name }}</mat-option>
@@ -38,10 +25,9 @@
       </mat-select>
     </mat-form-field>
 
-    <!-- Departments -->
     <mat-form-field appearance="outline" class="w-full">
       <mat-label>Departments</mat-label>
-      <mat-select multiple formControlName="departments" [matTooltip]="departmentTooltip()" [matTooltipDisabled]="!departmentTooltip()">
+      <mat-select data-testid="filter-departments" multiple formControlName="departments" [matTooltip]="departmentTooltip()" [matTooltipDisabled]="!departmentTooltip()">
         <mat-select-trigger>{{ departmentDisplayText() }}</mat-select-trigger>
         @for (d of departments(); track d.id) {
         <mat-option [value]="d.id">{{ d.name }}</mat-option>
@@ -49,10 +35,9 @@
       </mat-select>
     </mat-form-field>
 
-    <!-- Roles -->
     <mat-form-field appearance="outline" class="w-full">
       <mat-label>Roles</mat-label>
-      <mat-select multiple formControlName="roles" [matTooltip]="roleTooltip()" [matTooltipDisabled]="!roleTooltip()">
+      <mat-select data-testid="filter-roles" multiple formControlName="roles" [matTooltip]="roleTooltip()" [matTooltipDisabled]="!roleTooltip()">
         <mat-select-trigger>{{ roleDisplayText() }}</mat-select-trigger>
         @for (r of roles(); track r.id) {
         <mat-option [value]="r.id">{{ r.name }}</mat-option>
@@ -60,10 +45,9 @@
       </mat-select>
     </mat-form-field>
 
-    <!-- Employment types -->
     <mat-form-field appearance="outline" class="w-full">
       <mat-label>Employment types</mat-label>
-      <mat-select multiple formControlName="employmentTypes">
+      <mat-select data-testid="filter-employment-types" multiple formControlName="employmentTypes">
         <mat-select-trigger>{{ employmentTypeDisplayText() }}</mat-select-trigger>
         @for (t of employmentTypes; track t) {
         <mat-option [value]="t">{{ employmentTypeLabel(t) }}</mat-option>
@@ -72,23 +56,9 @@
     </mat-form-field>
   </div>
 
-  <!-- Drawer Footer -->
   <div class="p-5 border-t border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
-    <button
-      mat-stroked-button
-      type="button"
-      (click)="clearAll()"
-    >
-      Clear
-    </button>
-    <button
-      mat-flat-button
-      color="primary"
-      type="button"
-      (click)="close()"
-    >
-      Apply
-    </button>
+    <button data-testid="btn-drawer-clear" mat-stroked-button type="button" (click)="clearAll()">Clear</button>
+    <button data-testid="btn-drawer-apply" mat-flat-button color="primary" type="button" (click)="apply()">Apply</button>
   </div>
 </aside>
 }

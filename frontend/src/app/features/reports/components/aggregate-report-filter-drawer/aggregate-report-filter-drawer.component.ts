@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, input, signal } from '@angular/core';
+import { Component, HostListener, inject, input, output, signal } from '@angular/core';
 import { DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
@@ -17,6 +17,7 @@ import { RoleData } from '../../../role/models/role.model';
 import { RoleService } from '../../../role/services/role.service';
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, EmploymentType } from '../../models';
 
+// We type the form as the full parent form, but we only use the filter controls
 export type FilterFormGroup = FormGroup<{
   countries: FormControl<string[]>;
   departments: FormControl<string[]>;
@@ -44,7 +45,10 @@ export class AggregateReportFilterDrawerComponent {
   private readonly departmentService = inject(DepartmentService);
   private readonly roleService = inject(RoleService);
 
-  readonly form = input.required<FilterFormGroup>();
+  // The parent form is of type FormGroup<any>, so we accept it and cast internally
+  readonly form = input.required<FormGroup>();
+
+  readonly applied = output<void>();
 
   readonly isOpen = signal<boolean>(false);
 
@@ -78,8 +82,13 @@ export class AggregateReportFilterDrawerComponent {
     this.isOpen.set(false);
   }
 
+  apply(): void {
+    this.applied.emit();
+    this.close();
+  }
+
   clearAll(): void {
-    this.form().reset({
+    this.form().patchValue({
       countries: [],
       departments: [],
       roles: [],
@@ -97,30 +106,30 @@ export class AggregateReportFilterDrawerComponent {
   private fetchData(): void {
     this.countryService.search().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res) => {
       this.countries.set(res.content);
-      this.updateCountryDisplay(this.form().controls.countries.value);
+      this.updateCountryDisplay(this.form().controls['countries'].value);
     });
 
     this.departmentService.search().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res) => {
       this.departments.set(res.content);
-      this.updateDepartmentDisplay(this.form().controls.departments.value);
+      this.updateDepartmentDisplay(this.form().controls['departments'].value);
     });
 
     this.roleService.search().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res) => {
       this.roles.set(res.content);
-      this.updateRoleDisplay(this.form().controls.roles.value);
+      this.updateRoleDisplay(this.form().controls['roles'].value);
     });
 
     setTimeout(() => {
       const f = this.form().controls;
-      this.updateCountryDisplay(f.countries.value);
-      this.updateDepartmentDisplay(f.departments.value);
-      this.updateRoleDisplay(f.roles.value);
-      this.updateEmploymentTypeDisplay(f.employmentTypes.value);
+      this.updateCountryDisplay(f['countries'].value);
+      this.updateDepartmentDisplay(f['departments'].value);
+      this.updateRoleDisplay(f['roles'].value);
+      this.updateEmploymentTypeDisplay(f['employmentTypes'].value);
 
-      f.countries.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateCountryDisplay(v));
-      f.departments.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateDepartmentDisplay(v));
-      f.roles.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateRoleDisplay(v));
-      f.employmentTypes.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateEmploymentTypeDisplay(v));
+      f['countries'].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateCountryDisplay(v));
+      f['departments'].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateDepartmentDisplay(v));
+      f['roles'].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateRoleDisplay(v));
+      f['employmentTypes'].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateEmploymentTypeDisplay(v));
     });
   }
 

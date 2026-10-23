@@ -1,26 +1,11 @@
-/**
- * User-facing error shape produced by `httpErrorInterceptor`.
- *
- * Mirrors the backend `ErrorResponse` where possible, but flattens the
- * `errors[]` array into `fieldErrors` keyed by field name so form components
- * can bind to it directly.
- */
-export interface FieldError {
-  field: string;
-  code: string;
-  message: string;
-  attributes: Record<string, unknown>;
-}
+
+export type ErrorSeverity = 'ERROR' | 'WARNING' | 'INFO';
 
 export interface ApiError {
-  /** Backend error code (e.g. `VALIDATION_FAILED`, `REPORT_BLOCKED`). */
   code: string;
-  /** Human-readable message suitable for a toast. */
   message: string;
-  /** Per-field validation errors, if any. */
-  fieldErrors: FieldError[];
-  /** HTTP status, when available. */
-  status: number;
+  severity: ErrorSeverity;
+  details?: Record<string, unknown>;
 }
 
 /** Type guard used by callers that receive an `unknown` error. */

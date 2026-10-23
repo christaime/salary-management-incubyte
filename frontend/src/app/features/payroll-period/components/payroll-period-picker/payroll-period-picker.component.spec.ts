@@ -1,72 +1,90 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
-
+import { provideAnimations } from '@angular/platform-browser/animations';
+import { of } from 'rxjs';
 import { PayrollPeriodPickerComponent } from './payroll-period-picker.component';
+import { PayrollPeriodsService } from '../../services/payroll-periods.service';
+import { PayrollPeriodDto } from '../../models';
 
 describe('PayrollPeriodPickerComponent', () => {
-  let fixture: ComponentFixture<PayrollPeriodPickerComponent>;
   let component: PayrollPeriodPickerComponent;
+  let fixture: ComponentFixture<PayrollPeriodPickerComponent>;
+
+  const mockPeriods: PayrollPeriodDto[] = [
+    {
+      id: 'p1',
+      name: 'January 2026',
+      frequency: 'MONTHLY',
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      closed: true,
+    },
+    {
+      id: 'p2',
+      name: 'February 2026',
+      frequency: 'MONTHLY',
+      startDate: '2026-02-01',
+      endDate: '2026-02-28',
+      closed: false,
+    },
+  ];
 
   beforeEach(async () => {
+    const spy = jasmine.createSpyObj('PayrollPeriodsService', ['search']);
+    spy.search.and.returnValue(of({ content: mockPeriods, totalElements: 2, totalPages: 1, size: 20, number: 0 }));
+
     await TestBed.configureTestingModule({
-      imports: [PayrollPeriodPickerComponent, NoopAnimationsModule, ReactiveFormsModule],
+      imports: [PayrollPeriodPickerComponent],
+      providers: [
+        provideAnimations(),
+        { provide: PayrollPeriodsService, useValue: spy },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PayrollPeriodPickerComponent);
     component = fixture.componentInstance;
-    fixture.componentRef.setInput('startAllowYear', 2025);
     fixture.detectChanges();
   });
 
-  it('exposes years from startAllowYear to current year, DESC', () => {
-    const years = component.years();
-    expect(years[0]).toBe(new Date().getFullYear());
-    expect(years[years.length - 1]).toBe(2025);
-    // Strictly descending
-    for (let i = 1; i < years.length; i++) {
-      expect(years[i]).toBeLessThan(years[i - 1]);
-    }
+  it('should create', () => {
+    expect(component).toBeTruthy();
   });
 
-  it('updates selectedYear when picking a year', () => {
-    expect(component.selectedYear()).toBeNull();
-    component.onSelectYear(2026);
-    expect(component.selectedYear()).toBe(2026);
+  it('should write value correctly via ControlValueAccessor and set internal year', () => {
+    const period = mockPeriods[0];
+    component.writeValue(period);
+    expect(component.activeSelectedPeriod()).toEqual(period);
+    expect(component.internalYear()).toBe(2026);
   });
 
-  it('emits the selected period through the CVA', () => {
-    const control = new FormControl<unknown>(null);
-    let emitted: unknown = undefined;
-    control.registerOnChange;
-    component.registerOnChange((v) => (emitted = v));
+  it('should select a period, update form value via onChange, and emit periodChange', () => {
+    const onChangeSpy = jasmine.createSpy('onChange');
+    const onTouchedSpy = jasmine.createSpy('onTouched');
+    spyOn(component.periodChange, 'emit');
 
-    component.onSelectPeriod({
-      id: '2026-09-M',
-      name: 'September 2026',
-      startDate: '2026-09-01',
-      endDate: '2026-09-30',
-      frequency: 'MONTHLY',
-      closed: true,
+    component.registerOnChange(onChangeSpy);
+    component.registerOnTouched(onTouchedSpy);
+
+    const period = mockPeriods[1];
+    component.selectPeriod(period);
+
+    expect(component.activeSelectedPeriod()).toEqual(period);
+    expect(onChangeSpy).toHaveBeenCalledWith(period);
+    expect(onTouchedSpy).toHaveBeenCalled();
+    expect(component.periodChange.emit).toHaveBeenCalledWith({
+      year: 2026,
+      period,
     });
-
-    expect(emitted).not.toBeUndefined();
-    expect((emitted as { id: string }).id).toBe('2026-09-M');
   });
 
-  it('reports required error when required and empty', () => {
-    fixture.componentRef.setInput('isRequired', true);
-    fixture.detectChanges();
-    expect(component.validate({} as never)).toEqual({ required: true });
+  it('should clear selected period and notify onChange', () => {
+    const onChangeSpy = jasmine.createSpy('onChange');
+    spyOn(component.cleared, 'emit');
 
-    component.onSelectPeriod({
-      id: 'x',
-      name: 'X',
-      startDate: '2026-01-01',
-      endDate: '2026-01-31',
-      frequency: 'MONTHLY',
-      closed: true,
-    });
-    expect(component.validate({} as never)).toBeNull();
+    component.registerOnChange(onChangeSpy);
+    component.clearSelectedPeriod();
+
+    expect(component.activeSelectedPeriod()).toBeNull();
+    expect(onChangeSpy).toHaveBeenCalledWith(null);
+    expect(component.cleared.emit).toHaveBeenCalled();
   });
 });

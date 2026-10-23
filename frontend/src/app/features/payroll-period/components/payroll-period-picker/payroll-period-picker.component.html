@@ -1,98 +1,199 @@
-<mat-form-field appearance="outline" class="period-picker" subscriptSizing="dynamic">
-  <mat-label>{{ label() }}</mat-label>
-
-  <!-- Dynamic Year Trigger in PREFIX -->
-  <button type="button"
-          matPrefix
-          mat-button
-          [matMenuTriggerFor]="yearMenu"
-          (click)="$event.stopPropagation()"
-          [class]="selectedYear() ? 'w-16':'w-8'"
-          class="inline-flex items-center justify-between h-9 px-3 rounded-lg border border-gray-300 bg-white font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-    <!-- Selected Year comes first -->
-    @if (selectedYear()) {
-    <span class="truncate text-xs sm:text-sm">
-        {{ selectedYear() }}
-      </span>
-    }
-    <!-- Calendar icon comes after -->
-    <mat-icon [class]="selectedYear() ? 'h-2.5 w-2.5 text-[10px] !flex !items-center !justify-center' : 'h-5 w-5 text-lg !flex !items-center !justify-center'"
-              class="text-gray-500 transition-all shrink-0">
-      calendar_today
-    </mat-icon>
-  </button>
-
-  <!-- Autocomplete search input -->
-  <input
-    #searchInput
-    matInput
-    [matAutocomplete]="auto"
-    [value]="searchText()"
-    (input)="onInput(($any($event.target)).value)"
-    (blur)="onBlur()"
-    (click)="onOpenPicker()"
-  />
-
-  <!-- Clear button in SUFFIX -->
-  @if (selectedPeriod()) {
-  <button
-    matSuffix
-    mat-icon-button
-    type="button"
-    (click)="clear(); $event.stopPropagation()"
-    aria-label="Clear period"
-    class="suffix-btn"
-  >
-    <mat-icon>close</mat-icon>
-  </button>
-  }
-
-  <!-- Error Message inside the form field -->
-  @if (touched() && isRequired() && !selectedPeriod()) {
-  <mat-error>{{ label() }} is required.</mat-error>
-  }
-
-  <!-- Autocomplete panel -->
-  <mat-autocomplete
-    #auto="matAutocomplete"
-    [displayWith]="displayFn"
-    (optionSelected)="onSelectPeriod($event.option.value)"
-  >
-    @for (period of results(); track period.id) {
-    <mat-option [value]="period">
-        <span class="period-option">
-          <span class="period-option__name">{{ period.name }}</span>
-          <span class="period-option__dates">{{ period.startDate }} → {{ period.endDate }}</span>
-        </span>
-    </mat-option>
-    }
-    @if (results().length === 0) {
-    <mat-option disabled>No matching periods</mat-option>
-    }
-  </mat-autocomplete>
-</mat-form-field>
-
-<!-- Custom Year Picker Menu -->
-<mat-menu #yearMenu="matMenu" class="year-menu" xPosition="before">
-  <div class="year-menu__header" (click)="$event.stopPropagation()">
-    <span class="year-menu__title">Select Year</span>
-    @if (selectedYear()) {
-    <button mat-button class="year-menu__clear" (click)="clearYear($event)">
-      Clear Year
-    </button>
-    }
+<div class="w-full max-w-[440px] relative">
+  <!-- Label Header -->
+  <div class="flex items-center justify-between mb-1.5">
+    <label class="text-xs font-semibold text-slate-800 flex items-center gap-1">
+      {{ label() }}
+      @if (required()) {
+      <span class="text-rose-600 font-bold" title="Required field">*</span>
+      } @else {
+      <span class="text-[10px] text-slate-400 font-normal">(Optional)</span>
+      }
+    </label>
   </div>
 
-  <div class="year-menu__grid" (click)="$event.stopPropagation()">
-    @for (year of availableYears(); track year) {
-    <button
-      type="button"
-      class="year-menu__btn"
-      [class.year-menu__btn--active]="selectedYear() === year"
-      (click)="selectYear(year); yearMenu.closed.emit()"
+  <div #pickerContainer class="relative inline-block w-full text-left font-sans select-none">
+    <!-- Outer Trigger Container -->
+    <div
+      class="flex items-center h-10 w-full rounded-lg border bg-white shadow-xs transition-all duration-150"
+      [ngClass]="{
+        'border-rose-400 ring-2 ring-rose-500/10': isInvalid(),
+        'border-slate-300 ring-2 ring-slate-900/5': !isInvalid() && (isYearPopoverOpen() || isPeriodDropdownOpen()),
+        'border-slate-200 hover:border-slate-300': !isInvalid() && !isYearPopoverOpen() && !isPeriodDropdownOpen()
+      }"
     >
-      {{ year }}
-    </button>
+      <!-- ZONE A: YEAR SELECTOR TRIGGER -->
+      <button
+        type="button"
+        data-testid="period-picker-year-trigger"
+        (click)="toggleYearPopover($event)"
+        class="flex items-center justify-between gap-1.5 h-full px-3 text-xs font-medium border-r border-slate-200/80 transition-colors focus:outline-none"
+        [ngClass]="{
+          'bg-slate-900 text-white hover:bg-slate-800 rounded-l-lg font-mono font-semibold': internalYear() !== null,
+          'bg-slate-50/60 text-slate-600 hover:bg-slate-100 rounded-l-lg': internalYear() === null
+        }"
+        aria-haspopup="dialog"
+        [attr.aria-expanded]="isYearPopoverOpen()"
+      >
+        <div class="flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span data-testid="period-picker-year-text">{{ internalYear() ? internalYear() : 'Select Year' }}</span>
+        </div>
+        <svg class="w-3 h-3 opacity-60 transition-transform duration-200" [ngClass]="{'rotate-180': isYearPopoverOpen()}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      <!-- ZONE B: PERIOD INPUT OR SELECTED PERIOD PILL -->
+      <div class="relative flex-1 flex items-center h-full px-2.5 min-w-0">
+        @if (activeSelectedPeriod(); as period) {
+        <div class="flex items-center justify-between w-full min-w-0 gap-1.5">
+          <div class="flex items-center gap-2 min-w-0">
+              <span data-testid="period-picker-selected-frequency" class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-900 text-white font-mono font-bold text-[10px]">
+                {{ period.frequency }}
+              </span>
+            <span data-testid="period-picker-selected-name" class="text-xs font-semibold text-slate-900 truncate">
+                {{ period.name }}
+              </span>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            @if (auditBadgeEnabled() && period.closed) {
+            <span data-testid="period-picker-selected-closed" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Closed
+                </span>
+            }
+            <button data-testid="period-picker-clear-selection" type="button" (click)="clearSelectedPeriod($event)" class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors" title="Reselect period">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        } @else {
+        <div class="flex items-center w-full min-w-0 gap-2">
+          <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            #periodInput
+            data-testid="period-picker-search-input"
+            type="text"
+            [formControl]="searchControl"
+            (focus)="onPeriodInputFocus()"
+            (input)="onPeriodSearchInput()"
+            [placeholder]="internalYear() ? 'Type period (e.g. September)...' : 'Search or select period...'"
+            class="w-full bg-transparent text-xs text-slate-900 placeholder:text-slate-400 border-none outline-none focus:ring-0 p-0"
+          />
+          @if (searchControl.value) {
+          <button data-testid="period-picker-clear-search" type="button" (click)="searchControl.setValue(''); onPeriodSearchInput()" class="text-slate-400 hover:text-slate-600 p-0.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          } @else {
+          <span class="text-[10px] text-slate-300 font-mono tracking-tighter shrink-0 select-none">ESC</span>
+          }
+        </div>
+        }
+      </div>
+    </div>
+
+    <!-- POPOVER 1: YEAR SELECTOR -->
+    @if (isYearPopoverOpen()) {
+    <div class="absolute left-0 mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-3 shadow-lg z-50 animate-in fade-in zoom-in-95 duration-100">
+      <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 text-[11px]">
+          <span class="font-mono font-medium text-slate-500">
+            ALLOWED: '{{ minYearShort() }} - '{{ maxYearShort() }}
+          </span>
+        <span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-mono font-semibold">
+            {{ yearRange()[1] - yearRange()[0] + 1 }} Yrs
+          </span>
+      </div>
+      <div class="grid grid-cols-3 gap-1.5">
+        @for (item of availableYears(); track item.year) {
+        <button
+          type="button"
+          [attr.data-testid]="'period-picker-year-' + item.year"
+          [disabled]="item.isDisabled"
+          (click)="selectYear(item.year, item.isDisabled)"
+          class="h-8 rounded text-xs font-mono font-medium transition-colors flex items-center justify-center relative"
+          [ngClass]="{
+                'bg-slate-900 text-white font-bold shadow-xs': internalYear() === item.year,
+                'text-slate-700 hover:bg-slate-100 hover:text-slate-900': internalYear() !== item.year && !item.isDisabled,
+                'text-slate-300 line-through cursor-not-allowed opacity-50': item.isDisabled
+              }"
+        >
+          {{ item.year }}
+          @if (item.isCurrent && internalYear() !== item.year) {
+          <span class="absolute top-1 right-1 w-1 h-1 rounded-full bg-blue-600"></span>
+          }
+        </button>
+        }
+      </div>
+      <div class="flex items-center justify-between pt-2.5 mt-2 border-t border-slate-100 text-[11px]">
+          <span class="flex items-center gap-1 text-slate-500">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Current: {{ availableYears()[1].year }}
+          </span>
+        <button data-testid="period-picker-clear-year" type="button" (click)="clearYearRange($event)" class="text-blue-600 hover:underline font-medium text-[11px]">
+          Clear
+        </button>
+      </div>
+    </div>
+    }
+
+    <!-- POPOVER 2: PERIOD AUTOCOMPLETE DROPDOWN -->
+    @if (isPeriodDropdownOpen() && !activeSelectedPeriod()) {
+    <div class="absolute left-0 right-0 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg z-50 divide-y divide-slate-50">
+      <div class="px-2 py-1.5 text-[10px] font-mono uppercase text-slate-400 flex items-center justify-between">
+        <span>Available Cycles {{ internalYear() ? 'for ' + internalYear() : '' }}</span>
+        <span data-testid="period-picker-results-count" [attr.data-value]="filteredPeriods().length">{{ filteredPeriods().length }} results</span>
+      </div>
+      @if (filteredPeriods().length === 0) {
+      <div data-testid="period-picker-no-results" class="px-3 py-4 text-center text-xs text-slate-500">
+        No periods found for this year or query.
+      </div>
+      } @else {
+      @for (period of filteredPeriods(); track period.id) {
+      <button
+        type="button"
+        [attr.data-testid]="'period-picker-result-' + period.id"
+        (click)="selectPeriod(period)"
+        class="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-left hover:bg-slate-50 transition-colors group"
+      >
+        <div class="flex flex-col min-w-0 gap-0.5">
+          <p class="text-xs font-semibold text-slate-800 m-0 truncate group-hover:text-slate-900">
+            {{ period.name }}
+          </p>
+          <div class="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                  <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold uppercase text-[9px] border border-slate-200">
+                    {{ period.frequency }}
+                  </span>
+            <span>{{ period.startDate | date:'dd MMM yyyy' }} – {{ period.endDate | date:'dd MMM yyyy' }}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          @if (period.closed) {
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    Closed ⇄
+                  </span>
+          }
+        </div>
+      </button>
+      }
+      }
+      <div class="px-2 py-1.5 text-[10px] text-slate-400 font-mono bg-slate-50/50 rounded-b-lg flex items-center justify-between">
+        <span>↑↓ keys to navigate</span>
+        <span>ENTER to confirm</span>
+      </div>
+    </div>
     }
   </div>
-</mat-menu>
+
+  <!-- Validation Error Message -->
+  @if (isInvalid()) {
+  <p data-testid="period-picker-error" class="absolute left-0 top-full mt-1 text-[11px] text-rose-600 flex items-center gap-1 z-40 whitespace-nowrap">
+    <span>⚠</span> Payroll cycle period selection is required.
+  </p>
+  }
+</div>
