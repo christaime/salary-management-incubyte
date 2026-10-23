@@ -1,0 +1,7 @@
+{
+  "content": [
+    { "id": "p-jan", "name": "January 2026", "startDate": "2026-01-01", "endDate": "2026-01-31", "frequency": "MONTHLY", "closed": true },
+    { "id": "p-bad", "name": "February 2026 (Unvalidated)", "startDate": "2026-02-01", "endDate": "2026-02-28", "frequency": "MONTHLY", "closed": false }
+  ],
+  "page": 0, "size": 20, "totalElements": 2, "totalPages": 1, "first": true, "last": true, "empty": false
+}

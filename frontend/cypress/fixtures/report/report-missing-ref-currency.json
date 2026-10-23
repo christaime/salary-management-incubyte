@@ -1,0 +1,12 @@
+{
+  "code": "REPORT_BLOCKED",
+  "message": "Report blocked due to missing data.",
+  "errors": [
+    {
+      "code": "MISSING_REFERENCE_CURRENCY",
+      "severity": "BLOCKER",
+      "message": "Reference currency is not defined.",
+      "details": {}
+    }
+  ]
+}

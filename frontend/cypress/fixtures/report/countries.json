@@ -1,0 +1,7 @@
+{
+  "content": [
+    { "id": "cm", "code": "CM", "name": "Cameroon" },
+    { "id": "fr", "code": "FR", "name": "France" }
+  ],
+  "page": 0, "size": 50, "totalElements": 2, "totalPages": 1, "first": true, "last": true, "empty": false
+}

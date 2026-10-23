@@ -1,0 +1,21 @@
+{
+  "kind": "AGGREGATE",
+  "dateRange": { "startDate": "2026-02-01", "endDate": "2026-02-28" },
+  "groupKeys": [],
+  "referenceCurrency": "USD",
+  "lines": [],
+  "warnings": [
+    {
+      "code": "MISSING_FX_RATE",
+      "severity": "BLOCKER",
+      "message": "Missing FX rate for currency XOF on 2026-02-15",
+      "details": {}
+    },
+    {
+      "code": "UNVALIDATED_PAYROLL",
+      "severity": "WARNING",
+      "message": "Payroll period is not validated. Figures are provisional.",
+      "details": {}
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "code": "REPORT_BLOCKED",
+  "message": "Report blocked due to unvalidated payroll.",
+  "errors": [
+    {
+      "code": "UNVALIDATED_PAYROLL_SUMMARY",
+      "severity": "BLOCKER",
+      "message": "Payroll summary is not validated.",
+      "details": {
+        "count": 15,
+        "employees": [
+          { "id": "emp-1", "matricule": "EMP001", "name": "Alice" },
+          { "id": "emp-2", "matricule": "EMP002", "name": "Bob" }
+        ]
+      }
+    }
+  ]
+}

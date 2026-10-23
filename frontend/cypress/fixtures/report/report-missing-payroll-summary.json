@@ -1,0 +1,14 @@
+{
+  "kind": "AGGREGATE",
+  "groupKeys": [],
+  "referenceCurrency": "USD",
+  "lines": [{ "amount": { "amount": 1000, "currency": "USD" }, "employeeCount": 10 }],
+  "warnings": [
+    {
+      "code": "MISSING_PAYROLL_SUMMARY",
+      "severity": "WARNING",
+      "message": "Some employees are missing a payroll summary.",
+      "details": { "count": 2, "employees": [{"id": "e1", "matricule": "M1", "name": "John"}] }
+    }
+  ]
+}

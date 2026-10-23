@@ -1,0 +1,25 @@
+{
+  "kind": "AGGREGATE",
+  "dateRange": { "startDate": "2026-01-01", "endDate": "2026-01-31" },
+  "groupKeys": ["COUNTRY"],
+  "referenceCurrency": "USD",
+  "lines": [
+    {
+      "amount": { "amount": 100000.00, "currency": "USD" },
+      "employeeCount": 20,
+      "country": { "code": "CM", "name": "Cameroon" },
+      "department": null, "role": null, "employmentType": null, "currency": null,
+      "breakdown": { "base": 80000, "variable": 5000, "allowances": 5000, "employerTaxes": 10000, "total": 100000.00, "currency": "USD" },
+      "statistics": null
+    },
+    {
+      "amount": { "amount": 50000.50, "currency": "USD" },
+      "employeeCount": 22,
+      "country": { "code": "FR", "name": "France" },
+      "department": null, "role": null, "employmentType": null, "currency": null,
+      "breakdown": { "base": 40000, "variable": 2000, "allowances": 3000, "employerTaxes": 5000.50, "total": 50000.50, "currency": "USD" },
+      "statistics": null
+    }
+  ],
+  "warnings": []
+}

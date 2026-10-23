@@ -1,0 +1,19 @@
+{
+  "code": "REPORT_BLOCKED",
+  "message": "Report could not be generated due to data issues.",
+  "errors": [
+    {
+      "field": "fxRate",
+      "code": "MISSING_FX_RATE",
+      "message": "Missing FX rate for currency XOF on 2026-02-15",
+      "attributes": { "currency": "XOF", "date": "2026-02-15" }
+    },
+    {
+      "field": "payrollStatus",
+      "code": "UNVALIDATED_PAYROLL",
+      "message": "Payroll period is not validated. Figures are provisional.",
+      "attributes": { "periodId": "p-bad" }
+    }
+  ],
+  "timestamp": "2026-10-23T10:00:00Z"
+}
