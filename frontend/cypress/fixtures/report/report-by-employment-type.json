@@ -1,0 +1,18 @@
+{
+  "kind": "AGGREGATE",
+  "dateRange": { "startDate": "2026-03-26", "endDate": "2026-04-08" },
+  "groupKeys": ["EMPLOYMENT_TYPE"],
+  "referenceCurrency": "USD",
+  "lines": [
+    {
+      "amount": { "amount": 3990252.35, "currency": "USD" },
+      "employeeCount": 1428,
+      "country": null, "department": null, "role": null,
+      "employmentType": "PART_TIME",
+      "currency": null,
+      "breakdown": { "base": 2989864.59, "variable": 370071.16, "allowances": 182079.53, "employerTaxes": 448237.07, "total": 3990252.35, "currency": "USD" },
+      "statistics": null
+    }
+  ],
+  "warnings": []
+}

@@ -45,7 +45,8 @@ export class BreakdownDonutComponent {
   readonly total = computed(() => {
     const b = this.line()?.breakdown;
     if (!b) return 0;
-    return b.base + b.variable + b.allowances + b.employerTaxes;
+    // Round to 2 decimals to avoid floating-point precision issues
+    return Math.round((b.base + b.variable + b.allowances + b.employerTaxes) * 100) / 100;
   });
 
   readonly currency = computed(() => this.line()?.breakdown?.currency ?? this.line()?.amount.currency ?? 'USD');

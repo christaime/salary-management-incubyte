@@ -86,7 +86,7 @@ function describeLine(
     case 'COUNTRY': return { label: line.country?.name ?? '—', code: line.country?.code ?? null };
     case 'DEPARTMENT': return { label: line.department?.name ?? '—', code: line.department?.code ?? null };
     case 'ROLE': return { label: line.role?.name ?? '—', code: line.role?.code ?? null };
-    case 'EMPLOYMENT_TYPE': return { label: line.employmentType? EMPLOYMENT_TYPE_LABELS[line.employmentType as keyof typeof EMPLOYMENT_TYPE_LABELS] : '—', code: null };
+    case 'EMPLOYMENT_TYPE': return { label: line.employmentType? EMPLOYMENT_TYPE_LABELS[line.employmentType as keyof typeof EMPLOYMENT_TYPE_LABELS] : '—', code: line.employmentType?? null };
     case 'CURRENCY': return { label: line.currency ?? '—', code: line.currency ?? null };
     case undefined: return { label: 'Total', code: null };
   }

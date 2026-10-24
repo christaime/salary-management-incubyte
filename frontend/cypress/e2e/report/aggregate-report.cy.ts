@@ -9,7 +9,7 @@ describe('Aggregate Report Page', () => {
     // 2. Visit the page
     cy.visit('/reports/aggregate');
 
-    // 3. Wait for the initial reference data load to finish before starting the test
+    // 3. Wait for the initial reference data load to finish
     cy.wait('@getCountries');
     cy.wait('@getDepartments');
     cy.wait('@getRoles');
@@ -17,23 +17,18 @@ describe('Aggregate Report Page', () => {
 
   // Helper function to select a period from a specific picker
   const selectPeriod = (pickerType: 'start' | 'end', periodId: string) => {
-    // 1. Scope to the specific picker
     cy.get(`[data-testid="${pickerType}-period"]`)
       .should('be.visible')
-      // 2. Find the year trigger inside this picker
       .find('[data-testid="period-picker-year-trigger"]')
       .should('be.visible')
       .click();
 
-    // 3. Select 2026 (popover renders globally in an overlay)
     cy.get('[data-testid="period-picker-year-2026"]')
       .should('be.visible')
       .click();
 
-    // 4. Wait for the period list to load (triggered by year selection)
     cy.wait('@getPeriods');
 
-    // 5. Click the specific period result
     cy.get(`[data-testid="period-picker-result-${periodId}"]`)
       .should('be.visible')
       .click();
@@ -196,7 +191,6 @@ describe('Aggregate Report Page', () => {
 
     selectPeriod('start', 'p-jan');
 
-    // Open the drawer (Data is already loaded in beforeEach, no need to wait)
     cy.get('[data-testid="btn-customize"]').should('be.visible').click();
 
     cy.get('[data-testid="filter-countries"]').should('be.visible').click();
@@ -239,27 +233,23 @@ describe('Aggregate Report Page', () => {
       fixture: 'report/report-stats-biweekly-only.json'
     }).as('generateReport');
 
-    // Select a period (the exact one doesn't matter for this test, but we need a valid one)
     selectPeriod('start', 'p-jan');
     cy.get('[data-testid="btn-generate"]').should('be.visible').click();
     cy.wait('@generateReport');
 
-    // 1. The total amount should be visible (confirms the total view is rendered)
     cy.get('[data-testid="aggregate-results-total-amount"]')
       .should('be.visible')
       .and('have.attr', 'data-value', '55531.31');
 
-    // 2. The Monthly card should NOT be in the DOM
     cy.get('[data-testid="cadence-card-monthly"]').should('not.exist');
-
-    // 3. The Bi-Weekly card SHOULD be in the DOM
-    cy.get('[data-testid="cadence-card-biweekly"]').should('be.visible');
-
-    // 4. The Bi-Weekly card should span the full width (the grid col-span-2)
-    // We check the class on the Bi-Weekly card's parent div
     cy.get('[data-testid="cadence-card-biweekly"]')
-      .parent()
-      .should('have.class', 'lg:col-span-2');
+      .should('be.visible')
+      .and('have.class', 'lg:col-span-2');
+
+    cy.get('[data-testid="cadence-biweekly-total"]').should('have.attr', 'data-value', '55531.31');
+    cy.get('[data-testid="cadence-biweekly-min"]').should('have.attr', 'data-value', '1083.91');
+    cy.get('[data-testid="cadence-biweekly-max"]').should('have.attr', 'data-value', '5710.43');
+    cy.get('[data-testid="cadence-biweekly-avg"]').should('have.attr', 'data-value', '2644.35');
   });
 
   /**
@@ -275,15 +265,161 @@ describe('Aggregate Report Page', () => {
     cy.get('[data-testid="btn-generate"]').should('be.visible').click();
     cy.wait('@generateReport');
 
-    // 1. The Monthly card should be in the DOM
-    cy.get('[data-testid="cadence-card-monthly"]').should('be.visible');
+    cy.get('[data-testid="cadence-card-monthly"]')
+      .should('be.visible')
+      .and('have.class', 'lg:col-span-2');
 
-    // 2. The Bi-Weekly card should NOT be in the DOM
     cy.get('[data-testid="cadence-card-biweekly"]').should('not.exist');
 
-    // 3. The Monthly card should span the full width
-    cy.get('[data-testid="cadence-card-monthly"]')
-      .parent()
-      .should('have.class', 'lg:col-span-2');
+    cy.get('[data-testid="cadence-monthly-total"]').should('have.attr', 'data-value', '150000.5');
+    cy.get('[data-testid="cadence-monthly-min"]').should('have.attr', 'data-value', '1000');
+    cy.get('[data-testid="cadence-monthly-max"]').should('have.attr', 'data-value', '9000');
+    cy.get('[data-testid="cadence-monthly-avg"]').should('have.attr', 'data-value', '3571');
+  });
+
+  /**
+   * CASE 6: Statistics rendering (Both Monthly and Bi-Weekly exist)
+   */
+  it('should show both cadence cards side-by-side when both stats exist', () => {
+    cy.intercept('POST', '**/api/v1/reports/aggregate', {
+      statusCode: 200,
+      fixture: 'report/report-stats-both.json'
+    }).as('generateReport');
+
+    selectPeriod('start', 'p-jan');
+    cy.get('[data-testid="btn-generate"]').should('be.visible').click();
+    cy.wait('@generateReport');
+
+    cy.get('[data-testid="cadence-card-monthly"]').should('be.visible');
+    cy.get('[data-testid="cadence-card-biweekly"]').should('be.visible');
+
+    cy.get('[data-testid="cadence-card-monthly"]').should('not.have.class', 'lg:col-span-2');
+    cy.get('[data-testid="cadence-card-biweekly"]').should('not.have.class', 'lg:col-span-2');
+
+    cy.get('[data-testid="cadence-monthly-total"]').should('have.attr', 'data-value', '150000.5');
+    cy.get('[data-testid="cadence-monthly-avg"]').should('have.attr', 'data-value', '3571');
+
+    cy.get('[data-testid="cadence-biweekly-total"]').should('have.attr', 'data-value', '55531.31');
+    cy.get('[data-testid="cadence-biweekly-avg"]').should('have.attr', 'data-value', '2644.35');
+  });
+
+  /**
+   * CASE 7: Department Report + Donut Coherence
+   */
+  it('should render the department report with accurate data and a coherent donut', () => {
+    cy.intercept('POST', '**/api/v1/reports/aggregate', (req) => {
+      if (req.body.groupKeys.includes('DEPARTMENT')) {
+        req.reply({ fixture: 'report/report-by-department.json' });
+      } else {
+        req.reply({ fixture: 'report/report-global.json' });
+      }
+    }).as('generateReport');
+
+    selectPeriod('start', 'p-jan');
+    cy.get('[data-testid="btn-generate"]').should('be.visible').click();
+    cy.wait('@generateReport');
+
+    cy.get('[data-testid="toggle-btn-DEPARTMENT"]').should('be.visible').click();
+    cy.wait('@generateReport');
+
+    cy.get('[data-testid="aggregate-results-title"]').should('contain', 'Payroll Cost per Department');
+
+    // Check accurate data in Tiered Bar List
+    cy.get('[data-testid="tiered-bar-row-ADVERTIS"]').should('be.visible');
+    cy.get('[data-testid="tiered-bar-row-amount-ADVERTIS"]').should('have.attr', 'data-value', '379187.04');
+    cy.get('[data-testid="tiered-bar-row-employees-ADVERTIS"]').should('have.attr', 'data-value', '143');
+
+    cy.get('[data-testid="tiered-bar-row-CONTENT"]').should('be.visible');
+    cy.get('[data-testid="tiered-bar-row-amount-CONTENT"]').should('have.attr', 'data-value', '378328.01');
+    cy.get('[data-testid="tiered-bar-row-employees-CONTENT"]').should('have.attr', 'data-value', '142');
+
+    // Check Donut Coherence
+    cy.get('[data-testid="tiered-bar-row-ADVERTIS"]').click();
+
+    cy.get('[data-testid="donut-title"]').should('contain', 'Advertising Sales');
+    cy.get('[data-testid="donut-total-amount"]').should('have.attr', 'data-value', '379187.04');
+
+    cy.get('[data-testid="donut-val-base"]').should('have.attr', 'data-value', '283257.28');
+    cy.get('[data-testid="donut-val-variable"]').should('have.attr', 'data-value', '36230.92');
+    cy.get('[data-testid="donut-val-allowances"]').should('have.attr', 'data-value', '17430.81');
+    cy.get('[data-testid="donut-val-employerTaxes"]').should('have.attr', 'data-value', '42268.03');
+  });
+
+  /**
+   * CASE 8: Role Report + Donut Coherence
+   */
+  it('should render the role report with accurate data and a coherent donut', () => {
+    cy.intercept('POST', '**/api/v1/reports/aggregate', (req) => {
+      if (req.body.groupKeys.includes('ROLE')) {
+        req.reply({ fixture: 'report/report-by-role.json' });
+      } else {
+        req.reply({ fixture: 'report/report-global.json' });
+      }
+    }).as('generateReport');
+
+    selectPeriod('start', 'p-jan');
+    cy.get('[data-testid="btn-generate"]').should('be.visible').click();
+    cy.wait('@generateReport');
+
+    cy.get('[data-testid="toggle-btn-ROLE"]').should('be.visible').click();
+    cy.wait('@generateReport');
+
+    cy.get('[data-testid="aggregate-results-title"]').should('contain', 'Payroll Cost per Role');
+
+    // Check accurate data in Tiered Bar List
+    cy.get('[data-testid="tiered-bar-row-A&R"]').should('be.visible');
+    cy.get('[data-testid="tiered-bar-row-amount-A&R"]').should('have.attr', 'data-value', '295021.8');
+
+    cy.get('[data-testid="tiered-bar-row-SALES"]').should('be.visible');
+    cy.get('[data-testid="tiered-bar-row-amount-SALES"]').should('have.attr', 'data-value', '283936.67');
+
+    // Check Donut Coherence
+    cy.get('[data-testid="tiered-bar-row-A&R"]').click();
+
+    cy.get('[data-testid="donut-title"]').should('contain', 'A&R Manager');
+    cy.get('[data-testid="donut-total-amount"]').should('have.attr', 'data-value', '295021.8');
+
+    cy.get('[data-testid="donut-val-base"]').should('have.attr', 'data-value', '221945.65');
+    cy.get('[data-testid="donut-val-variable"]').should('have.attr', 'data-value', '28909.73');
+    cy.get('[data-testid="donut-val-allowances"]').should('have.attr', 'data-value', '11041.19');
+    cy.get('[data-testid="donut-val-employerTaxes"]').should('have.attr', 'data-value', '33125.23');
+  });
+
+  /**
+   * CASE 9: Employment Type Report + Donut Coherence
+   */
+  it('should render the employment type report with accurate data and a coherent donut', () => {
+    cy.intercept('POST', '**/api/v1/reports/aggregate', (req) => {
+      if (req.body.groupKeys.includes('EMPLOYMENT_TYPE')) {
+        req.reply({ fixture: 'report/report-by-employment-type.json' });
+      } else {
+        req.reply({ fixture: 'report/report-global.json' });
+      }
+    }).as('generateReport');
+
+    selectPeriod('start', 'p-jan');
+    cy.get('[data-testid="btn-generate"]').should('be.visible').click();
+    cy.wait('@generateReport');
+
+    cy.get('[data-testid="toggle-btn-EMPLOYMENT_TYPE"]').should('be.visible').click();
+    cy.wait('@generateReport');
+
+    cy.get('[data-testid="aggregate-results-title"]').should('contain', 'Payroll Cost per Employment Type');
+
+    // Check accurate data in Tiered Bar List
+    cy.get('[data-testid="tiered-bar-row-PART_TIME"]').should('be.visible');
+    cy.get('[data-testid="tiered-bar-row-amount-PART_TIME"]').should('have.attr', 'data-value', '3990252.35');
+    cy.get('[data-testid="tiered-bar-row-employees-PART_TIME"]').should('have.attr', 'data-value', '1428');
+
+    // Check Donut Coherence
+    cy.get('[data-testid="tiered-bar-row-PART_TIME"]').click();
+
+    cy.get('[data-testid="donut-title"]').should('contain', 'Part time');
+    cy.get('[data-testid="donut-total-amount"]').should('have.attr', 'data-value', '3990252.35');
+
+    cy.get('[data-testid="donut-val-base"]').should('have.attr', 'data-value', '2989864.59');
+    cy.get('[data-testid="donut-val-variable"]').should('have.attr', 'data-value', '370071.16');
+    cy.get('[data-testid="donut-val-allowances"]').should('have.attr', 'data-value', '182079.53');
+    cy.get('[data-testid="donut-val-employerTaxes"]').should('have.attr', 'data-value', '448237.07');
   });
 });
