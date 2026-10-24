@@ -7,7 +7,7 @@
       data-testid="start-period"
       class="w-full sm:w-102 shrink-0"
       label="Start payroll period"
-      [required]="true"
+      [required]="'year'"
       [yearRange]="startPickerYearRange()"
       (yearChange)="onStartYearChange($event)"
     />

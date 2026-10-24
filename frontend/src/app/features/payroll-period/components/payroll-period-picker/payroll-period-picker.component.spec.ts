@@ -126,4 +126,111 @@ describe('PayrollPeriodPickerComponent', () => {
     const call = service.search.calls.mostRecent().args[0]!;
     expect(call.startDate).toBe('2026-06-15');
   }));
+
+  it('required = null never shows the error', () => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    localFixture.componentRef.setInput('required', null);
+    localFixture.detectChanges();
+
+    const cmp = localFixture.componentInstance;
+    cmp.touched.set(true);
+    localFixture.detectChanges();
+
+    expect(cmp.isInvalid()).toBeFalse();
+    expect(cmp.requiredMessage()).toBe('');
+  });
+
+  it('required = "year" is invalid when no year is set', () => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    localFixture.componentRef.setInput('required', 'year');
+    localFixture.detectChanges();
+
+    const cmp = localFixture.componentInstance;
+    cmp.touched.set(true);
+    localFixture.detectChanges();
+
+    expect(cmp.isInvalid()).toBeTrue();
+    expect(cmp.requiredMessage()).toBe('Payroll year is required.');
+  });
+
+  it('required = "year" is valid once a year is set', () => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    localFixture.componentRef.setInput('required', 'year');
+    localFixture.detectChanges();
+
+    const cmp = localFixture.componentInstance;
+    cmp.touched.set(true);
+    cmp.internalYear.set(2026);
+    localFixture.detectChanges();
+
+    expect(cmp.isInvalid()).toBeFalse();
+  });
+
+  it('required = "period" is invalid when no period is selected', () => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    localFixture.componentRef.setInput('required', 'period');
+    localFixture.detectChanges();
+
+    const cmp = localFixture.componentInstance;
+    cmp.touched.set(true);
+    localFixture.detectChanges();
+
+    expect(cmp.isInvalid()).toBeTrue();
+    expect(cmp.requiredMessage()).toBe('Payroll period is required.');
+  });
+
+  it('required = "period" is valid once a period is selected', () => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    localFixture.componentRef.setInput('required', 'period');
+    localFixture.detectChanges();
+
+    const cmp = localFixture.componentInstance;
+    cmp.touched.set(true);
+    cmp.selectPeriod(mockPeriods[0]);
+    localFixture.detectChanges();
+
+    expect(cmp.isInvalid()).toBeFalse();
+  });
+
+  it('selecting a period without a year sets internalYear and emits yearChange', () => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    localFixture.detectChanges();
+
+    const cmp = localFixture.componentInstance;
+    spyOn(cmp.yearChange, 'emit');
+
+    expect(cmp.internalYear()).toBeNull();
+    cmp.selectPeriod(mockPeriods[0]);   // January 2026
+
+    expect(cmp.internalYear()).toBe(2026);
+    expect(cmp.yearChange.emit).toHaveBeenCalledWith(2026);
+  });
+
+  it('selecting a period when a year is already set does not emit yearChange', () => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    localFixture.detectChanges();
+
+    const cmp = localFixture.componentInstance;
+    cmp.internalYear.set(2026);
+    spyOn(cmp.yearChange, 'emit');
+
+    cmp.selectPeriod(mockPeriods[0]);   // January 2026
+
+    expect(cmp.internalYear()).toBe(2026);
+    expect(cmp.yearChange.emit).not.toHaveBeenCalled();
+  });
+
+  it('selecting a period when a different year is set updates internalYear silently', () => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    localFixture.detectChanges();
+
+    const cmp = localFixture.componentInstance;
+    cmp.internalYear.set(2025);
+    spyOn(cmp.yearChange, 'emit');
+
+    cmp.selectPeriod(mockPeriods[0]);   // January 2026
+
+    expect(cmp.internalYear()).toBe(2026);
+    expect(cmp.yearChange.emit).not.toHaveBeenCalled();
+  });
 });

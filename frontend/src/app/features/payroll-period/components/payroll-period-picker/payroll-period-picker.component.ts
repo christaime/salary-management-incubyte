@@ -19,6 +19,7 @@ import { debounceTime, distinctUntilChanged, startWith, switchMap, catchError, m
 import { PayrollPeriodDto, PayrollPeriodCriteria } from '../../models';
 import { PayrollPeriodsService } from '../../services/payroll-periods.service';
 
+export type PeriodPart = 'year' | 'period';
 export interface PeriodPayload {
   year: number;
   period: PayrollPeriodDto;
@@ -42,7 +43,7 @@ export class PayrollPeriodPickerComponent implements ControlValueAccessor {
   private readonly periodService: PayrollPeriodsService = inject(PayrollPeriodsService);
 
   // --- Inputs (@Input) ---
-  readonly required = input<boolean>(false);
+  readonly required = input<PeriodPart | null>(null);
   readonly label = input<string>("Payroll Cycle Period");
   readonly yearRange = input<[number, number]>([2021, 2026]);
   readonly selectedYear = input<number | null>(null);
@@ -69,7 +70,18 @@ export class PayrollPeriodPickerComponent implements ControlValueAccessor {
   // --- Validation State ---
   readonly touched = signal<boolean>(false);
   readonly isInvalid = computed(() => {
-    return this.required() && this.touched() && !this.activeSelectedPeriod();
+    const req = this.required();
+    if (req === null) return false;
+    if (!this.touched()) return false;
+    if (req === 'year') return this.internalYear() === null;
+    return !this.activeSelectedPeriod();      // req === 'period'
+  });
+
+  readonly requiredMessage = computed(() => {
+    const req = this.required();
+    if (req === 'year') return 'Payroll year is required.';
+    if (req === 'period') return 'Payroll period is required.';
+    return '';
   });
 
   // --- ControlValueAccessor Callbacks ---
@@ -206,16 +218,21 @@ export class PayrollPeriodPickerComponent implements ControlValueAccessor {
 
   selectPeriod(period: PayrollPeriodDto): void {
     this.activeSelectedPeriod.set(period);
-    this.internalYear.set(this.getYear(period.startDate));
+    const periodYear = this.getYear(period.startDate);
+    if (this.internalYear() === null) {
+      this.internalYear.set(periodYear);
+      this.yearChange.emit(periodYear);
+    } else {
+      this.internalYear.set(periodYear);
+    }
     this.isPeriodDropdownOpen.set(false);
     this.searchControl.setValue('');
     this.touched.set(true);
 
-    // Notify reactive forms parent
     this.onChange(period);
     this.onTouched();
 
-    this.periodChange.emit({ year: this.getYear(period.startDate), period });
+    this.periodChange.emit({ year: periodYear, period });
   }
 
   clearSelectedPeriod(event?: MouseEvent): void {

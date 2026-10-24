@@ -130,6 +130,7 @@ export class AggregateReportPageComponent {
   }
 
   private fetch(kind: ReportKind, formValue: AggregateReportFormValue): void {
+    console.log({kind, formValue});
     this.state.set('submitting');
     this.reportError.set(null);
 
@@ -162,13 +163,17 @@ export class AggregateReportPageComponent {
     kind: ReportKind,
     formValue: AggregateReportFormValue,
   ): AggregateReportRequest {
+    const year = formValue.startYear;
     const start = formValue.startPeriod;
     const end = formValue.endPeriod ?? start;
 
+    const today = new Date().toISOString().slice(0, 10);
+    const currentYear= new Date().getFullYear();
+
     return {
       dateRange: {
-        startDate: start.startDate,
-        endDate: end.endDate,
+        startDate: start?.startDate?? year+"-01-01",
+        endDate: end?.endDate?? (year && year < currentYear ? year+"-12-31" : today),
       },
       groupKeys: groupKeysFor(kind),
       anyCountryIds: formValue.filters.countryIds,

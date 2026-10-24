@@ -3,7 +3,7 @@
   <div class="flex items-center justify-between mb-1.5">
     <label class="text-xs font-semibold text-slate-800 flex items-center gap-1">
       {{ label() }}
-      @if (required()) {
+      @if (required() !== null) {
       <span class="text-rose-600 font-bold" title="Required field">*</span>
       } @else {
       <span class="text-[10px] text-slate-400 font-normal">(Optional)</span>
@@ -193,7 +193,7 @@
   <!-- Validation Error Message -->
   @if (isInvalid()) {
   <p data-testid="period-picker-error" class="absolute left-0 top-full mt-1 text-[11px] text-rose-600 flex items-center gap-1 z-40 whitespace-nowrap">
-    <span>⚠</span> Payroll cycle period selection is required.
+    <span>⚠</span> {{ requiredMessage() }}
   </p>
   }
 </div>

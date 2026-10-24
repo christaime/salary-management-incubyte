@@ -21,6 +21,7 @@ import { RoleService } from '@features/role/services/role.service';
 
 const URL = '/api/v1/reports/aggregate';
 
+const YEAR = 2026;
 const PERIOD_JAN = {
   id: '2026-01-M',
   name: 'January 2026',
@@ -42,6 +43,7 @@ const PERIOD_SEP = {
 const formValue = (
   overrides: Partial<AggregateReportFormValue> = {},
 ): AggregateReportFormValue => ({
+  startYear: YEAR,
   startPeriod: PERIOD_JAN,
   endPeriod: null,
   filters: {
