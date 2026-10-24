@@ -51,31 +51,23 @@ jobs:
       - name: Run frontend tests
         run: npm test -- --watch=false --browsers=ChromeHeadless
 
-      # The cypress-io/github-action starts the Angular server, waits for it, and runs tests
+      # Build before the E2E step so failures are attributable
+      - name: Build frontend
+        run: npm run build -- --configuration=production
+
       - name: Cypress E2E Tests
         uses: cypress-io/github-action@v6
         with:
-         # The command to start your Angular app
-         start: npx ng serve --port 4200
-         # Wait for the app to be ready
-         wait-on: 'http://localhost:4200'
-         # Wait for 2 minutes for the server to start (Angular builds can take a bit)
-         wait-on-timeout: 120
-         # The command to run cypress
-         command: npx cypress run --e2e
-         # Upload screenshots and videos on failure
-         publish-summary: true
+          working-directory: frontend      # <-- the fix for the current error
+          install: false                   # deps already installed above
+          command: npm run e2e
 
-      # 6. Upload Cypress artifacts (screenshots/videos) if tests fail
       - name: Upload Cypress Artifacts
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-         name: cypress-artifacts
-         path: |
-           cypress/screenshots
-           cypress/videos
-         retention-days: 7
-
-      - name: Build frontend
-        run: npm run build -- --configuration=production
+          name: cypress-artifacts
+          path: |
+            frontend/cypress/screenshots
+            frontend/cypress/videos
+          retention-days: 7
