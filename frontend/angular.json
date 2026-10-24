@@ -32,15 +32,21 @@
               }
             ],
             "styles": [
-              "@angular/material/prebuilt-themes/magenta-violet.css",
+              "src/styles.scss",
+              "@angular/material/prebuilt-themes/azure-blue.css",
               "node_modules/roboto-fontface-material/fonts/roboto-fontface-material.css",
-              "node_modules/material-icons/iconfont/material-icons.css",
-              "src/styles.scss"
+              "node_modules/material-icons/iconfont/material-icons.css"
             ],
             "scripts": []
           },
           "configurations": {
             "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ],
               "budgets": [
                 {
                   "type": "initial",

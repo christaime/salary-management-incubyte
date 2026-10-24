@@ -1,0 +1,12 @@
+{
+  "code": "REPORT_BLOCKED",
+  "message": "Report blocked due to missing data.",
+  "errors": [
+    {
+      "code": "MISSING_FX_RATE",
+      "severity": "BLOCKER",
+      "message": "Missing FX rate for currency XOF.",
+      "details": { "currency": "XOF" }
+    }
+  ]
+}

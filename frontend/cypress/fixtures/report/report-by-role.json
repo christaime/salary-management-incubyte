@@ -1,0 +1,27 @@
+{
+  "kind": "AGGREGATE",
+  "dateRange": { "startDate": "2026-03-26", "endDate": "2026-04-08" },
+  "groupKeys": ["ROLE"],
+  "referenceCurrency": "USD",
+  "lines": [
+    {
+      "amount": { "amount": 295021.8, "currency": "USD" },
+      "employeeCount": 119,
+      "country": null, "department": null,
+      "role": { "id": "a1000000-0000-0000-0000-000000000006", "code": "A&R", "name": "A&R Manager" },
+      "employmentType": null, "currency": null,
+      "breakdown": { "base": 221945.65, "variable": 28909.73, "allowances": 11041.19, "employerTaxes": 33125.23, "total": 295021.8, "currency": "USD" },
+      "statistics": null
+    },
+    {
+      "amount": { "amount": 283936.67, "currency": "USD" },
+      "employeeCount": 119,
+      "country": null, "department": null,
+      "role": { "id": "a1000000-0000-0000-0000-000000000009", "code": "SALES", "name": "Advertising Sales Executive" },
+      "employmentType": null, "currency": null,
+      "breakdown": { "base": 215007.73, "variable": 25879.9, "allowances": 10735.52, "employerTaxes": 32313.52, "total": 283936.67, "currency": "USD" },
+      "statistics": null
+    }
+  ],
+  "warnings": []
+}

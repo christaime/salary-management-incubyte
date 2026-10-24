@@ -1,6 +1,7 @@
 package com.salary.management.domain.model.values;
 
 import com.salary.management.common.validation.DomainValidation;
+import com.salary.management.common.validation.ValidationError;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -8,7 +9,12 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 
 import java.math.BigDecimal;
-import java.util.Objects;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import static com.salary.management.domain.model.values.AmountUtils.AMOUNT_SCALE;
 
 /**
  * Immutable monetary value object describing the composition of a payroll amount.
@@ -45,11 +51,11 @@ public final class Amounts {
     private final String currency;
 
     private Amounts(Builder builder) {
-        this.base = builder.base;
-        this.variable = builder.variable;
-        this.allowances = builder.allowances;
-        this.employerTaxes = builder.employerTaxes;
-        this.total = builder.total;
+        this.base = Builder.nullToZero(builder.base).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        this.variable = Builder.nullToZero(builder.variable).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        this.allowances = Builder.nullToZero(builder.allowances).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        this.employerTaxes = Builder.nullToZero(builder.employerTaxes).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        this.total = Builder.nullToZero(builder.total).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
         this.currency = builder.currency;
     }
 
@@ -150,30 +156,38 @@ public final class Amounts {
         }
 
         public Amounts build() {
-            BigDecimal computedBase = Objects.requireNonNullElse(base, BigDecimal.ZERO);
-            BigDecimal computedVariable = Objects.requireNonNullElse(variable, BigDecimal.ZERO);
-            BigDecimal computedAllowances = Objects.requireNonNullElse(allowances, BigDecimal.ZERO);
-            BigDecimal computedTaxes = Objects.requireNonNullElse(employerTaxes, BigDecimal.ZERO);
+            List<ValidationError> extraErrors = new ArrayList<>();
 
-            BigDecimal computedTotal = computedBase
-                    .add(computedVariable)
-                    .add(computedAllowances)
-                    .add(computedTaxes);
+            boolean anyAmountPresent = base != null
+                    || variable != null
+                    || allowances != null
+                    || employerTaxes != null;
 
-            if (total != null && total.compareTo(computedTotal) != 0) {
-                throw new IllegalArgumentException(
-                        "Validation failed: total must equal the sum of base, variable, allowances and employerTaxes");
+            if (anyAmountPresent) {
+                BigDecimal sum = nullToZero(base)
+                        .add(nullToZero(variable))
+                        .add(nullToZero(allowances))
+                        .add(nullToZero(employerTaxes));
+
+                if (total == null) {
+                    this.total = sum;
+                } else if (total.compareTo(sum) != 0) {
+                    extraErrors.add(new ValidationError(
+                            "total",
+                            "TotalMismatch",
+                            "total must equal the sum of the provided amounts",
+                            Map.of("expected", sum, "actual", total)
+                    ));
+                }
             }
 
-            this.base = computedBase;
-            this.variable = computedVariable;
-            this.allowances = computedAllowances;
-            this.employerTaxes = computedTaxes;
-            this.total = computedTotal;
-
             Amounts amounts = new Amounts(this);
-            DomainValidation.validate(amounts);
+            DomainValidation.validate(amounts, extraErrors);
             return amounts;
+        }
+
+        private static BigDecimal nullToZero(BigDecimal value) {
+            return AmountUtils.nullToZero(value);
         }
     }
 }

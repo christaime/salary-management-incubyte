@@ -1,8 +1,8 @@
-/* Angular Material theme below */
+/* 1. Import Angular Material and Tailwind v4 */
 @use '@angular/material' as mat;
+@use "tailwindcss";
 
-@import "tailwindcss/utilities.css" layer(utilities);
-
+/* 2. Material Theme Configuration */
 html {
   color-scheme: light dark;
   @include mat.theme((
@@ -12,3 +12,150 @@ html {
   ));
 }
 
+/* 3. Material Global Overrides */
+
+/* Force the form fields to be compact (40px) */
+.mat-mdc-form-field {
+  --mat-form-field-container-height: 40px;
+  --mat-form-field-container-vertical-padding: 8px;
+  --mat-form-field-filled-with-label-container-padding-top: 8px;
+  --mat-form-field-filled-with-label-container-padding-bottom: 8px;
+}
+
+/* Ensure the input text and select trigger fill the height perfectly */
+.mat-mdc-form-field-infix {
+  min-height: 40px;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+.mat-mdc-select-trigger,
+.mat-mdc-input-element {
+  height: 24px;
+}
+
+/* Tighten the space below form fields used for hints and errors */
+.mat-mdc-form-field-subscript-wrapper {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+/* Tighter checkbox clickable area */
+.mat-mdc-checkbox {
+  --mdc-checkbox-state-layer-size: 32px;
+}
+
+/* Square corners on all buttons and toggles */
+.mat-mdc-unelevated-button,
+.mat-mdc-outlined-button,
+.mat-mdc-button,
+.mat-mdc-raised-button,
+.mat-button-toggle {
+  border-radius: 0;
+  --mdc-filled-button-container-shape: 0;
+  --mdc-outlined-button-container-shape: 0;
+  --mdc-text-button-container-shape: 0;
+  --mdc-protected-button-container-shape: 0;
+}
+
+/* ==========================================================================
+   Fix Tailwind CSS clash with Angular Material Notched Outline
+   ========================================================================== */
+.mat-mdc-form-field .mdc-notched-outline__leading,
+.mat-mdc-form-field .mdc-notched-outline__notch,
+.mat-mdc-form-field .mdc-notched-outline__trailing {
+  border-style: solid !important;
+  border-width: 1px !important;
+}
+
+.mat-mdc-form-field .mdc-notched-outline__notch {
+  border-left-width: 0 !important;
+  border-right-width: 0 !important;
+}
+
+.mat-mdc-form-field .mdc-notched-outline__leading {
+  border-right-width: 0 !important;
+}
+
+.mat-mdc-form-field .mdc-notched-outline__trailing {
+  border-left-width: 0 !important;
+}
+
+/* ==========================================================================
+   Fix Tailwind v4 Reset Clashes with Angular Material
+   ========================================================================== */
+
+/* 1. Fix the floating label cutting through the border */
+.mat-mdc-form-field .mdc-notched-outline__leading,
+.mat-mdc-form-field .mdc-notched-outline__notch,
+.mat-mdc-form-field .mdc-notched-outline__trailing {
+  border-style: solid !important;
+}
+
+.mat-mdc-form-field .mdc-notched-outline__notch {
+  border-left-width: 0 !important;
+  border-right-width: 0 !important;
+}
+
+.mat-mdc-form-field .mdc-notched-outline__leading {
+  border-right-width: 0 !important;
+}
+
+.mat-mdc-form-field .mdc-notched-outline__trailing {
+  border-left-width: 0 !important;
+}
+
+/* 2. Fix the faded text and borders (Restore Material's color tokens) */
+.mat-mdc-form-field {
+  /* Text colors */
+  --mat-form-field-container-text-color: var(--mat-sys-on-surface);
+  --mat-form-field-label-text-color: var(--mat-sys-on-surface-variant);
+  --mat-form-field-hint-text-color: var(--mat-sys-on-surface-variant);
+  --mat-form-field-error-text-color: var(--mat-sys-error);
+
+  /* Outline colors */
+  --mat-form-field-outlined-outline-color: var(--mat-sys-outline);
+  --mat-form-field-outlined-hover-outline-color: var(--mat-sys-on-surface);
+  --mat-form-field-outlined-focus-outline-color: var(--mat-sys-primary);
+}
+
+/* 3. Fix the faded buttons */
+.mat-mdc-unelevated-button,
+.mat-mdc-raised-button {
+  --mdc-filled-button-label-text-color: var(--mat-sys-on-primary) !important;
+}
+
+.mat-mdc-unelevated-button[color="primary"] {
+  --mdc-filled-button-container-color: var(--mat-sys-primary) !important;
+}
+
+.mat-mdc-stroked-button,
+.mat-mdc-outlined-button {
+  --mdc-outlined-button-label-text-color: var(--mat-sys-primary) !important;
+  --mdc-outlined-button-outline-color: var(--mat-sys-outline) !important;
+}
+
+/* ==========================================================================
+   Force Angular Material floating label to sit above the notch
+   ========================================================================== */
+
+/* 1. Remove the transition that causes it to stick */
+.mat-mdc-form-field .mdc-floating-label {
+  transition: none !important;
+}
+
+/* 2. Force the transform to float above (scale 0.75 and move up) */
+.mat-mdc-form-field .mdc-floating-label--float-above {
+  transform: translateY(-190%) scale(0.75) !important;
+}
+
+/* 3. Ensure the notch background color covers the line behind the label */
+.mat-mdc-form-field .mdc-notched-outline__notch {
+  border-left: 1px solid transparent !important;
+  border-right: 1px solid transparent !important;
+}
+
+/* 4. Ensure the label has the correct color and background */
+.mat-mdc-form-field .mdc-floating-label {
+  color: var(--mat-sys-on-surface-variant) !important;
+}

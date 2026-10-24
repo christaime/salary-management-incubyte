@@ -1,0 +1,179 @@
+<div class="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs space-y-6">
+
+  <!-- Header Section -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100">
+    <div>
+      <div class="flex items-center gap-2">
+        <h3 data-testid="cadence-card-title" class="text-base font-semibold text-slate-900 tracking-tight">Compensation by Pay Cadence & Cycle Bandwidth</h3>
+      </div>
+      <p data-testid="cadence-card-subtitle" class="text-xs text-slate-500 mt-0.5">Statistical spread and disbursement dispersion across <span data-testid="cadence-total-employees" [attr.data-value]="totalEmployees()">{{ totalEmployees() | number }}</span> active employees</p>
+    </div>
+
+    <div class="flex flex-col sm:items-end gap-1.5 min-w-[260px]">
+      <div class="flex items-center justify-between w-full text-xs font-mono gap-3">
+        <!-- Monthly Headcount -->
+        @if (data().monthly; as mStats) {
+        <span class="flex items-center gap-1.5 text-slate-700 font-medium">
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-900"></span>
+            Monthly: <span data-testid="cadence-monthly-headcount" [attr.data-value]="mStats.employeeCount">{{ mStats.employeeCount | number }}</span>
+            <span class="text-slate-400 font-normal">(<span data-testid="cadence-monthly-ratio" [attr.data-value]="monthlyRatio()">{{ monthlyRatio() | number:'1.2-2' }}</span>%)</span>
+          </span>
+        }
+
+        <!-- Bi-Weekly Headcount -->
+        @if (data().biWeekly; as bStats) {
+        <span class="flex items-center gap-1.5 text-blue-600 font-medium">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+            Bi-Weekly: <span data-testid="cadence-biweekly-headcount" [attr.data-value]="bStats.employeeCount">{{ bStats.employeeCount | number }}</span>
+            <span class="text-slate-400 font-normal">(<span data-testid="cadence-biweekly-ratio" [attr.data-value]="biWeeklyRatio()">{{ biWeeklyRatio() | number:'1.2-2' }}</span>%)</span>
+          </span>
+        }
+      </div>
+
+      <!-- Proportion Bar -->
+      <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
+        @if (data().monthly) {
+        <div class="h-full bg-slate-900 transition-all duration-500" [style.width.%]="monthlyRatio()" [attr.title]="'Monthly: ' + monthlyRatio()"></div>
+        }
+        @if (data().biWeekly) {
+        <div class="h-full bg-blue-600 transition-all duration-500" [style.width.%]="biWeeklyRatio()" [attr.title]="'Bi-Weekly: ' + biWeeklyRatio()"></div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid Section -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Monthly Cadence -->
+    @if (data().monthly; as monthlyStats) {
+    <div data-testid="cadence-card-monthly"
+         class="rounded-xl border border-slate-200/90 bg-slate-50/40 p-5 space-y-4"
+         [ngClass]="{'lg:col-span-2': !data().biWeekly}">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-slate-900 text-white">Primary Cadence</span>
+            <span class="text-xs text-slate-500 font-medium">Cycles: <span data-testid="cadence-monthly-cycles" [attr.data-value]="monthlyStats.periodCount">{{ monthlyStats.periodCount }}</span> Runs Completed</span>
+          </div>
+          <h4 class="text-sm font-semibold text-slate-900 mt-1">Monthly Disbursement</h4>
+        </div>
+        <div class="text-right">
+          <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">Cohort Gross Outlay</span>
+          <span data-testid="cadence-monthly-total" [attr.data-value]="monthlyStats.total.amount" class="text-base font-bold font-mono text-slate-900">{{ monthlyStats.total.amount | currency:monthlyStats.total.currency:'symbol':'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="space-y-2 pt-1">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-medium text-slate-700">Periodic Dispersion Range ({{ monthlyStats.min.currency }} Gross)</span>
+          <span data-testid="cadence-monthly-spread" [attr.data-value]="monthlySpread()" class="text-[11px] font-mono text-slate-500">Spread: {{ monthlySpread() | currency:monthlyStats.min.currency:'symbol':'1.2-2' }}</span>
+        </div>
+
+        <div class="relative pt-6 pb-2">
+          <span data-testid="cadence-monthly-min" [attr.data-value]="monthlyStats.min.amount" class="absolute left-0 top-0 text-[11px] font-mono font-semibold text-slate-700">{{ monthlyStats.min.amount | currency:monthlyStats.min.currency:'symbol':'1.2-2' }}</span>
+          <span data-testid="cadence-monthly-max" [attr.data-value]="monthlyStats.max.amount" class="absolute right-0 top-0 text-[11px] font-mono font-semibold text-slate-700">{{ monthlyStats.max.amount | currency:monthlyStats.max.currency:'symbol':'1.2-2' }}</span>
+
+          <div class="absolute top-0 transform -translate-x-1/2 flex flex-col items-center pointer-events-none" [style.left.%]="monthlyAvgPosition()">
+              <span data-testid="cadence-monthly-avg" [attr.data-value]="monthlyStats.average.amount" class="bg-slate-900 text-white text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded shadow-xs whitespace-nowrap">
+                Avg {{ monthlyStats.average.amount | currency:monthlyStats.average.currency:'symbol':'1.2-2' }}
+              </span>
+            <div class="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5"></div>
+          </div>
+
+          <div class="relative h-2.5 w-full bg-slate-200/70 rounded-full overflow-hidden">
+            <div class="absolute h-full rounded-full bg-linear-to-r from-slate-700 via-slate-800 to-slate-900 w-full"></div>
+          </div>
+
+          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-2">
+            <span>Min earning</span>
+            <span>Median earning</span>
+            <span>Max earning</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-1.5 text-slate-600">
+          <svg class="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span class="text-[11px]">Annualized Equivalent Mean</span>
+        </div>
+        <span data-testid="cadence-monthly-annualized" [attr.data-value]="monthlyAnnualized()" class="font-mono font-bold text-slate-900">{{ monthlyAnnualized() | currency:monthlyStats.average.currency:'symbol':'1.2-2' }} <span class="text-slate-400 font-normal text-[10px]">/ yr</span></span>
+      </div>
+    </div>
+    }
+
+    <!-- Bi-Weekly Cadence -->
+    @if (data().biWeekly; as biWeeklyStats) {
+    <div data-testid="cadence-card-biweekly"
+         class="rounded-xl border border-blue-200/90 bg-blue-50/20 p-5 space-y-4"
+         [ngClass]="{'lg:col-span-2': !data().monthly}">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-blue-600 text-white">Accelerated Cadence</span>
+            <span class="text-xs text-blue-700 font-medium">Cycles: <span data-testid="cadence-biweekly-cycles" [attr.data-value]="biWeeklyStats.periodCount">{{ biWeeklyStats.periodCount }}</span> Runs Completed</span>
+          </div>
+          <h4 class="text-sm font-semibold text-slate-900 mt-1">Bi-Weekly Cadence Framework</h4>
+        </div>
+        <div class="text-right">
+          <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400 block">Cohort Gross Outlay</span>
+          <span data-testid="cadence-biweekly-total" [attr.data-value]="biWeeklyStats.total.amount" class="text-base font-bold font-mono text-slate-900">{{ biWeeklyStats.total.amount | currency:biWeeklyStats.total.currency:'symbol':'1.2-2' }}</span>
+        </div>
+      </div>
+
+      <div class="space-y-2 pt-1">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-medium text-slate-700">Periodic Dispersion Range ({{ biWeeklyStats.min.currency }} Gross)</span>
+          <span data-testid="cadence-biweekly-spread" [attr.data-value]="biWeeklySpread()" class="text-[11px] font-mono text-slate-500">Spread: {{ biWeeklySpread() | currency:biWeeklyStats.min.currency:'symbol':'1.2-2' }}</span>
+        </div>
+
+        <div class="relative pt-6 pb-2">
+          <span data-testid="cadence-biweekly-min" [attr.data-value]="biWeeklyStats.min.amount" class="absolute left-0 top-0 text-[11px] font-mono font-semibold text-slate-700">{{ biWeeklyStats.min.amount | currency:biWeeklyStats.min.currency:'symbol':'1.2-2' }}</span>
+          <span data-testid="cadence-biweekly-max" [attr.data-value]="biWeeklyStats.max.amount" class="absolute right-0 top-0 text-[11px] font-mono font-semibold text-slate-700">{{ biWeeklyStats.max.amount | currency:biWeeklyStats.max.currency:'symbol':'1.2-2' }}</span>
+
+          <div class="absolute top-0 transform -translate-x-1/2 flex flex-col items-center pointer-events-none" [style.left.%]="biWeeklyAvgPosition()">
+              <span data-testid="cadence-biweekly-avg" [attr.data-value]="biWeeklyStats.average.amount" class="bg-blue-600 text-white text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded shadow-xs whitespace-nowrap">
+                Avg {{ biWeeklyStats.average.amount | currency:biWeeklyStats.average.currency:'symbol':'1.2-2' }}
+              </span>
+            <div class="w-1.5 h-1.5 bg-blue-600 rotate-45 -mt-0.5"></div>
+          </div>
+
+          <div class="relative h-2.5 w-full bg-blue-100 rounded-full overflow-hidden">
+            <div class="absolute h-full rounded-full bg-linear-to-r from-blue-400 via-blue-500 to-blue-600 w-full"></div>
+          </div>
+
+          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-2">
+            <span>Min earning</span>
+            <span>Median earning</span>
+            <span>Max earning</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-blue-100 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-1.5 text-slate-600">
+          <svg class="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+          </svg>
+          <span class="text-[11px]">Normalized Monthly Equiv Benchmark</span>
+        </div>
+        <div class="text-right">
+          <span data-testid="cadence-biweekly-monthly-equiv" [attr.data-value]="biWeeklyMonthlyEquivalent()" class="font-mono font-bold text-blue-900">{{ biWeeklyMonthlyEquivalent() | currency:biWeeklyStats.average.currency:'symbol':'1.2-2' }} <span class="text-slate-400 font-normal text-[10px]">/ mo equiv</span></span>
+          <span data-testid="cadence-biweekly-annualized" [attr.data-value]="biWeeklyAnnualized()" class="text-[10px] text-slate-400 block font-mono">{{ biWeeklyAnnualized() | currency:biWeeklyStats.average.currency:'symbol':'1.2-2' }} annualized</span>
+        </div>
+      </div>
+    </div>
+    }
+
+    <!-- Fallback if BOTH are missing -->
+    @if (!data().monthly && !data().biWeekly) {
+    <div class="col-span-2 p-8 text-center text-slate-500 text-sm bg-slate-50 rounded-xl border border-slate-200 border-dashed">
+      No cadence data available for this report.
+    </div>
+    }
+
+  </div>
+</div>

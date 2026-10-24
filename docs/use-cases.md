@@ -58,14 +58,15 @@ left with a silent failure.
 
 **Filter fields**
 - In-effect country of employment
-- In-effect department
-- In-effect role
+- In-effect department (by `code` or `name`)
+- In-effect role (by `code` or `name`)
 - In-effect employment type
 - Origin country
 
 **Rules**
 - Search and filters combine. All are optional.
 - Results are paginated.
+- Departments and roles can be searched by `code` or `name`.
 
 **Outcome**
 - A filtered, paginated list of employees.
@@ -399,8 +400,8 @@ it stops, explains, and offers the fix.
 **Filters**
 - Date range (required) — start and end date, not a payroll period
 - Employee
-- Role
-- Department
+- Role (by `code` or `name`)
+- Department (by `code` or `name`)
 - Country
 - Employment type
 
@@ -416,6 +417,7 @@ it stops, explains, and offers the fix.
 **Rules**
 - Pagination is available.
 - The date range resolves the payroll periods within it.
+- Departments and roles can be searched by `code` or `name`.
 
 **Outcome**
 - A filtered, paginated list of payroll summaries.

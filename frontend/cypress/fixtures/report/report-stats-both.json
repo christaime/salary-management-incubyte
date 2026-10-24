@@ -1,0 +1,33 @@
+{
+  "kind": "AGGREGATE",
+  "dateRange": { "startDate": "2026-01-01", "endDate": "2026-04-08" },
+  "groupKeys": [],
+  "referenceCurrency": "USD",
+  "lines": [
+    {
+      "amount": { "amount": 205531.81, "currency": "USD" },
+      "employeeCount": 63,
+      "country": null, "department": null, "role": null, "employmentType": null, "currency": null,
+      "breakdown": { "base": 150000, "variable": 30000, "allowances": 10000, "employerTaxes": 15531.81, "total": 205531.81, "currency": "USD" },
+      "statistics": {
+        "monthly": {
+          "min": { "amount": 1000, "currency": "USD" },
+          "max": { "amount": 9000, "currency": "USD" },
+          "average": { "amount": 3571, "currency": "USD" },
+          "total": { "amount": 150000.5, "currency": "USD" },
+          "employeeCount": 42,
+          "periodCount": 1
+        },
+        "biWeekly": {
+          "min": { "amount": 1083.91, "currency": "USD" },
+          "max": { "amount": 5710.43, "currency": "USD" },
+          "average": { "amount": 2644.35, "currency": "USD" },
+          "total": { "amount": 55531.31, "currency": "USD" },
+          "employeeCount": 21,
+          "periodCount": 1
+        }
+      }
+    }
+  ],
+  "warnings": []
+}

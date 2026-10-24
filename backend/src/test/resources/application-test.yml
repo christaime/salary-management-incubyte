@@ -1,0 +1,13 @@
+# Test profile: schema only, no seed data.
+#
+# application.yml scans db/migration plus db/seed by default. Tests must not
+# inherit the 10k-employee seed, so this profile overrides the seed path to a
+# directory that does not exist on the classpath. Flyway then scans only
+# db/migration. Each adapter test supplies its own fixture via @Sql.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:sqlite:./test-data/salary-management.db}
+  flyway:
+    locations: classpath:db/migration
+  jpa:
+    show-sql: ${JPA_SHOW_SQL:true}

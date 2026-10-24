@@ -1,0 +1,27 @@
+{
+  "kind": "AGGREGATE",
+  "dateRange": { "startDate": "2026-03-26", "endDate": "2026-04-08" },
+  "groupKeys": ["DEPARTMENT"],
+  "referenceCurrency": "USD",
+  "lines": [
+    {
+      "amount": { "amount": 379187.04, "currency": "USD" },
+      "employeeCount": 143,
+      "country": null,
+      "department": { "id": "d0000000-0000-0000-0000-000000000007", "code": "ADVERTIS", "name": "Advertising Sales" },
+      "role": null, "employmentType": null, "currency": null,
+      "breakdown": { "base": 283257.28, "variable": 36230.92, "allowances": 17430.81, "employerTaxes": 42268.03, "total": 379187.04, "currency": "USD" },
+      "statistics": null
+    },
+    {
+      "amount": { "amount": 378328.01, "currency": "USD" },
+      "employeeCount": 142,
+      "country": null,
+      "department": { "id": "d0000000-0000-0000-0000-000000000001", "code": "CONTENT", "name": "Content Production" },
+      "role": null, "employmentType": null, "currency": null,
+      "breakdown": { "base": 282386.71, "variable": 36151.39, "allowances": 17154.93, "employerTaxes": 42634.98, "total": 378328.01, "currency": "USD" },
+      "statistics": null
+    }
+  ],
+  "warnings": []
+}

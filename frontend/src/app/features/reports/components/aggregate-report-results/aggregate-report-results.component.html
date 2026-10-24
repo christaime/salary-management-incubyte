@@ -1,0 +1,57 @@
+<div class="flex flex-col gap-6">
+  @if (isEmpty()) {
+  <div class="p-12 text-center rounded-xl border border-slate-200/80 bg-white shadow-xs">
+    <p data-testid="aggregate-results-empty" class="text-sm text-slate-500 m-0">No data for this selection.</p>
+  </div>
+  } @else if (isTotal()) {
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <div class="lg:col-span-9 flex flex-col gap-6">
+      <div class="p-6 rounded-xl border border-slate-200/80 bg-white shadow-xs flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+        <p class="text-xs font-semibold text-slate-500 m-0 uppercase tracking-wider whitespace-nowrap">Total payroll cost</p>
+        <p data-testid="aggregate-results-total-amount"
+           [attr.data-value]="totalAmount()"
+           [attr.data-currency]="currency()"
+           class="text-3xl font-bold text-slate-900 m-0 tracking-tight whitespace-nowrap">
+          {{ currency() }} {{ formatAmount(totalAmount()) }}
+        </p>
+        <span data-testid="aggregate-results-total-employees"
+              [attr.data-value]="totalEmployees()"
+              class="px-3 py-1.5 rounded bg-slate-100 text-slate-700 text-sm font-medium whitespace-nowrap">
+          {{ totalEmployees() | number }} {{ totalEmployees() > 1 ? 'Employees' : 'Employee' }}
+        </span>
+      </div>
+
+      @if (statistics(response().lines[0]); as stats) {
+      <app-compensation-cadence-card [data]="stats"></app-compensation-cadence-card>
+      }
+    </div>
+
+    <div class="lg:col-span-3">
+      <app-breakdown-donut [line]="response().lines[0]" />
+    </div>
+  </div>
+  } @else {
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 rounded-xl border border-slate-200/80 bg-white shadow-xs p-6 flex flex-col gap-4">
+      <div>
+        <h2 data-testid="aggregate-results-title" class="text-base font-semibold text-slate-900 tracking-tight m-0">
+          {{ reportTitle() }}
+        </h2>
+        <p data-testid="aggregate-results-subtitle" class="text-xs text-slate-500 mt-0.5 m-0">
+          {{ reportSubtitle() }}
+        </p>
+      </div>
+
+      <app-tiered-bar-list
+        [response]="response()"
+        [selectedKey]="selectedKey()"
+        (rowClick)="onRowClick($event)"
+      />
+    </div>
+
+    <div class="lg:col-span-1">
+      <app-breakdown-donut [line]="selectedLine()" />
+    </div>
+  </div>
+  }
+</div>

@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main]
+    branches: [ main, develop ]
 
 jobs:
   backend:
@@ -51,5 +51,23 @@ jobs:
       - name: Run frontend tests
         run: npm test -- --watch=false --browsers=ChromeHeadless
 
+      # Build before the E2E step so failures are attributable
       - name: Build frontend
         run: npm run build -- --configuration=production
+
+      - name: Cypress E2E Tests
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: frontend      # <-- the fix for the current error
+          install: false                   # deps already installed above
+          command: npm run e2e
+
+      - name: Upload Cypress Artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-artifacts
+          path: |
+            frontend/cypress/screenshots
+            frontend/cypress/videos
+          retention-days: 7

@@ -1,0 +1,4 @@
+{
+  "content": [ { "id": "dev", "code": "DEV", "name": "Developer" } ],
+  "page": 0, "size": 50, "totalElements": 1, "totalPages": 1, "first": true, "last": true, "empty": false
+}

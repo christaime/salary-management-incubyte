@@ -1,0 +1,286 @@
+package com.salary.management.infrastructure.persistence.adapter;
+
+import com.salary.management.application.dto.RefDto;
+import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.GroupKey;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
+import com.salary.management.domain.repository.ReportDataRepository;
+import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
+import com.salary.management.domain.repository.projection.AggregateRowProjection;
+import com.salary.management.infrastructure.persistence.entity.CountryEntity;
+import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
+import com.salary.management.infrastructure.persistence.entity.PayrollPeriodAggregateEntity;
+import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEntity;
+import com.salary.management.infrastructure.persistence.entity.RoleEntity;
+import com.salary.management.infrastructure.persistence.repository.DynamicStatisticsBuilder;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Tuple;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Selection;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+/** Persistence adapter implementing {@link ReportDataRepository}. */
+@Component
+@RequiredArgsConstructor
+public class ReportDataRepositoryAdapter implements ReportDataRepository {
+
+    private final EntityManager entityManager;
+    private final DynamicStatisticsBuilder dynamicStatisticsBuilder;
+
+    @Override
+    public List<AggregateRowProjection> queryAggregates(
+            List<UUID> periodIds,
+            List<GroupKey> groupKeys,
+            ReportEffectiveFilters filters) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> cq = cb.createTupleQuery();
+        Root<PayrollPeriodAggregateEntity> root =
+                cq.from(PayrollPeriodAggregateEntity.class);
+        Root<PayrollPeriodEntity> period = cq.from(PayrollPeriodEntity.class);
+
+        List<Predicate> predicates = new ArrayList<>();
+        predicates.add(root.get("payrollPeriodId").in(periodIds));
+        predicates.add(cb.equal(period.get("id"), root.get("payrollPeriodId")));
+        addFilter(cb, root, predicates, "countryId", filters.countryIds());
+        addFilter(cb, root, predicates, "departmentId", filters.departmentIds());
+        addFilter(cb, root, predicates, "roleId", filters.roleIds());
+        if (filters.employmentTypes() != null && !filters.employmentTypes().isEmpty()) {
+            predicates.add(root.get("employmentType").in(filters.employmentTypes()));
+        }
+
+        List<Selection<?>> selections = new ArrayList<>();
+        List<Expression<?>> groupBy = new ArrayList<>();
+        List<Order> orders = new ArrayList<>();
+
+        for (GroupKey key : groupKeys) {
+            switch (key) {
+                case COUNTRY -> {
+                    Root<CountryEntity> country = cq.from(CountryEntity.class);
+                    predicates.add(cb.equal(country.get("id"), root.get("countryId")));
+                    selections.add(country.get("id").alias("countryId"));
+                    selections.add(country.get("isoCode").alias("countryCode"));
+                    selections.add(country.get("name").alias("countryName"));
+                    groupBy.add(country.get("id"));
+                    groupBy.add(country.get("isoCode"));
+                    groupBy.add(country.get("name"));
+                    orders.add(cb.asc(country.get("isoCode")));
+                }
+                case DEPARTMENT -> {
+                    Root<DepartmentEntity> dept = cq.from(DepartmentEntity.class);
+                    predicates.add(cb.equal(dept.get("id"), root.get("departmentId")));
+                    selections.add(dept.get("id").alias("departmentId"));
+                    selections.add(dept.get("code").alias("departmentCode"));
+                    selections.add(dept.get("name").alias("departmentName"));
+                    groupBy.add(dept.get("id"));
+                    groupBy.add(dept.get("code"));
+                    groupBy.add(dept.get("name"));
+                    orders.add(cb.asc(dept.get("name")));
+                }
+                case ROLE -> {
+                    Root<RoleEntity> role = cq.from(RoleEntity.class);
+                    predicates.add(cb.equal(role.get("id"), root.get("roleId")));
+                    selections.add(role.get("id").alias("roleId"));
+                    selections.add(role.get("code").alias("roleCode"));
+                    selections.add(role.get("name").alias("roleName"));
+                    groupBy.add(role.get("id"));
+                    groupBy.add(role.get("code"));
+                    groupBy.add(role.get("name"));
+                    orders.add(cb.asc(role.get("name")));
+                }
+                case EMPLOYMENT_TYPE -> {
+                    Path<?> path = root.get("employmentType");
+                    selections.add(path.alias("employmentType"));
+                    groupBy.add(path);
+                    orders.add(cb.asc(path));
+                }
+                case CURRENCY -> {
+                    Path<?> path = root.get("referenceAmounts").get("currency");
+                    selections.add(path.alias("currency"));
+                    groupBy.add(path);
+                    orders.add(cb.asc(path));
+                }
+                default -> throw new IllegalStateException("Unsupported group key: " + key);
+            }
+        }
+
+        selections.add(cb.sum(root.get("referenceAmounts").get("base")).alias("sumBase"));
+        selections.add(cb.sum(root.get("referenceAmounts").get("variable")).alias("sumVariable"));
+        selections.add(cb.sum(root.get("referenceAmounts").get("allowances"))
+                .alias("sumAllowances"));
+        selections.add(cb.sum(root.get("referenceAmounts").get("employerTaxes"))
+                .alias("sumEmployerTaxes"));
+        selections.add(cb.sum(root.get("referenceAmounts").get("total")).alias("sumTotal"));
+        selections.add(cb.sum(root.get("employeeCount")).alias("sumEmployeeCount"));
+
+        Expression<BigDecimal> monthlyTotal = cb.sum(
+                cb.<BigDecimal>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
+                                root.get("referenceAmounts").get("total"))
+                        .otherwise(BigDecimal.ZERO));
+
+        Expression<Long> monthlyEmployees = cb.sum(
+                cb.<Long>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
+                                cb.toLong(root.get("employeeCount")))
+                        .otherwise(0L));
+
+        Expression<Long> monthlyPeriods = cb.countDistinct(
+                cb.<UUID>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.MONTHLY),
+                                period.get("id"))
+                        .otherwise(cb.nullLiteral(UUID.class)));
+
+        Expression<BigDecimal> biWeeklyTotal = cb.sum(
+                cb.<BigDecimal>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY),
+                                root.get("referenceAmounts").get("total"))
+                        .otherwise(BigDecimal.ZERO));
+
+        Expression<Long> biWeeklyEmployees = cb.sum(
+                cb.<Long>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY),
+                                cb.toLong(root.get("employeeCount")))
+                        .otherwise(0L));
+
+        Expression<Long> biWeeklyPeriods = cb.countDistinct(
+                cb.<UUID>selectCase()
+                        .when(cb.equal(period.get("frequency"), PayrollPeriodFrequency.BI_WEEKLY),
+                                period.get("id"))
+                        .otherwise(cb.nullLiteral(UUID.class)));
+
+        selections.add(monthlyTotal.alias("monthlyTotal"));
+        selections.add(monthlyEmployees.alias("monthlyEmployeeCount"));
+        selections.add(monthlyPeriods.alias("monthlyPeriodCount"));
+        selections.add(biWeeklyTotal.alias("biWeeklyTotal"));
+        selections.add(biWeeklyEmployees.alias("biWeeklyEmployeeCount"));
+        selections.add(biWeeklyPeriods.alias("biWeeklyPeriodCount"));
+
+        cq.multiselect(selections);
+        cq.where(cb.and(predicates.toArray(new Predicate[0])));
+        cq.groupBy(groupBy);
+        cq.orderBy(orders);
+
+        List<Tuple> tuples = entityManager.createQuery(cq).getResultList();
+        List<AggregateRowProjection> rows = new ArrayList<>(tuples.size());
+        for (Tuple t : tuples) {
+            rows.add(toAggregateProjection(t, groupKeys));
+        }
+        return rows;
+    }
+
+    @Override
+    public List<AggregateRowProjection> queryStatistics(
+            List<UUID> periodIds,
+            List<GroupKey> groupKeys,
+            PayrollPeriodFrequency frequency,
+            ReportEffectiveFilters filters,
+            String referenceCurrencyCode) {
+
+        GroupKey key = null;
+        if (groupKeys.size() == 1) {
+            key = groupKeys.get(0);
+        } else if (groupKeys.size() > 1) {
+            return List.of();
+        }
+        return dynamicStatisticsBuilder.minMax(
+                periodIds, key, frequency, referenceCurrencyCode,
+                nullIfEmpty(filters.countryIds()),
+                nullIfEmpty(filters.departmentIds()),
+                nullIfEmpty(filters.roleIds()),
+                nullIfEmpty(filters.employmentTypes()));
+    }
+
+    private AggregateRowProjection toAggregateProjection(Tuple t, List<GroupKey> groupKeys) {
+        AggregateRowProjection p = new AggregateRowProjection();
+        for (GroupKey key : groupKeys) {
+            switch (key) {
+                case COUNTRY -> p.country = ref(t, "countryId", "countryCode", "countryName");
+                case DEPARTMENT -> p.department = ref(t, "departmentId", "departmentCode", "departmentName");
+                case ROLE -> p.role = ref(t, "roleId", "roleCode", "roleName");
+                case EMPLOYMENT_TYPE -> p.employmentType =
+                        t.get("employmentType", EmploymentType.class);
+                case CURRENCY -> p.currency = t.get("currency", String.class);
+                default -> throw new IllegalStateException("Unsupported group key: " + key);
+            }
+        }
+        p.sumBase = t.get("sumBase", BigDecimal.class);
+        p.sumVariable = t.get("sumVariable", BigDecimal.class);
+        p.sumAllowances = t.get("sumAllowances", BigDecimal.class);
+        p.sumEmployerTaxes = t.get("sumEmployerTaxes", BigDecimal.class);
+        p.sumTotal = t.get("sumTotal", BigDecimal.class);
+        p.sumEmployeeCount = number(t.get("sumEmployeeCount"));
+        p.monthlyTotal = t.get("monthlyTotal", BigDecimal.class);
+        p.monthlyEmployeeCount = number(t.get("monthlyEmployeeCount"));
+        p.monthlyPeriodCount = number(t.get("monthlyPeriodCount"));
+        p.biWeeklyTotal = t.get("biWeeklyTotal", BigDecimal.class);
+        p.biWeeklyEmployeeCount = number(t.get("biWeeklyEmployeeCount"));
+        p.biWeeklyPeriodCount = number(t.get("biWeeklyPeriodCount"));
+        p.employeeCount = computeAverageEmployeeCount(
+                p.monthlyEmployeeCount, p.monthlyPeriodCount,
+                p.biWeeklyEmployeeCount, p.biWeeklyPeriodCount);
+        return p;
+    }
+
+    private long computeAverageEmployeeCount(
+            Long monthlyEmployees, Long monthlyPeriods,
+            Long biWeeklyEmployees, Long biWeeklyPeriods) {
+        long monthlyAvg = safeDivide(monthlyEmployees, monthlyPeriods);
+        long biWeeklyAvg = safeDivide(biWeeklyEmployees, biWeeklyPeriods);
+        return monthlyAvg + biWeeklyAvg;
+    }
+
+    private long safeDivide(Long numerator, Long denominator) {
+        if (numerator == null || denominator == null || denominator == 0L) {
+            return 0L;
+        }
+        return BigDecimal.valueOf(numerator)
+                .divide(BigDecimal.valueOf(denominator), 0, RoundingMode.HALF_UP)
+                .longValueExact();
+    }
+
+    private Long number(Object value) {
+        if (value == null) {
+            return 0L;
+        }
+        if (value instanceof Number n) {
+            return n.longValue();
+        }
+        return Long.parseLong(value.toString());
+    }
+
+    private RefDto ref(Tuple t, String idAlias, String codeAlias, String nameAlias) {
+        UUID id = t.get(idAlias, UUID.class);
+        String code = t.get(codeAlias, String.class);
+        String name = t.get(nameAlias, String.class);
+        if (id == null && code == null && name == null) {
+            return null;
+        }
+        return new RefDto(id, code, name);
+    }
+
+    private <T> Collection<T> nullIfEmpty(Set<T> set) {
+        return set == null || set.isEmpty() ? null : set;
+    }
+
+    private void addFilter(CriteriaBuilder cb, Root<?> root, List<Predicate> predicates,
+                           String field, Set<UUID> values) {
+        if (values != null && !values.isEmpty()) {
+            predicates.add(root.get(field).in(values));
+        }
+    }
+}

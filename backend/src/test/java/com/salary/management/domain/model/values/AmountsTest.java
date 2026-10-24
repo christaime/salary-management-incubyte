@@ -1,9 +1,11 @@
 package com.salary.management.domain.model.values;
 
+import com.salary.management.common.validation.DomainValidationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -31,11 +33,11 @@ class AmountsTest {
     void validConstructionSucceedsAndComputesTotal() {
         Amounts amounts = validAmounts();
 
-        assertEquals(new BigDecimal("1000"), amounts.getBase());
-        assertEquals(new BigDecimal("200"), amounts.getVariable());
-        assertEquals(new BigDecimal("50"), amounts.getAllowances());
-        assertEquals(new BigDecimal("150"), amounts.getEmployerTaxes());
-        assertEquals(new BigDecimal("1400"), amounts.getTotal());
+        assertEquals(new BigDecimal("1000").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getBase());
+        assertEquals(new BigDecimal("200").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getVariable());
+        assertEquals(new BigDecimal("50").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getAllowances());
+        assertEquals(new BigDecimal("150").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getEmployerTaxes());
+        assertEquals(new BigDecimal("1400").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getTotal());
         assertEquals("USD", amounts.getCurrency());
     }
 
@@ -51,13 +53,13 @@ class AmountsTest {
                 .currency("USD")
                 .build();
 
-        assertEquals(new BigDecimal("1400"), amounts.getTotal());
+        assertEquals(new BigDecimal("1400").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getTotal());
     }
 
     @Test
     @DisplayName("Explicit total differing from the computed sum is rejected")
     void explicitMismatchedTotalIsRejected() {
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+        DomainValidationException ex = assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("1000"))
                         .variable(new BigDecimal("200"))
@@ -68,7 +70,7 @@ class AmountsTest {
                         .build());
 
         assertEquals(
-                "Validation failed: total must equal the sum of base, variable, allowances and employerTaxes",
+                "Validation failed on 1 field(s)",
                 ex.getMessage());
     }
 
@@ -80,16 +82,16 @@ class AmountsTest {
                 .currency("EUR")
                 .build();
 
-        assertEquals(BigDecimal.ZERO, amounts.getVariable());
-        assertEquals(BigDecimal.ZERO, amounts.getAllowances());
-        assertEquals(BigDecimal.ZERO, amounts.getEmployerTaxes());
-        assertEquals(new BigDecimal("500"), amounts.getTotal());
+        assertEquals(BigDecimal.ZERO.setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getVariable());
+        assertEquals(BigDecimal.ZERO.setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getAllowances());
+        assertEquals(BigDecimal.ZERO.setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getEmployerTaxes());
+        assertEquals(new BigDecimal("500").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), amounts.getTotal());
     }
 
     @Test
     @DisplayName("Negative base amount is rejected")
     void negativeAmountIsRejected() {
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("-1"))
                         .currency("USD")
@@ -99,7 +101,7 @@ class AmountsTest {
     @Test
     @DisplayName("Blank currency is rejected")
     void blankCurrencyIsRejected() {
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("10"))
                         .currency("  ")
@@ -109,7 +111,7 @@ class AmountsTest {
     @Test
     @DisplayName("Null currency is rejected")
     void nullCurrencyIsRejected() {
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("10"))
                         .currency(null)
@@ -119,13 +121,13 @@ class AmountsTest {
     @Test
     @DisplayName("Currency must be exactly three characters")
     void currencyMustBeExactlyThreeChars() {
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("10"))
                         .currency("US")
                         .build());
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(DomainValidationException.class, () ->
                 Amounts.builder()
                         .base(new BigDecimal("10"))
                         .currency("USDX")
@@ -140,9 +142,9 @@ class AmountsTest {
         Amounts updated = original.withBase(new BigDecimal("2000"));
 
         assertNotSame(original, updated);
-        assertEquals(new BigDecimal("1000"), original.getBase());
-        assertEquals(new BigDecimal("2000"), updated.getBase());
-        assertEquals(new BigDecimal("2400"), updated.getTotal());
+        assertEquals(new BigDecimal("1000").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), original.getBase());
+        assertEquals(new BigDecimal("2000").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), updated.getBase());
+        assertEquals(new BigDecimal("2400").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), updated.getTotal());
     }
 
     @Test
@@ -153,9 +155,9 @@ class AmountsTest {
         Amounts updated = original.withVariable(new BigDecimal("400"));
 
         assertNotSame(original, updated);
-        assertEquals(new BigDecimal("200"), original.getVariable());
-        assertEquals(new BigDecimal("400"), updated.getVariable());
-        assertEquals(new BigDecimal("1600"), updated.getTotal());
+        assertEquals(new BigDecimal("200").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), original.getVariable());
+        assertEquals(new BigDecimal("400").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), updated.getVariable());
+        assertEquals(new BigDecimal("1600").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), updated.getTotal());
     }
 
     @Test
@@ -166,9 +168,9 @@ class AmountsTest {
         Amounts updated = original.withAllowances(new BigDecimal("75"));
 
         assertNotSame(original, updated);
-        assertEquals(new BigDecimal("50"), original.getAllowances());
-        assertEquals(new BigDecimal("75"), updated.getAllowances());
-        assertEquals(new BigDecimal("1425"), updated.getTotal());
+        assertEquals(new BigDecimal("50").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), original.getAllowances());
+        assertEquals(new BigDecimal("75").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), updated.getAllowances());
+        assertEquals(new BigDecimal("1425").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), updated.getTotal());
     }
 
     @Test
@@ -179,9 +181,9 @@ class AmountsTest {
         Amounts updated = original.withEmployerTaxes(new BigDecimal("300"));
 
         assertNotSame(original, updated);
-        assertEquals(new BigDecimal("150"), original.getEmployerTaxes());
-        assertEquals(new BigDecimal("300"), updated.getEmployerTaxes());
-        assertEquals(new BigDecimal("1550"), updated.getTotal());
+        assertEquals(new BigDecimal("150").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), original.getEmployerTaxes());
+        assertEquals(new BigDecimal("300").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), updated.getEmployerTaxes());
+        assertEquals(new BigDecimal("1550").setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP), updated.getTotal());
     }
 
     @Test
@@ -201,7 +203,7 @@ class AmountsTest {
     void withBaseRejectsInvalidInput() {
         Amounts original = validAmounts();
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(DomainValidationException.class,
                 () -> original.withBase(new BigDecimal("-5")));
     }
 
@@ -210,7 +212,7 @@ class AmountsTest {
     void withCurrencyRejectsInvalidInput() {
         Amounts original = validAmounts();
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(DomainValidationException.class,
                 () -> original.withCurrency("US"));
     }
 }
