@@ -5,12 +5,10 @@ import com.salary.management.application.dto.AggregateReportRequest;
 import com.salary.management.application.dto.AggregateReportResponse;
 import com.salary.management.application.dto.DateRange;
 import com.salary.management.application.dto.RefDto;
-import com.salary.management.application.dto.StatisticsDto;
 import com.salary.management.application.exception.ReportBlockedException;
 import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.PayrollPeriod;
-import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.ReportKind;
@@ -22,6 +20,7 @@ import com.salary.management.domain.repository.PayrollPeriodAggregateRepository;
 import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
 import com.salary.management.domain.repository.PayrollPeriodRepository;
 import com.salary.management.domain.repository.ReportDataRepository;
+import com.salary.management.domain.repository.criteria.PayrollPeriodCriteria;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +48,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -98,7 +98,33 @@ class AggregateReportServiceTest {
                 LocalDate.of(2026, 2, 1), LocalDate.of(2026, 1, 1),
                 List.of(), false, false);
 
-        assertThrows(DomainValidationException.class, () -> service.generate(request));
+        DomainValidationException ex = assertThrows(
+                DomainValidationException.class, () -> service.generate(request));
+        assertEquals("DateOrder", ex.getErrors().get(0).code());
+    }
+
+    @Test
+    @DisplayName("future endDate throws DomainValidationException")
+    void futureEndDateThrows() {
+        AggregateReportRequest request = request(
+                LocalDate.of(2026, 1, 1), LocalDate.now().plusDays(1),
+                List.of(), false, false);
+
+        DomainValidationException ex = assertThrows(
+                DomainValidationException.class, () -> service.generate(request));
+        assertEquals("FutureDate", ex.getErrors().get(0).code());
+    }
+
+    @Test
+    @DisplayName("duplicate group keys throw DomainValidationException")
+    void duplicateGroupKeysThrow() {
+        AggregateReportRequest request = request(
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                List.of(GroupKey.COUNTRY, GroupKey.COUNTRY), false, false);
+
+        DomainValidationException ex = assertThrows(
+                DomainValidationException.class, () -> service.generate(request));
+        assertEquals("Duplicate", ex.getErrors().get(0).code());
     }
 
     @Test
@@ -108,7 +134,9 @@ class AggregateReportServiceTest {
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
                 List.of(GroupKey.ORIGIN_COUNTRY), false, false);
 
-        assertThrows(DomainValidationException.class, () -> service.generate(request));
+        DomainValidationException ex = assertThrows(
+                DomainValidationException.class, () -> service.generate(request));
+        assertEquals("Unsupported", ex.getErrors().get(0).code());
     }
 
     @Test
@@ -118,12 +146,42 @@ class AggregateReportServiceTest {
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
                 List.of(GroupKey.COUNTRY, GroupKey.DEPARTMENT), false, true);
 
-        assertThrows(DomainValidationException.class, () -> service.generate(request));
+        DomainValidationException ex = assertThrows(
+                DomainValidationException.class, () -> service.generate(request));
+        assertEquals("StatisticsSingleDimension", ex.getErrors().get(0).code());
+    }
+
+    @Test
+    @DisplayName("multiple validation errors accumulate before throwing")
+    void validationErrorsAccumulate() {
+        AggregateReportRequest request = request(
+                LocalDate.of(2026, 2, 1), LocalDate.of(2026, 1, 1),
+                List.of(GroupKey.COUNTRY, GroupKey.COUNTRY), false, false);
+
+        DomainValidationException ex = assertThrows(
+                DomainValidationException.class, () -> service.generate(request));
+        assertEquals(2, ex.getErrors().size());
     }
 
     // ------------------------------------------------------------------
-    // Period resolution and snapshots
+    // Period resolution
     // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("period query criteria carry the request date range")
+    void periodQueryCriteriaCarryDateRange() {
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of());
+
+        service.generate(request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                List.of(GroupKey.COUNTRY), false, false));
+
+        ArgumentCaptor<PayrollPeriodCriteria> captor =
+                ArgumentCaptor.forClass(PayrollPeriodCriteria.class);
+        verify(payrollPeriodRepository).list(captor.capture());
+        assertEquals(LocalDate.of(2026, 1, 1), captor.getValue().startDate());
+        assertEquals(LocalDate.of(2026, 1, 31), captor.getValue().endDate());
+        assertEquals(Integer.MAX_VALUE, captor.getValue().size());
+    }
 
     @Test
     @DisplayName("no periods in range returns empty response")
@@ -143,10 +201,15 @@ class AggregateReportServiceTest {
         verify(reportDataRepository, never()).queryAggregates(anyList(), anyList(), any());
     }
 
+    // ------------------------------------------------------------------
+    // Snapshots
+    // ------------------------------------------------------------------
+
     @Test
     @DisplayName("all periods closed skips snapshot building")
     void allPeriodsClosedSkipsSnapshotBuilding() {
-        PayrollPeriod period = period(true);
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of(aggregateRow()));
@@ -163,7 +226,8 @@ class AggregateReportServiceTest {
     @Test
     @DisplayName("open period builds snapshot and persists")
     void openPeriodBuildsAndPersists() {
-        PayrollPeriod period = period(false);
+        PayrollPeriod period = period(false, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(snapshotBuilder.build(period)).thenReturn(new SnapshotBuildResult(
                 List.of(), List.of(), List.of(), List.of()));
@@ -181,9 +245,36 @@ class AggregateReportServiceTest {
     }
 
     @Test
+    @DisplayName("two open periods are both built and persisted")
+    void twoOpenPeriodsBothPersisted() {
+        PayrollPeriod jan = period(false, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        PayrollPeriod feb = period(false, "February 2026",
+                LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28));
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(jan, feb));
+        when(snapshotBuilder.build(jan)).thenReturn(new SnapshotBuildResult(
+                List.of(), List.of(), List.of(), List.of()));
+        when(snapshotBuilder.build(feb)).thenReturn(new SnapshotBuildResult(
+                List.of(), List.of(), List.of(), List.of()));
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of());
+
+        service.generate(request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 28),
+                List.of(GroupKey.COUNTRY), false, false));
+
+        verify(payrollPeriodAggregateRepository).deleteDraftsByPayrollPeriodId(jan.getId());
+        verify(payrollPeriodAggregateRepository).deleteDraftsByPayrollPeriodId(feb.getId());
+        verify(payrollPeriodEarnerRankingRepository).deleteDraftsByPayrollPeriodId(jan.getId());
+        verify(payrollPeriodEarnerRankingRepository).deleteDraftsByPayrollPeriodId(feb.getId());
+        verify(payrollPeriodAggregateRepository, times(2)).saveAll(anyList());
+        verify(payrollPeriodEarnerRankingRepository, times(2)).saveAll(anyList());
+    }
+
+    @Test
     @DisplayName("blocker in open period throws ReportBlockedException and does not persist")
     void blockerThrowsAndDoesNotPersist() {
-        PayrollPeriod period = period(false);
+        PayrollPeriod period = period(false, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         ReportWarning blocker = new ReportWarning(
                 ReportWarningCode.MISSING_FX_RATE, ReportWarning.Severity.BLOCKER,
                 "Missing FX rate", Map.of());
@@ -202,6 +293,34 @@ class AggregateReportServiceTest {
         verify(payrollPeriodAggregateRepository, never()).saveAll(anyList());
     }
 
+    @Test
+    @DisplayName("a blocker on a later period prevents all persistence")
+    void laterPeriodBlockerPreventsAllPersistence() {
+        PayrollPeriod jan = period(false, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        PayrollPeriod feb = period(false, "February 2026",
+                LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28));
+        ReportWarning blocker = new ReportWarning(
+                ReportWarningCode.MISSING_FX_RATE, ReportWarning.Severity.BLOCKER,
+                "Missing FX", Map.of());
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(jan, feb));
+        when(snapshotBuilder.build(jan)).thenReturn(new SnapshotBuildResult(
+                List.of(), List.of(), List.of(), List.of()));
+        when(snapshotBuilder.build(feb)).thenReturn(new SnapshotBuildResult(
+                List.of(), List.of(), List.of(), List.of(blocker)));
+
+        assertThrows(ReportBlockedException.class, () ->
+                service.generate(request(LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 2, 28),
+                        List.of(GroupKey.COUNTRY), false, false)));
+
+        // Neither period was persisted: not even the one that built cleanly.
+        verify(payrollPeriodAggregateRepository, never()).deleteDraftsByPayrollPeriodId(any());
+        verify(payrollPeriodAggregateRepository, never()).saveAll(anyList());
+        verify(payrollPeriodEarnerRankingRepository, never()).deleteDraftsByPayrollPeriodId(any());
+        verify(payrollPeriodEarnerRankingRepository, never()).saveAll(anyList());
+    }
+
     // ------------------------------------------------------------------
     // Filters and breakdown
     // ------------------------------------------------------------------
@@ -209,7 +328,8 @@ class AggregateReportServiceTest {
     @Test
     @DisplayName("the filter is preserved and passed to the query")
     void filterPreservedWhenGrouped() {
-        PayrollPeriod period = period(true);
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of());
@@ -233,7 +353,8 @@ class AggregateReportServiceTest {
     @Test
     @DisplayName("breakdown is populated when requested")
     void breakdownPopulatedWhenRequested() {
-        PayrollPeriod period = period(true);
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of(aggregateRow()));
@@ -247,14 +368,34 @@ class AggregateReportServiceTest {
         assertEquals(0, line.breakdown().total().compareTo(new BigDecimal("1350.00")));
     }
 
+    @Test
+    @DisplayName("line employee count is zero when projection has null count")
+    void lineEmployeeCountZeroWhenNull() {
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
+
+        AggregateRowProjection row = aggregateRow();
+        row.employeeCount = null;
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(row));
+
+        AggregateReportResponse response = service.generate(
+                request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                        List.of(GroupKey.COUNTRY), false, false));
+
+        assertEquals(0, response.lines().get(0).employeeCount());
+    }
+
     // ------------------------------------------------------------------
-    // Statistics — per frequency
+    // Statistics
     // ------------------------------------------------------------------
 
     @Test
     @DisplayName("monthly statistics populate the monthly block")
     void monthlyStatisticsPopulateMonthlyBlock() {
-        PayrollPeriod period = period(true);
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of(aggregateRow()));
@@ -286,7 +427,8 @@ class AggregateReportServiceTest {
     @Test
     @DisplayName("bi-weekly statistics populate the bi-weekly block")
     void biWeeklyStatisticsPopulateBiWeeklyBlock() {
-        PayrollPeriod period = period(true);
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         AggregateRowProjection row = aggregateRow();
         row.biWeeklyTotal = new BigDecimal("600.00");
@@ -322,7 +464,8 @@ class AggregateReportServiceTest {
     @Test
     @DisplayName("both blocks are populated when the group has both frequencies")
     void bothBlocksPopulatedWhenBothFrequenciesPresent() {
-        PayrollPeriod period = period(true);
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         AggregateRowProjection row = aggregateRow();
         row.biWeeklyTotal = new BigDecimal("600.00");
@@ -355,7 +498,8 @@ class AggregateReportServiceTest {
     @Test
     @DisplayName("statistics query is skipped when includeStatistics is false")
     void statisticsQuerySkippedWhenNotRequested() {
-        PayrollPeriod period = period(true);
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of(aggregateRow()));
@@ -365,6 +509,125 @@ class AggregateReportServiceTest {
 
         verify(reportDataRepository, never()).queryStatistics(
                 anyList(), anyList(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("average is null when employeeCount is zero")
+    void averageNullWhenEmployeesZero() {
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
+
+        AggregateRowProjection row = aggregateRow();
+        row.monthlyTotal = BigDecimal.ZERO;
+        row.monthlyEmployeeCount = 0L;
+        row.monthlyPeriodCount = 0L;
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(row));
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.MONTHLY), any(), any()))
+                .thenReturn(List.of(statsRow("1000.00", "9000.00")));
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.BI_WEEKLY), any(), any()))
+                .thenReturn(List.of());
+
+        AggregateReportResponse response = service.generate(
+                request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                        List.of(GroupKey.COUNTRY), false, true));
+
+        assertNull(response.lines().get(0).statistics().monthly().average());
+        assertEquals(0, response.lines().get(0).statistics().monthly().employeeCount());
+        assertEquals(0, response.lines().get(0).statistics().monthly().periodCount());
+    }
+
+    @Test
+    @DisplayName("statistics attach to the line keyed by DEPARTMENT when grouping by department")
+    void statisticsAttachForKeyDepartment() {
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
+
+        AggregateRowProjection row = aggregateRow();
+        row.country = null;
+        row.department = new RefDto(UUID.randomUUID(), "ENG", "Engineering");
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(row));
+
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.MONTHLY), any(), any()))
+                .thenReturn(List.of(statsRowForDepartment(
+                        row.department.id(), "1000.00", "9000.00")));
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.BI_WEEKLY), any(), any()))
+                .thenReturn(List.of());
+
+        AggregateReportResponse response = service.generate(
+                request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                        List.of(GroupKey.DEPARTMENT), false, true));
+
+        AggregateLineDto line = response.lines().get(0);
+        assertNotNull(line.statistics());
+        assertNotNull(line.statistics().monthly());
+    }
+
+    @Test
+    @DisplayName("statistics attach to the line keyed by ROLE when grouping by role")
+    void statisticsAttachForKeyRole() {
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
+
+        AggregateRowProjection row = aggregateRow();
+        row.country = null;
+        row.role = new RefDto(UUID.randomUUID(), "SWE", "Software Engineer");
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(row));
+
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.MONTHLY), any(), any()))
+                .thenReturn(List.of(statsRowForRole(
+                        row.role.id(), "1000.00", "9000.00")));
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.BI_WEEKLY), any(), any()))
+                .thenReturn(List.of());
+
+        AggregateReportResponse response = service.generate(
+                request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                        List.of(GroupKey.ROLE), false, true));
+
+        AggregateLineDto line = response.lines().get(0);
+        assertNotNull(line.statistics());
+        assertNotNull(line.statistics().monthly());
+    }
+
+    @Test
+    @DisplayName("statistics attach to the line keyed by EMPLOYMENT_TYPE")
+    void statisticsAttachForKeyEmploymentType() {
+        PayrollPeriod period = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
+
+        AggregateRowProjection row = aggregateRow();
+        row.country = null;
+        row.employmentType = com.salary.management.domain.model.enums.EmploymentType.FULL_TIME;
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(row));
+
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.MONTHLY), any(), any()))
+                .thenReturn(List.of(statsRowForEmploymentType(
+                        row.employmentType, "1000.00", "9000.00")));
+        when(reportDataRepository.queryStatistics(
+                anyList(), anyList(), eq(PayrollPeriodFrequency.BI_WEEKLY), any(), any()))
+                .thenReturn(List.of());
+
+        AggregateReportResponse response = service.generate(
+                request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+                        List.of(GroupKey.EMPLOYMENT_TYPE), false, true));
+
+        AggregateLineDto line = response.lines().get(0);
+        assertNotNull(line.statistics());
+        assertNotNull(line.statistics().monthly());
     }
 
     // ------------------------------------------------------------------
@@ -379,12 +642,13 @@ class AggregateReportServiceTest {
                 null, null, null, null, breakdown, statistics);
     }
 
-    private PayrollPeriod period(boolean closed) {
+    private PayrollPeriod period(boolean closed, String name,
+                                 LocalDate start, LocalDate end) {
         return PayrollPeriod.builder()
                 .id(UUID.randomUUID())
-                .name("January 2026")
-                .startDate(LocalDate.of(2026, 1, 1))
-                .endDate(LocalDate.of(2026, 1, 31))
+                .name(name)
+                .startDate(start)
+                .endDate(end)
                 .frequency(PayrollPeriodFrequency.MONTHLY)
                 .closed(closed)
                 .build();
@@ -412,6 +676,32 @@ class AggregateReportServiceTest {
     private AggregateRowProjection statsRow(String min, String max) {
         AggregateRowProjection p = new AggregateRowProjection();
         p.country = new RefDto(FR_UUID, "FR", "France");
+        p.minReferenceAmount = new BigDecimal(min);
+        p.maxReferenceAmount = new BigDecimal(max);
+        return p;
+    }
+
+    private AggregateRowProjection statsRowForDepartment(UUID id, String min, String max) {
+        AggregateRowProjection p = new AggregateRowProjection();
+        p.department = new RefDto(id, "ENG", "Engineering");
+        p.minReferenceAmount = new BigDecimal(min);
+        p.maxReferenceAmount = new BigDecimal(max);
+        return p;
+    }
+
+    private AggregateRowProjection statsRowForRole(UUID id, String min, String max) {
+        AggregateRowProjection p = new AggregateRowProjection();
+        p.role = new RefDto(id, "SWE", "Software Engineer");
+        p.minReferenceAmount = new BigDecimal(min);
+        p.maxReferenceAmount = new BigDecimal(max);
+        return p;
+    }
+
+    private AggregateRowProjection statsRowForEmploymentType(
+            com.salary.management.domain.model.enums.EmploymentType type,
+            String min, String max) {
+        AggregateRowProjection p = new AggregateRowProjection();
+        p.employmentType = type;
         p.minReferenceAmount = new BigDecimal(min);
         p.maxReferenceAmount = new BigDecimal(max);
         return p;
