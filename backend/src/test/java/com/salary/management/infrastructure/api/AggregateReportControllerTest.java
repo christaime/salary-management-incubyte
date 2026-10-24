@@ -52,7 +52,7 @@ class AggregateReportControllerTest {
         when(service.generate(any(AggregateReportRequest.class)))
                 .thenReturn(response());
 
-        mockMvc.perform(post("/reports/aggregate")
+        mockMvc.perform(post("/api/v1/reports/aggregate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_BODY))
                 .andExpect(status().isOk())
@@ -80,7 +80,7 @@ class AggregateReportControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/reports/aggregate")
+        mockMvc.perform(post("/api/v1/reports/aggregate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
@@ -99,7 +99,7 @@ class AggregateReportControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/reports/aggregate")
+        mockMvc.perform(post("/api/v1/reports/aggregate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -119,7 +119,7 @@ class AggregateReportControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/reports/aggregate")
+        mockMvc.perform(post("/api/v1/reports/aggregate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -138,7 +138,7 @@ class AggregateReportControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/reports/aggregate")
+        mockMvc.perform(post("/api/v1/reports/aggregate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
@@ -158,7 +158,7 @@ class AggregateReportControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/reports/aggregate")
+        mockMvc.perform(post("/api/v1/reports/aggregate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
