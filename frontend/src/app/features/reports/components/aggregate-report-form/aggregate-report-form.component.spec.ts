@@ -1,8 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { of } from 'rxjs';
 import { AggregateReportFormComponent } from './aggregate-report-form.component';
+import { PayrollPeriodPickerComponent } from '@features/payroll-period/components/payroll-period-picker/payroll-period-picker.component';
 import { PayrollPeriodsService } from '@features/payroll-period/services/payroll-periods.service';
+import { PayrollPeriodDto } from '@features/payroll-period/models';
 import { apiUrl } from '@core/config/api-base-url';
 import { CountryService } from '@features/country/services/country.service';
 import { DepartmentService } from '@features/department/services/department.service';
@@ -71,5 +74,59 @@ describe('AggregateReportFormComponent', () => {
     expect(component.form.controls.startPeriod.value).toBeNull();
     expect(component.form.controls.endPeriod.value).toBeNull();
     expect(component.cancel.emit).toHaveBeenCalled();
+  });
+
+  it('should set the end picker filter to the start period endDate', () => {
+    const startPeriod: PayrollPeriodDto = {
+      id: '2026-01-M',
+      name: 'January 2026',
+      frequency: 'MONTHLY' as const,
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      closed: true,
+    };
+
+    component.form.controls.startPeriod.setValue(startPeriod);
+    fixture.detectChanges();
+
+    const endPicker = fixture.debugElement.query(
+      By.directive(PayrollPeriodPickerComponent),
+    );
+    // there are two pickers; query all and pick the second one
+    const pickers = fixture.debugElement.queryAll(By.directive(PayrollPeriodPickerComponent));
+    const endPickerInstance = pickers[1].componentInstance as PayrollPeriodPickerComponent;
+
+    expect(endPickerInstance.initialFilter()).toEqual({ startDate: '2026-01-31' });
+  });
+
+  it('should update the end picker filter when the start period changes', () => {
+    const january: PayrollPeriodDto = {
+      id: '2026-01-M',
+      name: 'January 2026',
+      frequency: 'MONTHLY' as const,
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      closed: true,
+    };
+    const june: PayrollPeriodDto = {
+      id: '2026-06-M',
+      name: 'June 2026',
+      frequency: 'MONTHLY' as const,
+      startDate: '2026-06-01',
+      endDate: '2026-06-30',
+      closed: true,
+    };
+
+    component.form.controls.startPeriod.setValue(january);
+    fixture.detectChanges();
+    let pickers = fixture.debugElement.queryAll(By.directive(PayrollPeriodPickerComponent));
+    expect((pickers[1].componentInstance as PayrollPeriodPickerComponent).initialFilter())
+      .toEqual({ startDate: '2026-01-31' });
+
+    component.form.controls.startPeriod.setValue(june);
+    fixture.detectChanges();
+    pickers = fixture.debugElement.queryAll(By.directive(PayrollPeriodPickerComponent));
+    expect((pickers[1].componentInstance as PayrollPeriodPickerComponent).initialFilter())
+      .toEqual({ startDate: '2026-06-30' });
   });
 });

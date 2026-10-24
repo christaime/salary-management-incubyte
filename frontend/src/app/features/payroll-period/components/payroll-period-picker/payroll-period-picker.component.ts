@@ -15,7 +15,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormControl, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged, startWith, switchMap, catchError, map, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, startWith, switchMap, catchError, map, of, combineLatest } from 'rxjs';
 import { PayrollPeriodDto, PayrollPeriodCriteria } from '../../models';
 import { PayrollPeriodsService } from '../../services/payroll-periods.service';
 
@@ -105,36 +105,33 @@ export class PayrollPeriodPickerComponent implements ControlValueAccessor {
 
   // --- API Dynamic Search Pipeline ---
   private readonly year$ = toObservable(this.internalYear);
-  private readonly search$ = this.searchControl.valueChanges.pipe(
+  private readonly query$ = this.searchControl.valueChanges.pipe(
     startWith(''),
     debounceTime(300),
-    distinctUntilChanged()
+    distinctUntilChanged(),
   );
 
-  readonly filteredPeriods = toSignal(
-    this.year$.pipe(
-      switchMap((year) =>
-        this.search$.pipe(
-          switchMap((query) => {
-            const baseCriteria = this.initialFilter();
-            const startDateFilter = year ? `${year}-01-01` : baseCriteria.startDate;
-            const endDateFilter = year ? `${year}-12-31` : baseCriteria.endDate;
+  private readonly initialFilter$ = toObservable(this.initialFilter);
 
-            return this.periodService.search({
-              ...baseCriteria,
-              keyword: query?.trim() || baseCriteria.keyword || undefined,
-              startDate: startDateFilter,
-              endDate: endDateFilter,
-              size: 50,
-            }).pipe(
-              map((page) => page.content ?? []),
-              catchError(() => of([]))
-            );
-          })
-        )
-      )
+  readonly filteredPeriods = toSignal(
+    combineLatest([this.year$, this.query$, this.initialFilter$]).pipe(
+      switchMap(([year, query, filter]) => {
+        console.log({year, query, filter});
+        const startDateFilter = year ? `${year}-01-01` : filter.startDate;
+        const endDateFilter = year ? `${year}-12-31` : filter.endDate;
+        return this.periodService.search({
+          keyword: query?.trim() || filter.keyword || undefined,
+          startDate: startDateFilter,
+          endDate: endDateFilter,
+          ...filter,
+          size: 50,
+        }).pipe(
+          map((page) => page.content ?? []),
+          catchError(() => of([])),
+        );
+      }),
     ),
-    { initialValue: [] }
+    { initialValue: [] },
   );
 
   constructor() {

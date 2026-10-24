@@ -90,8 +90,8 @@ export class AggregateReportFormComponent {
   ]);
 
   // The End picker year is the Start picker year (if set), otherwise the current year
-  readonly endPickerSelectedYear = computed<number>(() => {
-    return this.startPickerSelectedYear() ?? this.currentYear;
+  readonly endPickerSelectedYear = computed<number | null>(() => {
+    return this.startPickerSelectedYear() ?? null;
   });
 
   // Range for the End picker: [startPickerSelectedYear (or currentYear - 5), currentYear]

@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, tick, fakeAsync } from '@angular/core/testing';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { of } from 'rxjs';
 import { PayrollPeriodPickerComponent } from './payroll-period-picker.component';
@@ -87,4 +87,43 @@ describe('PayrollPeriodPickerComponent', () => {
     expect(onChangeSpy).toHaveBeenCalledWith(null);
     expect(component.cleared.emit).toHaveBeenCalled();
   });
+
+  it('should re-query when initialFilter changes', fakeAsync(() => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    const service = TestBed.inject(PayrollPeriodsService) as jasmine.SpyObj<PayrollPeriodsService>;
+    localFixture.detectChanges();
+    tick(300);
+    service.search.calls.reset();
+
+    localFixture.componentRef.setInput('selectedYear', 2026);
+    localFixture.componentRef.setInput('initialFilter', { startDate: '2026-01-31' });
+    localFixture.detectChanges();
+    tick();
+    expect(service.search).toHaveBeenCalledTimes(2);// once for year selected, another for initial filter
+    const secondCall = service.search.calls.mostRecent().args[0]!;
+    expect(secondCall.startDate).toBe('2026-01-31');
+    expect(secondCall.endDate).toBe('2026-12-31');
+  }));
+
+  it('should narrow the year range from initialFilter.startDate when internalYear is null', fakeAsync(() => {
+    const localFixture = TestBed.createComponent(PayrollPeriodPickerComponent);
+    const localComponent = localFixture.componentInstance;
+    const service = TestBed.inject(PayrollPeriodsService) as jasmine.SpyObj<PayrollPeriodsService>;
+    localFixture.detectChanges();
+    tick(300);
+
+    // Clear the year so internalYear = null, then change the filter
+    localComponent.clearYearRange();
+    localFixture.detectChanges();
+    tick();
+    service.search.calls.reset();
+
+    localFixture.componentRef.setInput('initialFilter', { startDate: '2026-06-15' });
+    localFixture.detectChanges();
+    tick();
+
+    expect(service.search).toHaveBeenCalled();
+    const call = service.search.calls.mostRecent().args[0]!;
+    expect(call.startDate).toBe('2026-06-15');
+  }));
 });
