@@ -403,7 +403,7 @@ describe('EarningsRankingReportPage', () => {
     expect(ctxDE).toBeTruthy();
 
     const ctx = ctxDE.componentInstance as PositionContextComponent;
-    expect(ctx.data()).toEqual(response.positionContext);
+    expect(ctx.data()).toEqual(response.positionContext!);   // ← non-null assertion
     expect(ctx.referenceCurrency()).toBe('USD');
   });
 

@@ -186,25 +186,29 @@ describe('Aggregate Report Page', () => {
   /**
    * CASE 3: Multiple Criteria -> Verify HTTP Params
    */
-  it('should send coherent HTTP params based on form criteria', () => {
-    cy.intercept('POST', '**/api/v1/reports/aggregate', { fixture: 'report/report-global.json' }).as('generateReport');
+  it('should send coherent HTTP params for the initial generate', () => {
+    cy.intercept('POST', '**/api/v1/reports/aggregate', {
+      fixture: 'report/report-global.json',
+    }).as('generateReport');
 
     selectPeriod('start', 'p-jan');
 
-    cy.get('[data-testid="btn-customize"]').should('be.visible').click();
+    cy.get('[data-testid="btn-customize"]').click();
 
-    cy.get('[data-testid="filter-countries"]').should('be.visible').click();
-    cy.get('mat-option').contains('Cameroon').should('be.visible').click();
-    cy.get('mat-option').contains('France').should('be.visible').click();
-    cy.get('.cdk-overlay-backdrop').click({ force: true });
+    // Countries — pick two, then close via ESC
+    cy.get('[data-testid="filter-countries"]').click();
+    cy.get('mat-option').contains('Cameroon').click();
+    cy.get('mat-option').contains('France').click();
+    cy.get('[data-testid="filter-countries"]').type('{esc}');
 
-    cy.get('[data-testid="filter-departments"]').should('be.visible').click();
-    cy.get('mat-option').contains('Engineering').should('be.visible').click();
-    cy.get('.cdk-overlay-backdrop').click({ force: true });
+    // Departments — pick one, then close via ESC
+    cy.get('[data-testid="btn-customize"]').click();
+    cy.get('[data-testid="filter-departments"]').should('be.visible');
+    cy.get('[data-testid="filter-departments"]').click();
+    cy.get('mat-option').contains('Engineering').click();
 
-    cy.get('[data-testid="btn-drawer-apply"]').should('be.visible').click();
-
-    cy.get('[data-testid="btn-generate"]').should('be.visible').click();
+    cy.get('[data-testid="btn-drawer-apply"]').click();
+    cy.get('[data-testid="btn-generate"]').click();
 
     cy.wait('@generateReport').then((interception) => {
       const body = interception.request.body;
@@ -216,11 +220,25 @@ describe('Aggregate Report Page', () => {
       expect(body.anyRoleIds).to.be.null;
       expect(body.anyEmploymentTypes).to.be.null;
     });
+  });
 
-    cy.get('[data-testid="toggle-btn-COUNTRY"]').should('be.visible').click();
+
+  it('should send the COUNTRY groupKey when toggling the report kind', () => {
+    cy.intercept('POST', '**/api/v1/reports/aggregate', (req) => {
+      if (req.body.groupKeys.includes('COUNTRY')) {
+        req.reply({ fixture: 'report/report-by-country.json' });
+      } else {
+        req.reply({ fixture: 'report/report-global.json' });
+      }
+    }).as('generateReport');
+
+    selectPeriod('start', 'p-jan');
+    cy.get('[data-testid="btn-generate"]').click();
+    cy.wait('@generateReport');
+
+    cy.get('[data-testid="toggle-btn-COUNTRY"]').click();
     cy.wait('@generateReport').then((interception) => {
-      const body = interception.request.body;
-      expect(body.groupKeys).to.deep.eq(['COUNTRY']);
+      expect(interception.request.body.groupKeys).to.deep.eq(['COUNTRY']);
     });
   });
 
