@@ -1,6 +1,6 @@
 package com.salary.management.application.service;
 
-import com.salary.management.application.dto.EmployeeRefDto;
+import com.salary.management.application.dto.employee.EmployeeRefDto;
 import com.salary.management.application.dto.PayrollPeriodResponse;
 import com.salary.management.application.dto.RefDto;
 import com.salary.management.application.dto.ranking.EarnerRankingDto;

@@ -1,4 +1,4 @@
-package com.salary.management.application.dto;
+package com.salary.management.application.dto.employee;
 
 import com.salary.management.domain.model.values.ReportWarning;
 

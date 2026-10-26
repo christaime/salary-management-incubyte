@@ -1,6 +1,6 @@
 package com.salary.management.application.snapshot;
 
-import com.salary.management.application.dto.EmployeeRefDto;
+import com.salary.management.application.dto.employee.EmployeeRefDto;
 import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.PayrollPeriodAggregate;
 import com.salary.management.domain.model.PayrollPeriodEarnerRanking;

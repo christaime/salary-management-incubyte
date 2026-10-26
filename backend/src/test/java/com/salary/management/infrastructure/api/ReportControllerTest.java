@@ -4,6 +4,7 @@ import com.salary.management.application.dto.*;
 import com.salary.management.application.dto.aggregate.AggregateLineDto;
 import com.salary.management.application.dto.aggregate.AggregateReportRequest;
 import com.salary.management.application.dto.aggregate.AggregateReportResponse;
+import com.salary.management.application.dto.employee.EmployeeRefDto;
 import com.salary.management.application.dto.ranking.EarnerRankingDto;
 import com.salary.management.application.dto.ranking.EarningRankingReportRequest;
 import com.salary.management.application.dto.ranking.EarningRankingReportResponse;

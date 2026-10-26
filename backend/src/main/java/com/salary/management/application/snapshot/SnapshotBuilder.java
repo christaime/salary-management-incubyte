@@ -1,6 +1,6 @@
 package com.salary.management.application.snapshot;
 
-import com.salary.management.application.dto.EmployeeRefDto;
+import com.salary.management.application.dto.employee.EmployeeRefDto;
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.domain.model.*;
 import com.salary.management.domain.model.enums.*;
@@ -13,7 +13,6 @@ import com.salary.management.domain.repository.PayrollPeriodEarnerRankingReposit
 import com.salary.management.domain.repository.PayrollSummaryRepository;
 import com.salary.management.domain.repository.RoleRepository;
 import com.salary.management.domain.repository.criteria.PayrollSummaryCriteria;
-import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarnerRankingEntity;
 import com.salary.management.infrastructure.persistence.mapper.PayrollPeriodPersistenceMapper;
 import com.salary.management.infrastructure.persistence.repository.PayrollPeriodJpaRepository;
 import lombok.RequiredArgsConstructor;
