@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -64,10 +65,10 @@ public class PayrollPeriodAggregateRepositoryAdapter
     }
 
     @Override
-    public List<GroupedSummary> aggregateByGroup(UUID payrollPeriodId) {
-        return jpaRepository.aggregateByGroup(payrollPeriodId).stream()
+    public List<GroupedSummary> aggregateByGroup(UUID payrollPeriodId, LocalDate startDate, LocalDate endDate) {
+        return jpaRepository.aggregateByGroup(startDate, endDate).stream()
                 .map(row -> new GroupedSummary(
-                        row.getPayrollPeriodId(),
+                        payrollPeriodId,
                         row.getCountryId(),
                         row.getDepartmentId(),
                         row.getRoleId(),

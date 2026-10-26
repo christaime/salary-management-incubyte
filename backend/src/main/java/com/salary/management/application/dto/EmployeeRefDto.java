@@ -1,4 +1,6 @@
-package com.salary.management.domain.model.values;
+package com.salary.management.application.dto;
+
+import com.salary.management.domain.model.values.ReportWarning;
 
 import java.util.UUID;
 
@@ -8,5 +10,5 @@ import java.util.UUID;
  * <p>Holds enough identifying data for a caller to look the employee up without loading the
  * full {@code Employee} aggregate. Not a full employee; not persisted on its own.</p>
  */
-public record EmployeeRef(UUID id, String matricule, String name) {
+public record EmployeeRefDto(UUID id, String matricule, String name) {
 }

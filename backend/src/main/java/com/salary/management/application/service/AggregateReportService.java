@@ -173,6 +173,7 @@ public class AggregateReportService {
         PayrollPeriodCriteria criteria = PayrollPeriodCriteria.builder()
                 .startDate(range.startDate())
                 .endDate(range.endDate())
+                .frequency(PayrollPeriodFrequency.MONTHLY)
                 .size(Integer.MAX_VALUE)
                 .build();
         return payrollPeriodRepository.list(criteria);
@@ -197,8 +198,9 @@ public class AggregateReportService {
             SnapshotBuildResult result = built.get(i);
             payrollPeriodAggregateRepository.deleteDraftsByPayrollPeriodId(periodId);
             payrollPeriodEarnerRankingRepository.deleteDraftsByPayrollPeriodId(periodId);
+            payrollPeriodEarnerRankingRepository.deleteDraftsPercentileByPayrollPeriodId(periodId);
             payrollPeriodAggregateRepository.saveAll(result.aggregates());
-            payrollPeriodEarnerRankingRepository.saveAll(result.rankings());
+            payrollPeriodEarnerRankingRepository.saveAll(result.rankingAndPercentiles().rankings(), result.rankingAndPercentiles().percentiles());
         }
         return collectedWarnings;
     }

@@ -17,7 +17,10 @@ import java.util.UUID;
  * (country, department, role, employment type) combination.
  *
  * <p>Carries the employee's total in the assignment currency ({@code originalAmount}) and
- * the same total converted to the reference currency ({@code referenceAmount}).</p>
+ * the same total converted to the reference currency ({@code referenceAmount}). Also
+ * carries the labor days the total covers ({@code daysCovered}) and the derived
+ * monthly rate ({@code monthlyRateAmount}) that ranking is actually based on — so the
+ * HR-facing card can show the reasoning, not just the rank.</p>
  */
 @Getter
 public final class PayrollPeriodEarnerRanking {
@@ -56,6 +59,27 @@ public final class PayrollPeriodEarnerRanking {
     @NotNull
     private final Amount referenceAmount;
 
+    /**
+     * Number of labor days the {@code referenceAmount} covers in this period.
+     * Examples: 14 (one bi-weekly check), 28 (two bi-weekly checks), 31 (monthly).
+     * Used to derive {@link #monthlyRateAmount}, and shown in the UI so the
+     * derivation is auditable.
+     */
+    @NotNull
+    @Min(1)
+    private final Integer daysCovered;
+
+    /**
+     * Monthly rate used as the ranking key:
+     * {@code (referenceAmount.amount / daysCovered) × daysInMonth}.
+     *
+     * <p>Stored explicitly (rather than re-derived on the fly) so that the stored
+     * rank and the stored monthly rate can never drift apart. The UI displays this
+     * number, and HR reads it as "this is why the employee ranks where they do".</p>
+     */
+    @NotNull
+    private final Amount monthlyRateAmount;
+
     private PayrollPeriodEarnerRanking(Builder builder) {
         this.id = builder.id;
         this.payrollPeriod = builder.payrollPeriod;
@@ -69,6 +93,8 @@ public final class PayrollPeriodEarnerRanking {
         this.employee = builder.employee;
         this.originalAmount = builder.originalAmount;
         this.referenceAmount = builder.referenceAmount;
+        this.daysCovered = builder.daysCovered;
+        this.monthlyRateAmount = builder.monthlyRateAmount;
     }
 
     public static Builder builder() {
@@ -105,6 +131,46 @@ public final class PayrollPeriodEarnerRanking {
         return toBuilder().status(newStatus).build();
     }
 
+    /**
+     * Returns a new ranking entry with the given labor-day coverage.
+     *
+     * <p>Note: changing {@code daysCovered} without also changing
+     * {@code monthlyRateAmount} will make the two inconsistent. Use
+     * {@link #withMonthlyRate(Amount, int)} when both change together.</p>
+     *
+     * @param newDaysCovered new labor-day coverage
+     * @return new validated ranking entry
+     */
+    public PayrollPeriodEarnerRanking withDaysCovered(Integer newDaysCovered) {
+        return toBuilder().daysCovered(newDaysCovered).build();
+    }
+
+    /**
+     * Returns a new ranking entry with the given monthly rate.
+     *
+     * @param newMonthlyRateAmount new monthly rate
+     * @return new validated ranking entry
+     */
+    public PayrollPeriodEarnerRanking withMonthlyRate(Amount newMonthlyRateAmount) {
+        return toBuilder().monthlyRateAmount(newMonthlyRateAmount).build();
+    }
+
+    /**
+     * Returns a new ranking entry with the given labor-day coverage and monthly
+     * rate, keeping the two consistent.
+     *
+     * @param newMonthlyRateAmount new monthly rate
+     * @param newDaysCovered       new labor-day coverage
+     * @return new validated ranking entry
+     */
+    public PayrollPeriodEarnerRanking withMonthlyRate(Amount newMonthlyRateAmount,
+                                                      int newDaysCovered) {
+        return toBuilder()
+                .monthlyRateAmount(newMonthlyRateAmount)
+                .daysCovered(newDaysCovered)
+                .build();
+    }
+
     private Builder toBuilder() {
         return new Builder()
                 .id(this.id)
@@ -118,7 +184,9 @@ public final class PayrollPeriodEarnerRanking {
                 .rank(this.rank)
                 .employee(this.employee)
                 .originalAmount(this.originalAmount)
-                .referenceAmount(this.referenceAmount);
+                .referenceAmount(this.referenceAmount)
+                .daysCovered(this.daysCovered)
+                .monthlyRateAmount(this.monthlyRateAmount);
     }
 
     /** Hand-written builder validating the composed {@code PayrollPeriodEarnerRanking}. */
@@ -136,6 +204,8 @@ public final class PayrollPeriodEarnerRanking {
         private Employee employee;
         private Amount originalAmount;
         private Amount referenceAmount;
+        private Integer daysCovered;
+        private Amount monthlyRateAmount;
 
         public Builder id(UUID id) {
             this.id = id;
@@ -194,6 +264,16 @@ public final class PayrollPeriodEarnerRanking {
 
         public Builder referenceAmount(Amount referenceAmount) {
             this.referenceAmount = referenceAmount;
+            return this;
+        }
+
+        public Builder daysCovered(Integer daysCovered) {
+            this.daysCovered = daysCovered;
+            return this;
+        }
+
+        public Builder monthlyRateAmount(Amount monthlyRateAmount) {
+            this.monthlyRateAmount = monthlyRateAmount;
             return this;
         }
 

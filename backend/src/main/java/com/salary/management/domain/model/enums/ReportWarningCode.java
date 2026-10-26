@@ -12,6 +12,10 @@ import com.salary.management.domain.model.values.ReportWarning;
 public enum ReportWarningCode {
 
     /**
+     * We do not create snapshot on non monthly period
+     */
+    NOT_MONTHLY_PERIOD,
+    /**
      * A closed payroll period was passed to the snapshot builder. Severity: BLOCKER.
      * Details: {@code { "periodId": UUID }}.
      */
@@ -20,14 +24,14 @@ public enum ReportWarningCode {
     /**
      * One or more employees with an in-effect assignment covering the period have no summary.
      * Severity: WARNING. Details:
-     * {@code { "count": Integer, "employees": List<EmployeeRef> }}, list capped at 10.
+     * {@code { "count": Integer, "employees": List<EmployeeRefDto> }}, list capped at 10.
      */
     MISSING_PAYROLL_SUMMARY,
 
     /**
      * One or more employees with an in-effect assignment covering the period have a
      * non-VALIDATED summary. Severity: BLOCKER. Details:
-     * {@code { "count": Integer, "employees": List<EmployeeRef> }}, list capped at 10.
+     * {@code { "count": Integer, "employees": List<EmployeeRefDto> }}, list capped at 10.
      */
     UNVALIDATED_PAYROLL_SUMMARY,
 

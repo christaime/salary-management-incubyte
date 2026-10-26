@@ -10,8 +10,6 @@ import java.util.UUID;
  */
 public interface AggregateRow {
 
-    UUID getPayrollPeriodId();
-
     UUID getCountryId();
 
     UUID getDepartmentId();

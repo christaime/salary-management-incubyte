@@ -13,6 +13,7 @@ import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.ReportKind;
 import com.salary.management.domain.model.enums.ReportWarningCode;
+import com.salary.management.domain.model.values.RankingAndPercentileSnapshot;
 import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.model.values.SnapshotBuildResult;
 import com.salary.management.domain.repository.CurrencyRateRepository;
@@ -230,7 +231,7 @@ class AggregateReportServiceTest {
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(snapshotBuilder.build(period)).thenReturn(new SnapshotBuildResult(
-                List.of(), List.of(), List.of(), List.of()));
+                List.of(), RankingAndPercentileSnapshot.empty(), List.of(), List.of()));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of(aggregateRow()));
 
@@ -240,8 +241,10 @@ class AggregateReportServiceTest {
         verify(snapshotBuilder).build(period);
         verify(payrollPeriodAggregateRepository).deleteDraftsByPayrollPeriodId(period.getId());
         verify(payrollPeriodEarnerRankingRepository).deleteDraftsByPayrollPeriodId(period.getId());
+        verify(payrollPeriodEarnerRankingRepository)
+                .deleteDraftsPercentileByPayrollPeriodId(period.getId());
         verify(payrollPeriodAggregateRepository).saveAll(anyList());
-        verify(payrollPeriodEarnerRankingRepository).saveAll(anyList());
+        verify(payrollPeriodEarnerRankingRepository).saveAll(anyList(), anyList());
     }
 
     @Test
@@ -253,9 +256,9 @@ class AggregateReportServiceTest {
                 LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28));
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(jan, feb));
         when(snapshotBuilder.build(jan)).thenReturn(new SnapshotBuildResult(
-                List.of(), List.of(), List.of(), List.of()));
+                List.of(), RankingAndPercentileSnapshot.empty(), List.of(), List.of()));
         when(snapshotBuilder.build(feb)).thenReturn(new SnapshotBuildResult(
-                List.of(), List.of(), List.of(), List.of()));
+                List.of(), RankingAndPercentileSnapshot.empty(), List.of(), List.of()));
         when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
                 .thenReturn(List.of());
 
@@ -266,8 +269,13 @@ class AggregateReportServiceTest {
         verify(payrollPeriodAggregateRepository).deleteDraftsByPayrollPeriodId(feb.getId());
         verify(payrollPeriodEarnerRankingRepository).deleteDraftsByPayrollPeriodId(jan.getId());
         verify(payrollPeriodEarnerRankingRepository).deleteDraftsByPayrollPeriodId(feb.getId());
+        verify(payrollPeriodEarnerRankingRepository)
+                .deleteDraftsPercentileByPayrollPeriodId(jan.getId());
+        verify(payrollPeriodEarnerRankingRepository)
+                .deleteDraftsPercentileByPayrollPeriodId(feb.getId());
         verify(payrollPeriodAggregateRepository, times(2)).saveAll(anyList());
-        verify(payrollPeriodEarnerRankingRepository, times(2)).saveAll(anyList());
+        verify(payrollPeriodEarnerRankingRepository, times(2))
+                .saveAll(anyList(), anyList());
     }
 
     @Test
@@ -280,7 +288,7 @@ class AggregateReportServiceTest {
                 "Missing FX rate", Map.of());
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(period));
         when(snapshotBuilder.build(period)).thenReturn(new SnapshotBuildResult(
-                List.of(), List.of(), List.of(), List.of(blocker)));
+                List.of(), RankingAndPercentileSnapshot.empty(), List.of(), List.of(blocker)));
 
         AggregateReportRequest request = request(
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
@@ -291,6 +299,10 @@ class AggregateReportServiceTest {
         assertEquals(1, ex.getBlockers().size());
         verify(payrollPeriodAggregateRepository, never()).deleteDraftsByPayrollPeriodId(any());
         verify(payrollPeriodAggregateRepository, never()).saveAll(anyList());
+        verify(payrollPeriodEarnerRankingRepository, never()).deleteDraftsByPayrollPeriodId(any());
+        verify(payrollPeriodEarnerRankingRepository, never())
+                .deleteDraftsPercentileByPayrollPeriodId(any());
+        verify(payrollPeriodEarnerRankingRepository, never()).saveAll(anyList(), anyList());
     }
 
     @Test
@@ -305,9 +317,9 @@ class AggregateReportServiceTest {
                 "Missing FX", Map.of());
         when(payrollPeriodRepository.list(any())).thenReturn(List.of(jan, feb));
         when(snapshotBuilder.build(jan)).thenReturn(new SnapshotBuildResult(
-                List.of(), List.of(), List.of(), List.of()));
+                List.of(), RankingAndPercentileSnapshot.empty(), List.of(), List.of()));
         when(snapshotBuilder.build(feb)).thenReturn(new SnapshotBuildResult(
-                List.of(), List.of(), List.of(), List.of(blocker)));
+                List.of(), RankingAndPercentileSnapshot.empty(), List.of(), List.of(blocker)));
 
         assertThrows(ReportBlockedException.class, () ->
                 service.generate(request(LocalDate.of(2026, 1, 1),
@@ -318,7 +330,9 @@ class AggregateReportServiceTest {
         verify(payrollPeriodAggregateRepository, never()).deleteDraftsByPayrollPeriodId(any());
         verify(payrollPeriodAggregateRepository, never()).saveAll(anyList());
         verify(payrollPeriodEarnerRankingRepository, never()).deleteDraftsByPayrollPeriodId(any());
-        verify(payrollPeriodEarnerRankingRepository, never()).saveAll(anyList());
+        verify(payrollPeriodEarnerRankingRepository, never())
+                .deleteDraftsPercentileByPayrollPeriodId(any());
+        verify(payrollPeriodEarnerRankingRepository, never()).saveAll(anyList(), anyList());
     }
 
     // ------------------------------------------------------------------

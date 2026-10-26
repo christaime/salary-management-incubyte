@@ -102,6 +102,19 @@ public interface DepartmentJpaRepository
     boolean isReferencedByRanking(@Param("departmentId") UUID departmentId);
 
     /**
+     * Returns whether any earner percentile entry is scoped to this department.
+     *
+     * @param departmentId department identifier
+     * @return {@code true} when at least one percentile references it
+     */
+    @Query("""
+            SELECT COUNT(p) > 0
+            FROM PayrollPeriodEarnerPercentileEntity p
+            WHERE p.departmentId = :departmentId
+            """)
+    boolean isReferencedByPercentile(@Param("departmentId") UUID departmentId);
+
+    /**
      * Returns whether the department is referenced anywhere in the schema.
      *
      * @param departmentId department identifier
@@ -111,6 +124,7 @@ public interface DepartmentJpaRepository
         return isReferencedByAssignment(departmentId)
                 || isReferencedByPayrollSummary(departmentId)
                 || isReferencedByAggregate(departmentId)
-                || isReferencedByRanking(departmentId);
+                || isReferencedByRanking(departmentId)
+                || isReferencedByPercentile(departmentId);
     }
 }

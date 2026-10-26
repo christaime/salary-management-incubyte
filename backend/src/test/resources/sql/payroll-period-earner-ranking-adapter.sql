@@ -1,7 +1,8 @@
 -- Seed for PayrollPeriodEarnerRankingRepositoryAdapterTest.
 -- Fixed UUIDs so the test can reference them by literal.
--- Each ranking row carries the original amount (assignment currency) and the
--- reference amount (USD). Conversion is total * reference_amount / rate.
+-- Each ranking row carries the original amount (assignment currency), the
+-- reference amount (USD), the number of labor days covered, and the monthly
+-- rate derived from them.
 
 INSERT INTO countries (id, iso_code, name, currency_code) VALUES
     ('11111111-1111-1111-1111-111111111111', 'FR', 'France', 'EUR'),
@@ -31,11 +32,14 @@ INSERT INTO payroll_periods (id, name, start_date, end_date, frequency, closed) 
     ('66666666-6666-6666-6666-666666666666',
      'February 2026', '2026-02-01', '2026-02-28', 'MONTHLY', 0);
 
+-- 5000 EUR over 31 days (monthly), Jan has 31 days -> monthly rate 5376.34 USD
+-- 1200 EUR over 31 days (monthly), Jan has 31 days -> monthly rate 1290.32 USD
 INSERT INTO payroll_period_earner_rankings
     (id, payroll_period_id, status, country_id, department_id, role_id,
      employment_type, direction, rank, employee_id,
      original_amount, original_currency,
-     reference_amount, reference_currency)
+     reference_amount, reference_currency,
+     days_covered, monthly_rate_amount, monthly_rate_currency)
 VALUES
     ('77777777-7777-7777-7777-777777777777',
      '55555555-5555-5555-5555-555555555555',
@@ -46,7 +50,8 @@ VALUES
      'FULL_TIME', 'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
      5000.00, 'EUR',
-     5376.34, 'USD'),
+     5376.34, 'USD',
+     31, 5376.34, 'USD'),
     ('88888888-8888-8888-8888-888888888888',
      '55555555-5555-5555-5555-555555555555',
      'DRAFT',
@@ -56,4 +61,43 @@ VALUES
      'FULL_TIME', 'BOTTOM', 1,
      'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
      1200.00, 'EUR',
-     1290.32, 'USD');
+     1290.32, 'USD',
+     31, 1290.32, 'USD');
+
+-- Percentile rows for the same period, global group (all dimensions NULL).
+-- n = 2 is below MIN_POPULATION_FOR_PERCENTILE = 10, so in the real pipeline
+-- no rows would be emitted. These are seeded so the percentile adapter test
+-- can exercise read paths on a populated table.
+INSERT INTO payroll_period_earner_percentiles
+    (id, payroll_period_id, status, country_id, department_id, role_id,
+     employment_type, percentile,
+     reference_amount, reference_currency, employee_count)
+VALUES
+    ('dddddddd-dddd-dddd-dddd-ddddddddddd1',
+     '55555555-5555-5555-5555-555555555555', 'DRAFT',
+     NULL, NULL, NULL, NULL, 0,
+     1290.32, 'USD', 2),
+    ('dddddddd-dddd-dddd-dddd-ddddddddddd2',
+     '55555555-5555-5555-5555-555555555555', 'DRAFT',
+     NULL, NULL, NULL, NULL, 10,
+     1290.32, 'USD', 2),
+    ('dddddddd-dddd-dddd-dddd-ddddddddddd3',
+     '55555555-5555-5555-5555-555555555555', 'DRAFT',
+     NULL, NULL, NULL, NULL, 25,
+     1290.32, 'USD', 2),
+    ('dddddddd-dddd-dddd-dddd-ddddddddddd4',
+     '55555555-5555-5555-5555-555555555555', 'DRAFT',
+     NULL, NULL, NULL, NULL, 50,
+     1290.32, 'USD', 2),
+    ('dddddddd-dddd-dddd-dddd-ddddddddddd5',
+     '55555555-5555-5555-5555-555555555555', 'DRAFT',
+     NULL, NULL, NULL, NULL, 75,
+     5376.34, 'USD', 2),
+    ('dddddddd-dddd-dddd-dddd-ddddddddddd6',
+     '55555555-5555-5555-5555-555555555555', 'DRAFT',
+     NULL, NULL, NULL, NULL, 90,
+     5376.34, 'USD', 2),
+    ('dddddddd-dddd-dddd-dddd-ddddddddddd7',
+     '55555555-5555-5555-5555-555555555555', 'DRAFT',
+     NULL, NULL, NULL, NULL, 100,
+     5376.34, 'USD', 2);

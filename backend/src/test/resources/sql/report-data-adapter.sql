@@ -27,6 +27,9 @@
 --
 -- reference_total = sum of the four individually rounded converted components,
 -- so the CHECK constraints on payroll_period_aggregates hold exactly.
+--
+-- All ranking rows below are MONTHLY over January (31 days), so
+-- days_covered = 31 and monthly_rate_amount = reference_amount.
 
 INSERT INTO countries (id, iso_code, name, currency_code) VALUES
     ('11111111-1111-1111-1111-111111111111', 'FR', 'France', 'EUR'),
@@ -200,7 +203,8 @@ VALUES
 INSERT INTO payroll_period_earner_rankings
     (id, payroll_period_id, status, country_id, department_id, role_id,
      employment_type, direction, rank, employee_id,
-     original_amount, original_currency, reference_amount, reference_currency)
+     original_amount, original_currency, reference_amount, reference_currency,
+     days_covered, monthly_rate_amount, monthly_rate_currency)
 VALUES
     ('dddddddd-dddd-dddd-dddd-ddddddddddd1',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
@@ -209,7 +213,8 @@ VALUES
      '55555555-5555-5555-5555-555555555555',
      'FULL_TIME', 'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01',
-     2700.00, 'EUR', 2500.00, 'USD'),
+     2700.00, 'EUR', 2500.00, 'USD',
+     31, 2500.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd2',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      '11111111-1111-1111-1111-111111111111',
@@ -217,7 +222,8 @@ VALUES
      '55555555-5555-5555-5555-555555555555',
      'FULL_TIME', 'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa03',
-     1080.00, 'EUR', 1000.00, 'USD'),
+     1080.00, 'EUR', 1000.00, 'USD',
+     31, 1000.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd3',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      '22222222-2222-2222-2222-222222222222',
@@ -225,7 +231,8 @@ VALUES
      '66666666-6666-6666-6666-666666666666',
      'FULL_TIME', 'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD'),
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd4',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      '22222222-2222-2222-2222-222222222222',
@@ -233,135 +240,157 @@ VALUES
      '66666666-6666-6666-6666-666666666666',
      'FULL_TIME', 'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD');
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD');
 
 -- COUNTRY partition: country_id set, others NULL.
 INSERT INTO payroll_period_earner_rankings
     (id, payroll_period_id, status, country_id, department_id, role_id,
      employment_type, direction, rank, employee_id,
-     original_amount, original_currency, reference_amount, reference_currency)
+     original_amount, original_currency, reference_amount, reference_currency,
+     days_covered, monthly_rate_amount, monthly_rate_currency)
 VALUES
     ('dddddddd-dddd-dddd-dddd-ddddddddddd5',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      '11111111-1111-1111-1111-111111111111', NULL, NULL, NULL,
      'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01',
-     2700.00, 'EUR', 2500.00, 'USD'),
+     2700.00, 'EUR', 2500.00, 'USD',
+     31, 2500.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd6',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      '11111111-1111-1111-1111-111111111111', NULL, NULL, NULL,
      'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa03',
-     1080.00, 'EUR', 1000.00, 'USD'),
+     1080.00, 'EUR', 1000.00, 'USD',
+     31, 1000.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd7',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      '22222222-2222-2222-2222-222222222222', NULL, NULL, NULL,
      'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD'),
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd8',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      '22222222-2222-2222-2222-222222222222', NULL, NULL, NULL,
      'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD');
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD');
 
 -- DEPARTMENT partition: department_id set, others NULL.
 INSERT INTO payroll_period_earner_rankings
     (id, payroll_period_id, status, country_id, department_id, role_id,
      employment_type, direction, rank, employee_id,
-     original_amount, original_currency, reference_amount, reference_currency)
+     original_amount, original_currency, reference_amount, reference_currency,
+     days_covered, monthly_rate_amount, monthly_rate_currency)
 VALUES
     ('dddddddd-dddd-dddd-dddd-ddddddddddd9',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, '33333333-3333-3333-3333-333333333333', NULL, NULL,
      'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01',
-     2700.00, 'EUR', 2500.00, 'USD'),
+     2700.00, 'EUR', 2500.00, 'USD',
+     31, 2500.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd10',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, '33333333-3333-3333-3333-333333333333', NULL, NULL,
      'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa03',
-     1080.00, 'EUR', 1000.00, 'USD'),
+     1080.00, 'EUR', 1000.00, 'USD',
+     31, 1000.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd11',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, '44444444-4444-4444-4444-444444444444', NULL, NULL,
      'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD'),
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd12',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, '44444444-4444-4444-4444-444444444444', NULL, NULL,
      'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD');
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD');
 
 -- ROLE partition: role_id set, others NULL.
 INSERT INTO payroll_period_earner_rankings
     (id, payroll_period_id, status, country_id, department_id, role_id,
      employment_type, direction, rank, employee_id,
-     original_amount, original_currency, reference_amount, reference_currency)
+     original_amount, original_currency, reference_amount, reference_currency,
+     days_covered, monthly_rate_amount, monthly_rate_currency)
 VALUES
     ('dddddddd-dddd-dddd-dddd-ddddddddddd13',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, NULL, '55555555-5555-5555-5555-555555555555', NULL,
      'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01',
-     2700.00, 'EUR', 2500.00, 'USD'),
+     2700.00, 'EUR', 2500.00, 'USD',
+     31, 2500.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd14',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, NULL, '55555555-5555-5555-5555-555555555555', NULL,
      'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa03',
-     1080.00, 'EUR', 1000.00, 'USD'),
+     1080.00, 'EUR', 1000.00, 'USD',
+     31, 1000.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd15',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, NULL, '66666666-6666-6666-6666-666666666666', NULL,
      'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD'),
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd16',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, NULL, '66666666-6666-6666-6666-666666666666', NULL,
      'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD');
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD');
 
 -- EMPLOYMENT_TYPE partition: employment_type set, others NULL.
 INSERT INTO payroll_period_earner_rankings
     (id, payroll_period_id, status, country_id, department_id, role_id,
      employment_type, direction, rank, employee_id,
-     original_amount, original_currency, reference_amount, reference_currency)
+     original_amount, original_currency, reference_amount, reference_currency,
+     days_covered, monthly_rate_amount, monthly_rate_currency)
 VALUES
     ('dddddddd-dddd-dddd-dddd-ddddddddddd17',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, NULL, NULL, 'FULL_TIME',
      'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01',
-     2700.00, 'EUR', 2500.00, 'USD'),
+     2700.00, 'EUR', 2500.00, 'USD',
+     31, 2500.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd18',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, NULL, NULL, 'FULL_TIME',
      'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD');
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD');
 
 -- GLOBAL partition: all four dimensions NULL.
 INSERT INTO payroll_period_earner_rankings
     (id, payroll_period_id, status, country_id, department_id, role_id,
      employment_type, direction, rank, employee_id,
-     original_amount, original_currency, reference_amount, reference_currency)
+     original_amount, original_currency, reference_amount, reference_currency,
+     days_covered, monthly_rate_amount, monthly_rate_currency)
 VALUES
     ('dddddddd-dddd-dddd-dddd-ddddddddddd21',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, NULL, NULL, NULL,
      'TOP', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa01',
-     2700.00, 'EUR', 2500.00, 'USD'),
+     2700.00, 'EUR', 2500.00, 'USD',
+     31, 2500.00, 'USD'),
     ('dddddddd-dddd-dddd-dddd-ddddddddddd22',
      '77777777-7777-7777-7777-777777777777', 'VALIDATED',
      NULL, NULL, NULL, NULL,
      'BOTTOM', 1,
      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaa04',
-     675.00, 'EUR', 625.00, 'USD');
+     675.00, 'EUR', 625.00, 'USD',
+     31, 625.00, 'USD');

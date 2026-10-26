@@ -1,11 +1,11 @@
 package com.salary.management.application.snapshot;
 
+import com.salary.management.application.dto.EmployeeRefDto;
 import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.PayrollPeriodAggregate;
 import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.ReportWarningCode;
-import com.salary.management.domain.model.values.EmployeeRef;
 import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.model.values.SnapshotBuildResult;
 import com.salary.management.domain.repository.PayrollPeriodRepository;
@@ -53,7 +53,7 @@ class SnapshotBuilderTest {
         SnapshotBuildResult result = builder.build(period);
 
         assertTrue(result.aggregates().isEmpty());
-        assertTrue(result.rankings().isEmpty());
+        assertTrue(result.rankingAndPercentiles().isEmpty());
         assertEquals(1, result.blockers().size());
         ReportWarning blocker = result.blockers().get(0);
         assertEquals(ReportWarningCode.PERIOD_CLOSED, blocker.code());
@@ -74,7 +74,7 @@ class SnapshotBuilderTest {
         SnapshotBuildResult result = builder.build(period);
 
         assertTrue(result.aggregates().isEmpty());
-        assertTrue(result.rankings().isEmpty());
+        assertTrue(result.rankingAndPercentiles().isEmpty());
         assertTrue(result.blockers().isEmpty());
         assertEquals(1, result.warnings().size());
         ReportWarning warning = result.warnings().get(0);
@@ -82,7 +82,7 @@ class SnapshotBuilderTest {
         assertEquals(ReportWarning.Severity.WARNING, warning.severity());
         assertEquals(3, warning.details().get("count"));
         @SuppressWarnings("unchecked")
-        List<EmployeeRef> employees = (List<EmployeeRef>) warning.details().get("employees");
+        List<EmployeeRefDto> employees = (List<EmployeeRefDto>) warning.details().get("employees");
         assertEquals(3, employees.size());
         assertTrue(employees.stream()
                 .anyMatch(e -> "EMP-000001".equals(e.matricule())));
@@ -115,13 +115,13 @@ class SnapshotBuilderTest {
 
         // Five keys per direction (global, country, department, role, employment type),
         // three employees per group, so 5 x 3 = 15 rows per direction.
-        long tops = result.rankings().stream()
+        long tops = result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP).count();
-        long bottoms = result.rankings().stream()
+        long bottoms = result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM).count();
         assertEquals(15, tops);
         assertEquals(15, bottoms);
-        assertEquals(30, result.rankings().size());
+        assertEquals(30, result.rankingAndPercentiles().rankings().size());
     }
 
     @Test
@@ -132,13 +132,13 @@ class SnapshotBuilderTest {
 
         SnapshotBuildResult result = builder.build(period);
 
-        List<PayrollPeriodEarnerRanking> tops = result.rankings().stream()
+        List<PayrollPeriodEarnerRanking> tops = result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
                 .sorted((a, b) -> Integer.compare(a.getRank(), b.getRank()))
                 .toList();
         // Fifteen TOP rows, but only the three from the global partition carry rank 1..3
         // for the whole period. Use the global partition by filtering on null dimensions.
-        List<PayrollPeriodEarnerRanking> globalTops = result.rankings().stream()
+        List<PayrollPeriodEarnerRanking> globalTops = result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
                 .filter(r -> r.getCountry() == null && r.getDepartment() == null
                         && r.getRole() == null && r.getEmploymentType() == null)
@@ -168,7 +168,7 @@ class SnapshotBuilderTest {
         assertEquals(0, top3.getOriginalAmount().getAmount()
                 .compareTo(new BigDecimal("1350.00")));
 
-        List<PayrollPeriodEarnerRanking> globalBottoms = result.rankings().stream()
+        List<PayrollPeriodEarnerRanking> globalBottoms = result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM)
                 .filter(r -> r.getCountry() == null && r.getDepartment() == null
                         && r.getRole() == null && r.getEmploymentType() == null)
@@ -198,16 +198,16 @@ class SnapshotBuilderTest {
         assertEquals(ReportWarning.Severity.BLOCKER, blocker.severity());
         assertEquals(1, blocker.details().get("count"));
         @SuppressWarnings("unchecked")
-        List<EmployeeRef> employees = (List<EmployeeRef>) blocker.details().get("employees");
+        List<EmployeeRefDto> employees = (List<EmployeeRefDto>) blocker.details().get("employees");
         assertEquals(1, employees.size());
         assertEquals("EMP-000003", employees.get(0).matricule());
 
         assertEquals(1, result.aggregates().size());
         assertEquals(2, result.aggregates().get(0).getEmployeeCount());
         // 2 employees x 5 keys per direction.
-        assertEquals(10, result.rankings().stream()
+        assertEquals(10, result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP).count());
-        assertEquals(10, result.rankings().stream()
+        assertEquals(10, result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM).count());
     }
 
@@ -241,17 +241,17 @@ class SnapshotBuilderTest {
         assertEquals(3, cm.getEmployeeCount());
 
         // Only FR rows survive the ranking query's rate filter. 3 employees x 5 keys.
-        assertEquals(15, result.rankings().stream()
+        assertEquals(15, result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP).count());
-        assertEquals(15, result.rankings().stream()
+        assertEquals(15, result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM).count());
-        assertTrue(result.rankings().stream()
+        assertTrue(result.rankingAndPercentiles().rankings().stream()
                 .allMatch(r -> "EUR".equals(r.getOriginalAmount().getCurrency())));
-        assertTrue(result.rankings().stream()
+        assertTrue(result.rankingAndPercentiles().rankings().stream()
                 .allMatch(r -> "USD".equals(r.getReferenceAmount().getCurrency())));
 
         // The global TOP rank 1 is the highest FR total.
-        PayrollPeriodEarnerRanking frTop1 = result.rankings().stream()
+        PayrollPeriodEarnerRanking frTop1 = result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
                 .filter(r -> r.getRank() == 1)
                 .filter(r -> r.getCountry() == null && r.getDepartment() == null
@@ -281,15 +281,15 @@ class SnapshotBuilderTest {
         assertEquals(2, result.aggregates().size());
         result.aggregates().forEach(a -> assertTrue(a.getReferenceAmounts() != null));
 
-        long tops = result.rankings().stream()
+        long tops = result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP).count();
-        long bottoms = result.rankings().stream()
+        long bottoms = result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM).count();
         // Per direction: global 5 (limit), country 3+3=6, department 5, role 5,
         // employment type 5 = 26. Two directions = 52.
         assertEquals(26, tops);
         assertEquals(26, bottoms);
-        assertEquals(52, result.rankings().size());
+        assertEquals(52, result.rankingAndPercentiles().rankings().size());
     }
 
     @Test
@@ -300,7 +300,7 @@ class SnapshotBuilderTest {
 
         SnapshotBuildResult result = builder.build(period);
 
-        PayrollPeriodEarnerRanking xafTop1 = result.rankings().stream()
+        PayrollPeriodEarnerRanking xafTop1 = result.rankingAndPercentiles().rankings().stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
                 .filter(r -> "XAF".equals(r.getOriginalAmount().getCurrency()))
                 .filter(r -> r.getCountry() != null)

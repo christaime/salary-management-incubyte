@@ -4,44 +4,17 @@ import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.infrastructure.persistence.embeddable.AmountEmbeddable;
-import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.AttributeOverrides;
-import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.util.UUID;
 
-/**
- * JPA entity for one entry in the top or bottom earner ranking of a payroll period,
- * scoped to a (country, department, role, employment type) combination.
- *
- * <p>Holds two {@link AmountEmbeddable} instances: the employee's total in the assignment
- * currency ({@code original_*}) and the same total converted to the reference currency
- * ({@code reference_*}). Column names are overridden so the two do not collide. The
- * identifier is assigned by the domain.</p>
- */
 @Entity
-@Table(
-        name = "payroll_period_earner_rankings",
+@Table(name = "payroll_period_earner_rankings",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_payroll_period_earner_ranking_group",
-                columnNames = {
-                        "payroll_period_id", "country_id", "department_id", "role_id",
-                        "employment_type", "direction", "rank"
-                }
-        )
-)
+                columnNames = {"payroll_period_id", "country_id", "department_id",
+                        "role_id", "employment_type", "direction", "rank"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -50,7 +23,6 @@ import java.util.UUID;
 public class PayrollPeriodEarnerRankingEntity {
 
     @Id
-    @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
     @Column(name = "payroll_period_id", nullable = false)
@@ -83,23 +55,32 @@ public class PayrollPeriodEarnerRankingEntity {
     @Column(name = "employee_id", nullable = false)
     private UUID employeeId;
 
-    /** Employee total in the assignment currency. */
+    /** Number of labor days the raw sum covers (14, 28, 31, ...). */
+    @Column(name = "days_covered")
+    private Integer daysCovered;
+
     @Embedded
     @AttributeOverrides({
-            @AttributeOverride(name = "amount",
-                    column = @Column(name = "original_amount", nullable = false)),
-            @AttributeOverride(name = "currency",
-                    column = @Column(name = "original_currency", nullable = false, length = 3))
+            @AttributeOverride(name = "amount",   column = @Column(name = "original_amount")),
+            @AttributeOverride(name = "currency", column = @Column(name = "original_currency"))
     })
     private AmountEmbeddable originalAmount;
 
-    /** Employee total converted to the reference currency. */
     @Embedded
     @AttributeOverrides({
-            @AttributeOverride(name = "amount",
-                    column = @Column(name = "reference_amount", nullable = false)),
-            @AttributeOverride(name = "currency",
-                    column = @Column(name = "reference_currency", nullable = false, length = 3))
+            @AttributeOverride(name = "amount",   column = @Column(name = "reference_amount")),
+            @AttributeOverride(name = "currency", column = @Column(name = "reference_currency"))
     })
     private AmountEmbeddable referenceAmount;
+
+    /**
+     * Ranking key. Monthly rate = (referenceAmount / daysCovered) × daysInMonth.
+     * Stored as an embeddable so amount + currency travel together.
+     */
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "amount",   column = @Column(name = "monthly_rate_amount")),
+            @AttributeOverride(name = "currency", column = @Column(name = "monthly_rate_currency"))
+    })
+    private AmountEmbeddable monthlyRateAmount;
 }

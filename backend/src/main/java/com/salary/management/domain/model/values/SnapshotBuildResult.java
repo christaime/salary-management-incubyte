@@ -4,6 +4,7 @@ import com.salary.management.domain.model.PayrollPeriodAggregate;
 import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Result of a snapshot build. Holds the aggregates and rankings the builder computed for a
@@ -21,14 +22,14 @@ import java.util.List;
  */
 public record SnapshotBuildResult(
         List<PayrollPeriodAggregate> aggregates,
-        List<PayrollPeriodEarnerRanking> rankings,
+        RankingAndPercentileSnapshot rankingAndPercentiles,
         List<ReportWarning> warnings,
         List<ReportWarning> blockers
 ) {
 
     public SnapshotBuildResult {
-        aggregates = aggregates == null ? List.of() : List.copyOf(aggregates);
-        rankings = rankings == null ? List.of() : List.copyOf(rankings);
+        aggregates = aggregates == null ? java.util.List.of() : java.util.List.copyOf(aggregates);
+        rankingAndPercentiles = rankingAndPercentiles == null ? new RankingAndPercentileSnapshot(List.of(),List.of()) : new RankingAndPercentileSnapshot(List.copyOf(rankingAndPercentiles.rankings()),List.copyOf(rankingAndPercentiles.percentiles()));
         warnings = warnings == null ? List.of() : List.copyOf(warnings);
         blockers = blockers == null ? List.of() : List.copyOf(blockers);
     }

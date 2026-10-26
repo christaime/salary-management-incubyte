@@ -100,6 +100,19 @@ public interface RoleJpaRepository
     boolean isReferencedByRanking(@Param("roleId") UUID roleId);
 
     /**
+     * Returns whether any earner percentile entry is scoped to this role.
+     *
+     * @param roleId role identifier
+     * @return {@code true} when at least one percentile references it
+     */
+    @Query("""
+            SELECT COUNT(p) > 0
+            FROM PayrollPeriodEarnerPercentileEntity p
+            WHERE p.roleId = :roleId
+            """)
+    boolean isReferencedByPercentile(@Param("roleId") UUID roleId);
+
+    /**
      * Returns whether the role is referenced anywhere in the schema.
      *
      * @param roleId role identifier
@@ -109,6 +122,7 @@ public interface RoleJpaRepository
         return isReferencedByAssignment(roleId)
                 || isReferencedByPayrollSummary(roleId)
                 || isReferencedByAggregate(roleId)
-                || isReferencedByRanking(roleId);
+                || isReferencedByRanking(roleId)
+                || isReferencedByPercentile(roleId);
     }
 }

@@ -94,6 +94,60 @@ class PayrollPeriodEarnerRankingTest {
                 () -> valid().referenceAmount(null).build());
     }
 
+    // ------------------------------------------------------------------
+    // New fields: daysCovered + monthlyRateAmount
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("null daysCovered is rejected")
+    void nullDaysCoveredIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().daysCovered(null).build());
+    }
+
+    @Test
+    @DisplayName("daysCovered below 1 is rejected")
+    void daysCoveredBelowOneIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().daysCovered(0).build());
+    }
+
+    @Test
+    @DisplayName("null monthlyRateAmount is rejected")
+    void nullMonthlyRateAmountIsRejected() {
+        assertThrows(DomainValidationException.class,
+                () -> valid().monthlyRateAmount(null).build());
+    }
+
+    @Test
+    @DisplayName("monthly rate is derived correctly from reference amount and daysCovered")
+    void monthlyRateIsDerivedCorrectly() {
+        // referenceAmount = 5400 USD over 31 days
+        // monthlyRate = (5400 / 31) * 31 = 5400 (since the period is a full September)
+        PayrollPeriodEarnerRanking ranking = valid().build();
+        assertEquals(0, ranking.getMonthlyRateAmount().getAmount()
+                .compareTo(new BigDecimal("5400.00")));
+        assertEquals("USD", ranking.getMonthlyRateAmount().getCurrency());
+    }
+
+    @Test
+    @DisplayName("bi-weekly employee: 120 USD over 28 days -> monthly rate 132.86 (31-day month)")
+    void biWeeklyEmployeeMonthlyRate() {
+        // Ariana's case from the calendar-trap discussion.
+        PayrollPeriodEarnerRanking ranking = valid()
+                .payrollPeriod(aPayrollPeriod())   // September: 30 days
+                .referenceAmount(amount("120.00", "USD"))
+                .daysCovered(28)
+                .monthlyRateAmount(amount("128.57", "USD")) // (120/28)*30
+                .build();
+        assertEquals(0, ranking.getMonthlyRateAmount().getAmount()
+                .compareTo(new BigDecimal("128.57")));
+    }
+
+    // ------------------------------------------------------------------
+    // Copy methods
+    // ------------------------------------------------------------------
+
     @Test
     @DisplayName("withOriginalAmount returns a new instance with the same id")
     void withOriginalAmountReturnsNewInstanceWithSameId() {
@@ -137,6 +191,37 @@ class PayrollPeriodEarnerRankingTest {
     }
 
     @Test
+    @DisplayName("withDaysCovered returns a new instance with the same id")
+    void withDaysCoveredReturnsNewInstanceWithSameId() {
+        PayrollPeriodEarnerRanking original = valid().build();
+        PayrollPeriodEarnerRanking updated = original.withDaysCovered(14);
+
+        assertNotSame(original, updated);
+        assertEquals(original.getId(), updated.getId());
+        assertEquals(31, original.getDaysCovered());
+        assertEquals(14, updated.getDaysCovered());
+    }
+
+    @Test
+    @DisplayName("withMonthlyRate(Amount, int) updates both fields atomically")
+    void withMonthlyRateUpdatesBothFields() {
+        PayrollPeriodEarnerRanking original = valid().build();
+        PayrollPeriodEarnerRanking updated =
+                original.withMonthlyRate(amount("243.57", "USD"), 14);
+
+        assertNotSame(original, updated);
+        assertEquals(original.getId(), updated.getId());
+        assertEquals(31, original.getDaysCovered());
+        assertEquals(14, updated.getDaysCovered());
+        assertEquals(0, updated.getMonthlyRateAmount().getAmount()
+                .compareTo(new BigDecimal("243.57")));
+    }
+
+    // ------------------------------------------------------------------
+    // Happy path
+    // ------------------------------------------------------------------
+
+    @Test
     @DisplayName("happy path with realistic values")
     void happyPathWithRealisticValues() {
         PayrollPeriodEarnerRanking ranking = valid().build();
@@ -154,7 +239,15 @@ class PayrollPeriodEarnerRankingTest {
         assertEquals(0, ranking.getReferenceAmount().getAmount()
                 .compareTo(new BigDecimal("5400.00")));
         assertEquals("USD", ranking.getReferenceAmount().getCurrency());
+        assertEquals(31, ranking.getDaysCovered());
+        assertEquals(0, ranking.getMonthlyRateAmount().getAmount()
+                .compareTo(new BigDecimal("5400.00")));
+        assertEquals("USD", ranking.getMonthlyRateAmount().getCurrency());
     }
+
+    // ------------------------------------------------------------------
+    // Fixtures
+    // ------------------------------------------------------------------
 
     private PayrollPeriodEarnerRanking.Builder valid() {
         return PayrollPeriodEarnerRanking.builder()
@@ -168,7 +261,9 @@ class PayrollPeriodEarnerRankingTest {
                 .rank(1)
                 .employee(anEmployee())
                 .originalAmount(amount("5000.00", "EUR"))
-                .referenceAmount(amount("5400.00", "USD"));
+                .referenceAmount(amount("5400.00", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5400.00", "USD"));
     }
 
     private Amount amount(String value, String currency) {

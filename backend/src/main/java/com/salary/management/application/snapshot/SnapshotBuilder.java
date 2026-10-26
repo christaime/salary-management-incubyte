@@ -1,18 +1,9 @@
 package com.salary.management.application.snapshot;
 
+import com.salary.management.application.dto.EmployeeRefDto;
 import com.salary.management.common.pagination.DataPage;
-import com.salary.management.domain.model.Country;
-import com.salary.management.domain.model.Department;
-import com.salary.management.domain.model.Employee;
-import com.salary.management.domain.model.PayrollPeriod;
-import com.salary.management.domain.model.PayrollPeriodAggregate;
-import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
-import com.salary.management.domain.model.PayrollSummary;
-import com.salary.management.domain.model.Role;
-import com.salary.management.domain.model.enums.EarnerRankingDirection;
-import com.salary.management.domain.model.enums.GroupKey;
-import com.salary.management.domain.model.enums.PayrollSummaryStatus;
-import com.salary.management.domain.model.enums.ReportWarningCode;
+import com.salary.management.domain.model.*;
+import com.salary.management.domain.model.enums.*;
 import com.salary.management.domain.model.values.*;
 import com.salary.management.domain.repository.CountryRepository;
 import com.salary.management.domain.repository.DepartmentRepository;
@@ -23,7 +14,8 @@ import com.salary.management.domain.repository.PayrollSummaryRepository;
 import com.salary.management.domain.repository.RoleRepository;
 import com.salary.management.domain.repository.criteria.PayrollSummaryCriteria;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarnerRankingEntity;
-import com.salary.management.infrastructure.persistence.repository.DynamicRankingBuilder;
+import com.salary.management.infrastructure.persistence.mapper.PayrollPeriodPersistenceMapper;
+import com.salary.management.infrastructure.persistence.repository.PayrollPeriodJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -67,6 +59,8 @@ public class SnapshotBuilder {
     private final CountryRepository countryRepository;
     private final DepartmentRepository departmentRepository;
     private final RoleRepository roleRepository;
+    private final PayrollPeriodJpaRepository periodJpaRepository;
+    private final PayrollPeriodPersistenceMapper periodPersistenceMapper;
     private final PayrollPeriodAggregateRepository aggregateRepository;
     private final PayrollPeriodEarnerRankingRepository rankingRepository;
     private final CurrencyConverter currencyConverter;
@@ -81,14 +75,28 @@ public class SnapshotBuilder {
                     ReportWarning.Severity.BLOCKER,
                     "Period is closed; snapshot is only built for open periods",
                     Map.of("periodId", period.getId())));
-            return new SnapshotBuildResult(List.of(), List.of(), warnings, blockers);
+            return new SnapshotBuildResult(List.of(),new RankingAndPercentileSnapshot(List.of(),List.of()) , warnings, blockers);
         }
-
+        if (!PayrollPeriodFrequency.MONTHLY.equals(period.getFrequency())) {
+            blockers.add(new ReportWarning(
+                    ReportWarningCode.NOT_MONTHLY_PERIOD,
+                    ReportWarning.Severity.BLOCKER,
+                    "Period is not a monthly one; snapshot is only built on monthly periods",
+                    Map.of("periodId", period.getId())));
+            return new SnapshotBuildResult(List.of(),new RankingAndPercentileSnapshot(List.of(),List.of()) , warnings, blockers);
+        }
+        // We get the inner frequency period
+        List<PayrollPeriod> subPeriods = periodJpaRepository.findPeriodsInRangeWithStatusAndFrequency(period.getStartDate(), period.getEndDate(), PayrollPeriodFrequency.BI_WEEKLY)
+                                                            .stream().map(periodPersistenceMapper::toDomain).toList();
+        // We first collect warnings on the main period
         collectCoverageWarnings(period, warnings, blockers);
+        for(PayrollPeriod p:subPeriods){ // We collect warnings on sub periods
+            collectCoverageWarnings(p, warnings, blockers);
+        }
         // We load conversion data before operations needing it are call
         currencyConverter.initConverter();
         List<PayrollPeriodAggregate> aggregates = buildAggregates(period, blockers);
-        List<PayrollPeriodEarnerRanking> rankings = buildRankings(period);
+        RankingAndPercentileSnapshot rankings = buildRankings(period);
 
         return new SnapshotBuildResult(aggregates, rankings, warnings, blockers);
     }
@@ -103,8 +111,8 @@ public class SnapshotBuilder {
         int[] missingCount = new int[1];
         int[] unvalidatedCount = new int[1];
 
-        List<EmployeeRef> missing = findMissingEmployees(period, missingCount);
-        List<EmployeeRef> unvalidated = findUnvalidatedEmployees(period, unvalidatedCount);
+        List<EmployeeRefDto> missing = findMissingEmployees(period, missingCount);
+        List<EmployeeRefDto> unvalidated = findUnvalidatedEmployees(period, unvalidatedCount);
 
         if (missingCount[0] > 0) {
             warnings.add(new ReportWarning(
@@ -124,7 +132,7 @@ public class SnapshotBuilder {
         }
     }
 
-    private List<EmployeeRef> findMissingEmployees(PayrollPeriod period, int[] countOut) {
+    private List<EmployeeRefDto> findMissingEmployees(PayrollPeriod period, int[] countOut) {
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
                 .payrollPeriodId(period.getId())
                 .nonExistent(true)
@@ -133,16 +141,16 @@ public class SnapshotBuilder {
                 .build();
         DataPage<PayrollSummary> page = payrollSummaryRepository.pageNonExistent(criteria);
         countOut[0] = (int) page.totalElements();
-        List<EmployeeRef> details = new ArrayList<>();
+        List<EmployeeRefDto> details = new ArrayList<>();
         for (PayrollSummary summary : page.content()) {
             employeeRepository.findById(summary.getEmployeeId())
                     .ifPresent(e -> details.add(
-                            new EmployeeRef(e.getId(), e.getMatricule(), e.getName())));
+                            new EmployeeRefDto(e.getId(), e.getMatricule(), e.getName())));
         }
         return details;
     }
 
-    private List<EmployeeRef> findUnvalidatedEmployees(PayrollPeriod period, int[] countOut) {
+    private List<EmployeeRefDto> findUnvalidatedEmployees(PayrollPeriod period, int[] countOut) {
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
                 .payrollPeriodId(period.getId())
                 .status(PayrollSummaryStatus.DRAFT)
@@ -151,11 +159,11 @@ public class SnapshotBuilder {
                 .build();
         DataPage<PayrollSummary> page = payrollSummaryRepository.page(criteria);
         countOut[0] = (int) page.totalElements();
-        List<EmployeeRef> details = new ArrayList<>();
+        List<EmployeeRefDto> details = new ArrayList<>();
         for (PayrollSummary summary : page.content()) {
             employeeRepository.findById(summary.getEmployeeId())
                     .ifPresent(e -> details.add(
-                            new EmployeeRef(e.getId(), e.getMatricule(), e.getName())));
+                            new EmployeeRefDto(e.getId(), e.getMatricule(), e.getName())));
         }
         return details;
     }
@@ -166,7 +174,7 @@ public class SnapshotBuilder {
 
     private List<PayrollPeriodAggregate> buildAggregates(
             PayrollPeriod period, List<ReportWarning> blockers) {
-        List<GroupedSummary> groups = aggregateRepository.aggregateByGroup(period.getId());
+        List<GroupedSummary> groups = aggregateRepository.aggregateByGroup(period.getId(), period.getStartDate(), period.getEndDate());
         List<PayrollPeriodAggregate> aggregates = new ArrayList<>();
         boolean stopConvertingAmount = false;
 
@@ -225,43 +233,46 @@ public class SnapshotBuilder {
     // Rankings
     // ------------------------------------------------------------------
 
-    private List<PayrollPeriodEarnerRanking> buildRankings(PayrollPeriod period) {
+    private RankingAndPercentileSnapshot buildRankings(PayrollPeriod period) {
         List<PayrollPeriodEarnerRanking> rankings = new ArrayList<>();
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, null, RANKING_LIMIT)));
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, GroupKey.COUNTRY, RANKING_LIMIT)));
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, GroupKey.DEPARTMENT, RANKING_LIMIT)));
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, GroupKey.ROLE, RANKING_LIMIT)));
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.TOP, GroupKey.EMPLOYMENT_TYPE, RANKING_LIMIT)));
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, null, RANKING_LIMIT)));
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, GroupKey.COUNTRY, RANKING_LIMIT)));
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, GroupKey.DEPARTMENT, RANKING_LIMIT)));
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, GroupKey.ROLE, RANKING_LIMIT)));
-        rankings.addAll(toRankings(period,rankingRepository.rank(period.getId(), currencyConverter.getReferenceCurrency(), EarnerRankingDirection.BOTTOM, GroupKey.EMPLOYMENT_TYPE, RANKING_LIMIT)));
-        return rankings;
+        List<PayrollPeriodEarnerPercentile> percentiles = new ArrayList<>();
+        var result = rankingRepository.rankAndPercentile(period.getId(), currencyConverter.getReferenceCurrency(), null, RANKING_LIMIT);
+        if(result != null && result.rankings() != null){
+            rankings.addAll(result.rankings());
+        }
+        if(result != null && result.percentiles() != null){
+            percentiles.addAll(result.percentiles());
+        }
+        result = rankingRepository.rankAndPercentile(period.getId(), currencyConverter.getReferenceCurrency(), GroupKey.COUNTRY, RANKING_LIMIT);
+        if(result != null && result.rankings() != null){
+            rankings.addAll(result.rankings());
+        }
+        if(result != null && result.percentiles() != null){
+            percentiles.addAll(result.percentiles());
+        }
+        result = rankingRepository.rankAndPercentile(period.getId(), currencyConverter.getReferenceCurrency(), GroupKey.DEPARTMENT, RANKING_LIMIT);
+        if(result != null && result.rankings() != null){
+            rankings.addAll(result.rankings());
+        }
+        if(result != null && result.percentiles() != null){
+            percentiles.addAll(result.percentiles());
+        }
+        result = rankingRepository.rankAndPercentile(period.getId(), currencyConverter.getReferenceCurrency(), GroupKey.ROLE, RANKING_LIMIT);
+        if(result != null && result.rankings() != null){
+            rankings.addAll(result.rankings());
+        }
+        if(result != null && result.percentiles() != null){
+            percentiles.addAll(result.percentiles());
+        }
+        result = rankingRepository.rankAndPercentile(period.getId(), currencyConverter.getReferenceCurrency(), GroupKey.EMPLOYMENT_TYPE, RANKING_LIMIT);
+        if(result != null && result.rankings() != null){
+            rankings.addAll(result.rankings());
+        }
+        if(result != null && result.percentiles() != null){
+            percentiles.addAll(result.percentiles());
+        }
+        return new RankingAndPercentileSnapshot(rankings, percentiles);
     }
 
-    private List<PayrollPeriodEarnerRanking> toRankings(PayrollPeriod period,List<PayrollPeriodEarnerRankingEntity> rankingEntities) {
-        List<PayrollPeriodEarnerRanking> out = new ArrayList<>();
-        for (PayrollPeriodEarnerRankingEntity row : rankingEntities) {
-            Country country = row.getCountryId() != null ? countryRepository.findById(row.getCountryId()).orElseThrow() : null;
-            Department department = row.getDepartmentId() != null ? departmentRepository.findById(row.getDepartmentId()).orElseThrow() : null;
-            Role role = row.getRoleId() != null ? roleRepository.findById(row.getRoleId()).orElseThrow() : null;
-            Employee employee = employeeRepository.findById(row.getEmployeeId()).orElseThrow();
-            out.add(PayrollPeriodEarnerRanking.builder()
-                    .payrollPeriod(period)
-                    .status(PayrollSummaryStatus.DRAFT)
-                    .country(country)
-                    .department(department)
-                    .role(role)
-                    .employmentType(row.getEmploymentType())
-                    .direction(row.getDirection())
-                    .rank(row.getRank())
-                    .employee(employee)
-                    .originalAmount(Amount.builder().amount(row.getOriginalAmount().getAmount()).currency(row.getOriginalAmount().getCurrency()).build())
-                    .referenceAmount(Amount.builder().amount(row.getReferenceAmount().getAmount()).currency(row.getReferenceAmount().getCurrency()).build())
-                    .build());
-        }
-        return out;
-    }
 
 }
