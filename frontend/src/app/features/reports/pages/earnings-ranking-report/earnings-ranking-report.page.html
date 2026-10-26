@@ -1,0 +1,80 @@
+<div class="max-w-[1800px] mx-auto flex flex-col gap-4 p-4 md:px-8">
+
+  <!-- Header -->
+  <header class="flex flex-col gap-1">
+    <h1 data-testid="earnings-ranking-title"
+        class="text-xl font-semibold text-slate-900 m-0">
+      Earnings ranking report
+    </h1>
+    <p class="text-sm text-slate-700 m-0">
+      Pick a payroll period and a grouping to see the top and bottom 5 earners
+      with percentile context.
+    </p>
+  </header>
+
+  <!-- Blocker banner (HTTP errors, blockers) -->
+  <app-blocker-banner
+    [blockers]="blockers()"
+    (dismiss)="dismissBanner()"
+  />
+
+  <!-- Form -->
+  <section class="mb-4 mt-4">
+    <app-earnings-ranking-report-form
+      [submitting]="isLoading()"
+      (submitForm)="onSubmit($event)"
+      (cancel)="onCancel()"
+    />
+  </section>
+
+  <!-- Loading -->
+  @if (isLoading()) {
+  <div class="text-sm text-slate-500" role="status">
+    Generating ranking report…
+  </div>
+  }
+
+  <!-- Result body -->
+  @if (state() === 'success' && report()) {
+  @let r = report()!;
+
+  <!-- Report metadata strip -->
+  <section class="flex items-center justify-between border-b border-slate-200 pb-3">
+    <div class="flex items-center gap-2 text-xs text-slate-500">
+      <span class="font-mono uppercase tracking-wider">{{ r.period.name }}</span>
+      <span class="text-slate-300">·</span>
+      <span class="font-mono uppercase tracking-wider">{{ r.referenceCurrency }}</span>
+      <span class="text-slate-300">·</span>
+      <span class="font-mono uppercase tracking-wider">
+          {{ r.groupKey ?? 'GLOBAL' }}
+        </span>
+    </div>
+    <div class="text-[11px] font-mono text-slate-400">
+      {{ r.positionContext.employeeCount }} employees in scope
+    </div>
+  </section>
+
+  <!-- Warning banner (successful responses with warnings) -->
+  <app-warning-banner [warnings]="warnings()" />
+
+  <!-- Report content -->
+  <app-position-context [data]="r.positionContext" [referenceCurrency]="r.referenceCurrency" />
+
+  <app-earner-spectrum
+    [tops]="r.tops"
+    [bottoms]="r.bottoms"
+    [topTotalAnnual]="topTotalAnnual()"
+    [bottomTotalAnnual]="bottomTotalAnnual()"
+    [referenceCurrency]="r.referenceCurrency"
+    [frequency]="r.period.frequency"
+  />
+  }
+
+  <!-- Empty state -->
+  @if (state() === 'idle' && !report()) {
+  <div class="text-center py-16 text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl">
+    Pick a payroll period, choose how to group, then click Generate.
+  </div>
+  }
+
+</div>

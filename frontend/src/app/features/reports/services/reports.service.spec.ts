@@ -443,4 +443,40 @@ describe('ReportsService', () => {
 
     httpMock.expectOne(URL).error(new ProgressEvent('error'));
   });
+
+  describe('generateRankingReport', () => {
+    it('POSTs to /api/v1/reports/ranking and returns the body', () => {
+      const req: EarningRankingReportRequest = {
+        periodId: 'p-1',
+        groupKey: null,
+        countryId: null,
+        departmentId: null,
+        roleId: null,
+        employmentType: null,
+      };
+      const response: EarningRankingReportResponse = { /* ... */ } as any;
+
+      service.generateRankingReport(req).subscribe(r => expect(r).toEqual(response));
+
+      const http = httpMock.expectOne('/api/v1/reports/ranking');
+      expect(http.request.method).toBe('POST');
+      expect(http.request.body).toEqual(req);
+      http.flush(response);
+    });
+
+    it('maps error bodies through toReportsError', () => {
+      service.generateRankingReport({ periodId: 'p-1' } as any).subscribe({
+        error: (err: ReportsError) => {
+          expect(err.code).toBe('REPORT_BLOCKED');
+          expect(err.warnings.length).toBeGreaterThan(0);
+        },
+      });
+
+      const http = httpMock.expectOne('/api/v1/reports/ranking');
+      http.flush(
+        { code: 'REPORT_BLOCKED', message: 'Blocked', errors: [{ code: 'MISSING_FX_RATE', message: 'Missing XAF', severity: 'BLOCKER', details: { currency: 'XAF' } }] },
+        { status: 400, statusText: 'Bad Request' },
+      );
+    });
+  });
 });

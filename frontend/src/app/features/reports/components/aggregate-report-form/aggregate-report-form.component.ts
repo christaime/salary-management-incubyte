@@ -105,10 +105,13 @@ export class AggregateReportFormComponent {
   ]);
 
   // Filter for the End picker: starts from the endDate of the selected start period
+  readonly periodFilter = signal<PayrollPeriodCriteria>({ frequency: "MONTHLY" });
+
+  // Filter for the End picker: starts from the endDate of the selected start period
   readonly endPeriodFilter = computed<PayrollPeriodCriteria>(() => {
     const start = this.startPeriod();
-    if (!start) return {};
-    return { startDate: start.endDate };
+    if (!start) return {frequency: "MONTHLY"};
+    return { startDate: start.endDate, frequency: "MONTHLY" };
   });
 
   constructor() {

@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
 import { apiUrl } from '@core/config/api-base-url';
 import { AggregateReportRequest, AggregateReportResponse } from '../models';
+import { EarningRankingReportRequest, EarningRankingReportResponse } from '../models';
 import {
   ReportsError,
   ReportWarning,
@@ -12,6 +13,7 @@ import {
 } from './reports-error';
 
 const AGGREGATE_REPORT_URL = apiUrl('/api/v1/reports/aggregate');
+const RANKING_REPORT_URL   = apiUrl('/api/v1/reports/rankings');
 
 @Injectable({ providedIn: 'root' })
 export class ReportsService {
@@ -21,6 +23,11 @@ export class ReportsService {
     return this.http.post<AggregateReportResponse>(AGGREGATE_REPORT_URL, request)
       .pipe(catchError((err: unknown) => throwError(() => toReportsError(err))));
   }
+
+  generateRankingReport(request: EarningRankingReportRequest ): Observable<EarningRankingReportResponse> {
+      return this.http.post<EarningRankingReportResponse>(RANKING_REPORT_URL, request)
+        .pipe(catchError((err: unknown) => throwError(() => toReportsError(err))));
+    }
 }
 
 function toReportsError(err: any): ReportsError {

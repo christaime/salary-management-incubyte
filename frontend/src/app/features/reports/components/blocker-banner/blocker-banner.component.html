@@ -1,0 +1,125 @@
+@if (blockers().length > 0) {
+<div data-testid="blocker-banner"
+     class="flex items-start justify-between gap-4 p-4 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-900 shadow-xs"
+     role="alert">
+  <div class="flex items-start gap-3 w-full">
+    <mat-icon class="text-amber-600 shrink-0 mt-0.5">warning</mat-icon>
+
+    <div class="flex flex-col gap-2 w-full">
+      <h2 class="text-base font-semibold m-0 text-amber-900">Report Attention Required</h2>
+      <p class="text-sm m-0 text-amber-700">
+        Please review and resolve the following data warnings before proceeding.
+      </p>
+
+      <ul class="text-sm ml-4 mt-1 text-amber-800 list-disc flex flex-col gap-3 w-full">
+        @for (blocker of blockers(); track blocker.code + blocker.message) {
+        <li class="w-full">
+          <div [attr.data-testid]="'blocker-message-' + blocker.code"
+               class="font-medium text-amber-900">{{ blocker.message }}</div>
+
+          @switch (blocker.code) {
+
+          @case ('MISSING_PAYROLL_SUMMARY') {
+          @if ($any(blocker).countConcerned > 0 || $any(blocker).employees.length > 0) {
+          <div class="mt-2 text-xs text-amber-700 flex flex-col gap-2">
+            @if ($any(blocker).countConcerned > 0) {
+            <div>
+                      <span [attr.data-testid]="'blocker-count-' + blocker.code"
+                            [attr.data-value]="$any(blocker).countConcerned"
+                            class="font-semibold text-amber-900">
+                        {{ $any(blocker).countConcerned | number }}
+                      </span> total employee(s) affected:
+            </div>
+            }
+            @if ($any(blocker).employees.length > 0) {
+            <div class="flex flex-wrap gap-1.5">
+              @for (emp of $any(blocker).employees; track emp.id ?? emp.matricule) {
+              <span [attr.data-testid]="'blocker-employee-' + (emp.id ?? emp.matricule)"
+                    [attr.data-value]="emp.matricule"
+                    class="inline-flex items-center px-2 py-0.5 rounded bg-amber-100/90 text-amber-900 font-mono text-xs border border-amber-200 shadow-2xs">
+                          {{ emp.matricule }} — {{ emp.name }}
+                        </span>
+              }
+              @if ($any(blocker).countConcerned > $any(blocker).employees.length) {
+              <span [attr.data-testid]="'blocker-more-' + blocker.code"
+                    [attr.data-value]="$any(blocker).countConcerned - $any(blocker).employees.length"
+                    class="inline-flex items-center px-2 py-0.5 text-amber-700 text-xs italic font-medium">
+                          + {{ $any(blocker).countConcerned - $any(blocker).employees.length | number }} more not shown
+                        </span>
+              }
+            </div>
+            }
+          </div>
+          }
+          }
+
+          @case ('UNVALIDATED_PAYROLL_SUMMARY') {
+          @if ($any(blocker).countConcerned > 0 || $any(blocker).employees.length > 0) {
+          <div class="mt-2 text-xs text-amber-700 flex flex-col gap-2">
+            @if ($any(blocker).countConcerned > 0) {
+            <div>
+                      <span [attr.data-testid]="'blocker-count-' + blocker.code"
+                            [attr.data-value]="$any(blocker).countConcerned"
+                            class="font-semibold text-amber-900">
+                        {{ $any(blocker).countConcerned | number }}
+                      </span> total employee(s) affected:
+            </div>
+            }
+            @if ($any(blocker).employees.length > 0) {
+            <div class="flex flex-wrap gap-1.5">
+              @for (emp of $any(blocker).employees; track emp.id ?? emp.matricule) {
+              <span [attr.data-testid]="'blocker-employee-' + (emp.id ?? emp.matricule)"
+                    [attr.data-value]="emp.matricule"
+                    class="inline-flex items-center px-2 py-0.5 rounded bg-amber-100/90 text-amber-900 font-mono text-xs border border-amber-200 shadow-2xs">
+                          {{ emp.matricule }} — {{ emp.name }}
+                        </span>
+              }
+              @if ($any(blocker).countConcerned > $any(blocker).employees.length) {
+              <span [attr.data-testid]="'blocker-more-' + blocker.code"
+                    [attr.data-value]="$any(blocker).countConcerned - $any(blocker).employees.length"
+                    class="inline-flex items-center px-2 py-0.5 text-amber-700 text-xs italic font-medium">
+                          + {{ $any(blocker).countConcerned - $any(blocker).employees.length | number }} more not shown
+                        </span>
+              }
+            </div>
+            }
+          </div>
+          }
+          }
+
+          @case ('MISSING_FX_RATE') {
+          @if ($any(blocker).currency; as currency) {
+          <div class="mt-2 text-xs text-amber-700">
+            Missing rate for:
+            <span class="font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{{ currency }}</span>
+          </div>
+          }
+          }
+
+          @case ('MISSING_REFERENCE_CURRENCY') {
+          @if ($any(blocker).currency; as currency) {
+          <div class="mt-2 text-xs text-amber-700">
+            Reference currency:
+            <span class="font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{{ currency }}</span>
+          </div>
+          }
+          }
+
+          @case ('PERIOD_CLOSED') {
+          <!-- No extra details -->
+          }
+          }
+        </li>
+        }
+      </ul>
+    </div>
+  </div>
+
+  <button data-testid="dismiss-blocker-banner-button"
+          mat-icon-button type="button" aria-label="Dismiss"
+          class="text-amber-700 hover:text-amber-900 shrink-0"
+          (click)="dismiss.emit()">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+}

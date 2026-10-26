@@ -10,6 +10,7 @@
       [required]="'year'"
       [yearRange]="startPickerYearRange()"
       (yearChange)="onStartYearChange($event)"
+      [initialFilter]="periodFilter()"
     />
 
     <!-- End period picker -->
