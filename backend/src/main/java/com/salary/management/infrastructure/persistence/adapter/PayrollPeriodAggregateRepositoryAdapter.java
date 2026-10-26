@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -81,6 +82,16 @@ public class PayrollPeriodAggregateRepositoryAdapter
                         row.getEmployerTaxes(),
                         row.getTotal()))
                 .toList();
+    }
+
+    @Override
+    public BigDecimal sumReferenceTotalByPeriodId(UUID payrollPeriodId) {
+        return jpaRepository.sumReferenceTotalByPeriodId(payrollPeriodId);
+    }
+
+    @Override
+    public BigDecimal sumReferenceTotalByPeriodAndDimension(UUID payrollPeriodId, UUID countryId, UUID departmentId, UUID roleId, EmploymentType employmentType) {
+        return jpaRepository.sumReferenceTotalByPeriodAndDimension(payrollPeriodId,countryId,departmentId,roleId,employmentType);
     }
 
     /**

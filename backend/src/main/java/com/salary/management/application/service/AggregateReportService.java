@@ -1,13 +1,13 @@
 package com.salary.management.application.service;
 
-import com.salary.management.application.dto.AggregateLineDto;
-import com.salary.management.application.dto.AggregateReportRequest;
-import com.salary.management.application.dto.AggregateReportResponse;
+import com.salary.management.application.dto.aggregate.AggregateLineDto;
+import com.salary.management.application.dto.aggregate.AggregateReportRequest;
+import com.salary.management.application.dto.aggregate.AggregateReportResponse;
 import com.salary.management.application.dto.AmountDto;
 import com.salary.management.application.dto.AmountsDto;
 import com.salary.management.application.dto.DateRange;
-import com.salary.management.application.dto.StatisticsDto;
-import com.salary.management.application.dto.StatisticsPerFrequency;
+import com.salary.management.application.dto.aggregate.StatisticsDto;
+import com.salary.management.application.dto.aggregate.StatisticsPerFrequency;
 import com.salary.management.application.exception.ReportBlockedException;
 import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
@@ -19,7 +19,6 @@ import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.ReportKind;
 import com.salary.management.domain.model.values.AmountUtils;
 import com.salary.management.domain.model.values.ReportWarning;
-import com.salary.management.domain.model.values.SnapshotBuildResult;
 import com.salary.management.domain.repository.CurrencyRateRepository;
 import com.salary.management.domain.repository.PayrollPeriodAggregateRepository;
 import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
@@ -28,7 +27,6 @@ import com.salary.management.domain.repository.ReportDataRepository;
 import com.salary.management.domain.repository.criteria.PayrollPeriodCriteria;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,17 +43,30 @@ import java.util.UUID;
 
 /** Generates the aggregate payroll report defined in Milestone 5. */
 @Service
-@RequiredArgsConstructor
-public class AggregateReportService {
+public class AggregateReportService extends  ReportService{
 
-    private final PayrollPeriodRepository payrollPeriodRepository;
-    private final PayrollPeriodAggregateRepository payrollPeriodAggregateRepository;
-    private final PayrollPeriodEarnerRankingRepository payrollPeriodEarnerRankingRepository;
     private final ReportDataRepository reportDataRepository;
-    private final SnapshotBuilder snapshotBuilder;
     private final CurrencyRateRepository currencyRateRepository;
-    private String referenceCurrency;
 
+    public AggregateReportService(
+            PayrollPeriodRepository payrollPeriodRepository,
+            PayrollPeriodAggregateRepository payrollPeriodAggregateRepository,
+            PayrollPeriodEarnerRankingRepository payrollPeriodEarnerRankingRepository,
+            SnapshotBuilder snapshotBuilder,
+            ReportDataRepository reportDataRepository,
+            CurrencyRateRepository currencyRateRepository) {
+        super(payrollPeriodRepository,
+                payrollPeriodAggregateRepository,
+                payrollPeriodEarnerRankingRepository,
+                snapshotBuilder);
+        this.currencyRateRepository = currencyRateRepository;
+        this.reportDataRepository = reportDataRepository;
+    }
+
+    @Override
+    protected String referenceCurrency() {
+        return currencyRateRepository.getReferenceCurrencyCode();
+    }
     /**
      * Generates the aggregate report for the given request.
      *
@@ -66,7 +77,6 @@ public class AggregateReportService {
      */
     @Transactional
     public AggregateReportResponse generate(AggregateReportRequest request) {
-        referenceCurrency = currencyRateRepository.getReferenceCurrencyCode();
 
         ReportEffectiveFilters filters = validate(request);
         List<PayrollPeriod> periods = resolvePeriods(request.dateRange());
@@ -87,6 +97,7 @@ public class AggregateReportService {
                 ? singleKeyOf(request.groupKeys())
                 : null;
 
+        String referenceCurrency = referenceCurrency();
         Map<StatisticsKey, StatisticsPair> monthlyStatistics = Map.of();
         Map<StatisticsKey, StatisticsPair> biWeeklyStatistics = Map.of();
         if (request.includeStatistics()) {
@@ -112,16 +123,6 @@ public class AggregateReportService {
                 referenceCurrency,
                 lines,
                 warnings);
-    }
-
-    private AggregateReportResponse emptyResponse(AggregateReportRequest request) {
-        return new AggregateReportResponse(
-                ReportKind.AGGREGATE,
-                request.dateRange(),
-                request.groupKeys(),
-                referenceCurrency,
-                List.of(),
-                List.of());
     }
 
     private ReportEffectiveFilters validate(AggregateReportRequest request) {
@@ -177,32 +178,6 @@ public class AggregateReportService {
                 .size(Integer.MAX_VALUE)
                 .build();
         return payrollPeriodRepository.list(criteria);
-    }
-
-    private List<ReportWarning> buildAndPersistSnapshots(List<PayrollPeriod> periods) {
-        if (periods.isEmpty()) {
-            return List.of();
-        }
-        List<ReportWarning> collectedWarnings = new ArrayList<>();
-        List<SnapshotBuildResult> built = new ArrayList<>();
-        for (PayrollPeriod period : periods) {
-            SnapshotBuildResult result = snapshotBuilder.build(period);
-            collectedWarnings.addAll(result.warnings());
-            if (!result.blockers().isEmpty()) {
-                throw new ReportBlockedException(result.blockers(), collectedWarnings);
-            }
-            built.add(result);
-        }
-        for (int i = 0; i < periods.size(); i++) {
-            UUID periodId = periods.get(i).getId();
-            SnapshotBuildResult result = built.get(i);
-            payrollPeriodAggregateRepository.deleteDraftsByPayrollPeriodId(periodId);
-            payrollPeriodEarnerRankingRepository.deleteDraftsByPayrollPeriodId(periodId);
-            payrollPeriodEarnerRankingRepository.deleteDraftsPercentileByPayrollPeriodId(periodId);
-            payrollPeriodAggregateRepository.saveAll(result.aggregates());
-            payrollPeriodEarnerRankingRepository.saveAll(result.rankingAndPercentiles().rankings(), result.rankingAndPercentiles().percentiles());
-        }
-        return collectedWarnings;
     }
 
     // ------------------------------------------------------------------
@@ -264,6 +239,7 @@ public class AggregateReportService {
             GroupKey statisticsKey,
             AggregateReportRequest request) {
         List<AggregateLineDto> lines = new ArrayList<>(rows.size());
+        String referenceCurrency = referenceCurrency();
         for (AggregateRowProjection row : rows) {
             AmountDto amount = new AmountDto(row.sumTotal, referenceCurrency);
             AmountsDto breakdown = request.breakdownRequested()
@@ -312,7 +288,7 @@ public class AggregateReportService {
         int employees = employeeCount == null ? 0 : employeeCount.intValue();
         int periods = periodCount == null ? 0 : periodCount.intValue();
         BigDecimal totalAmount = total == null ? BigDecimal.ZERO : total;
-
+        String referenceCurrency = referenceCurrency();
         AmountDto min = pair.min() != null
                 ? new AmountDto(pair.min().setScale(
                 AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),

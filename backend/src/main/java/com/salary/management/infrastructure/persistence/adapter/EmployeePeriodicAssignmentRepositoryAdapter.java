@@ -22,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,6 +62,24 @@ public class EmployeePeriodicAssignmentRepositoryAdapter
     @Override
     public Optional<EmployeePeriodicAssignment> findById(UUID id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    /**
+     * Returns the latest in-effect assignment of {@code employeeId} whose
+     * {@code startDate} falls inside {@code [startDate, endDate]} and whose
+     * {@code endDate} is {@code null} or {@code <= endDate}.
+     *
+     * <p>When several assignments qualify, the one with the latest
+     * {@code startDate} wins.</p>
+     */
+    @Override
+    public Optional<EmployeePeriodicAssignment> findByEmployeeIdAndDateRange(
+            UUID employeeId, LocalDate startDate, LocalDate endDate) {
+        return jpaRepository
+                .findOverlappingAssignments(employeeId, startDate, endDate)
+                .stream()
+                .findFirst()
+                .map(this::toDomain);
     }
 
     @Override

@@ -36,6 +36,9 @@ public final class Amount {
         return new Builder();
     }
 
+    public static Amount of(BigDecimal amount,String currency){
+        return builder().amount(amount).currency(currency).build();
+    }
     /**
      * Returns a new amount with the given value.
      *

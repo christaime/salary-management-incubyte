@@ -3,10 +3,14 @@ package com.salary.management.domain.repository;
 import com.salary.management.domain.model.PayrollPeriodEarnerPercentile;
 import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
+import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.values.RankingAndPercentileSnapshot;
 import com.salary.management.domain.repository.criteria.PayrollPeriodEarnerRankingCriteria;
+import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarnerRankingEntity;
 import com.salary.management.infrastructure.persistence.repository.DynamicRankingBuilder;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -51,4 +55,11 @@ public interface PayrollPeriodEarnerRankingRepository {
             GroupKey key,
             int limit);
 
+    List<PayrollPeriodEarnerRanking> findByPayrollPeriodAndDimension(
+            UUID payrollPeriodId, UUID countryId, UUID departmentId,
+            UUID roleId, EmploymentType employmentType);
+
+    List<PayrollPeriodEarnerPercentile> findPercentileByPayrollPeriodAndDimension(
+            UUID payrollPeriodId, UUID countryId, UUID departmentId,
+            UUID roleId, EmploymentType employmentType);
 }

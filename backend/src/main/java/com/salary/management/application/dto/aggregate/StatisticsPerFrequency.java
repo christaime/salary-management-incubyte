@@ -1,4 +1,6 @@
-package com.salary.management.application.dto;
+package com.salary.management.application.dto.aggregate;
+
+import com.salary.management.application.dto.AmountDto;
 
 /**
  * Statistics for one frequency within an aggregate report line.

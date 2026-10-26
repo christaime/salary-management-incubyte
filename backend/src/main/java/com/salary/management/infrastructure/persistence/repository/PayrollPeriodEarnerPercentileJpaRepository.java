@@ -95,4 +95,30 @@ public interface PayrollPeriodEarnerPercentileJpaRepository
             @Param("departmentId") UUID departmentId,
             @Param("roleId") UUID roleId,
             @Param("employmentType") String employmentType);
+
+    /**
+     * Returns the percentile points of one period that belong to the given
+     * dimension. See
+     * {@link PayrollPeriodEarnerRankingJpaRepository#findByPayrollPeriodAndDimension}
+     * for the null-safe filter convention.
+     */
+    @Query("""
+            SELECT p FROM PayrollPeriodEarnerPercentileEntity p
+            WHERE p.payrollPeriodId = :payrollPeriodId
+              AND ((:countryId IS NULL AND p.countryId IS NULL)
+                   OR p.countryId = :countryId)
+              AND ((:departmentId IS NULL AND p.departmentId IS NULL)
+                   OR p.departmentId = :departmentId)
+              AND ((:roleId IS NULL AND p.roleId IS NULL)
+                   OR p.roleId = :roleId)
+              AND ((:employmentType IS NULL AND p.employmentType IS NULL)
+                   OR p.employmentType = :employmentType)
+            ORDER BY p.percentile ASC
+            """)
+    List<PayrollPeriodEarnerPercentileEntity> findByPayrollPeriodAndDimension(
+            @Param("payrollPeriodId") UUID payrollPeriodId,
+            @Param("countryId") UUID countryId,
+            @Param("departmentId") UUID departmentId,
+            @Param("roleId") UUID roleId,
+            @Param("employmentType") String employmentType);
 }

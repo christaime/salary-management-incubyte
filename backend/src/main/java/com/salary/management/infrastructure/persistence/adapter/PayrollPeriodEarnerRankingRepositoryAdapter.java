@@ -44,6 +44,7 @@ public class PayrollPeriodEarnerRankingRepositoryAdapter
     private final PayrollPeriodEarnerPercentilePersistenceMapper periodEarnerPercentilePersistenceMapper;
     private final PayrollPeriodEarnerPercentileJpaRepository earnerPercentileJpaRepository;
 
+
     @Override
     public void saveAll(List<PayrollPeriodEarnerRanking> rankings) {
         List<PayrollPeriodEarnerRankingEntity> entities = rankings.stream()
@@ -105,6 +106,29 @@ public class PayrollPeriodEarnerRankingRepositoryAdapter
         PayrollPeriodEntity period = payrollPeriodJpaRepository.findById(payrollPeriodId).orElseThrow();
         DynamicRankingBuilder.RankingAndPercentileResult result = dynamicRankingBuilder.rankAndComputePercentilesForPeriod(period, referenceCurrencyCode, key, limit);
         return toSnapshot(result);
+    }
+
+    @Override
+    public List<PayrollPeriodEarnerRanking> findByPayrollPeriodAndDimension(
+            UUID payrollPeriodId, UUID countryId, UUID departmentId,
+            UUID roleId, EmploymentType employmentType) {
+        return jpaRepository.findByPayrollPeriodAndDimension(
+                        payrollPeriodId, countryId, departmentId, roleId, employmentType)
+                .stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<PayrollPeriodEarnerPercentile> findPercentileByPayrollPeriodAndDimension(
+            UUID payrollPeriodId, UUID countryId, UUID departmentId,
+            UUID roleId, EmploymentType employmentType) {
+        return earnerPercentileJpaRepository.findByPayrollPeriodAndDimension(
+                        payrollPeriodId, countryId, departmentId, roleId,
+                        employmentType == null ? null : employmentType.name())
+                .stream()
+                .map(this::toPercentileDomain)
+                .toList();
     }
 
     private Amount amount(java.math.BigDecimal value, String currency) {

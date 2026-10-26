@@ -1,4 +1,4 @@
-package com.salary.management.application.dto;
+package com.salary.management.application.dto.aggregate;
 
 
 public record StatisticsDto(

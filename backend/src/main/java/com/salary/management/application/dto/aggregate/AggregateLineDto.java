@@ -1,5 +1,8 @@
-package com.salary.management.application.dto;
+package com.salary.management.application.dto.aggregate;
 
+import com.salary.management.application.dto.AmountDto;
+import com.salary.management.application.dto.AmountsDto;
+import com.salary.management.application.dto.RefDto;
 import com.salary.management.domain.model.enums.EmploymentType;
 
 /**

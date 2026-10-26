@@ -1,5 +1,6 @@
 package com.salary.management.infrastructure.persistence.repository;
 
+import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodAggregateEntity;
 import com.salary.management.infrastructure.persistence.projection.AggregateRow;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -89,4 +91,45 @@ public interface PayrollPeriodAggregateJpaRepository
     List<AggregateRow> aggregateByGroup(
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    /**
+     * Returns the sum of reference totals across all aggregate rows of one period.
+     *
+     * @param periodId payroll period identifier
+     * @return sum of {@code referenceAmounts.total}, or zero when the period has no aggregates
+     */
+    @Query("""
+            SELECT COALESCE(SUM(a.referenceAmounts.total), 0)
+            FROM PayrollPeriodAggregateEntity a
+            WHERE a.payrollPeriodId = :periodId
+            """)
+    BigDecimal sumReferenceTotalByPeriodId(@Param("periodId") UUID periodId);
+
+    /**
+     * Returns the sum of reference totals across the aggregate rows of one period,
+     * restricted to the rows matching the given dimension. A {@code null} parameter
+     * means "do not filter on this column".
+     *
+     * @param periodId       payroll period identifier
+     * @param countryId      country filter, or {@code null}
+     * @param departmentId   department filter, or {@code null}
+     * @param roleId         role filter, or {@code null}
+     * @param employmentType employment type filter, or {@code null}
+     * @return sum of {@code referenceAmounts.total}, or zero when no row matches
+     */
+    @Query("""
+            SELECT COALESCE(SUM(a.referenceAmounts.total), 0)
+            FROM PayrollPeriodAggregateEntity a
+            WHERE a.payrollPeriodId = :periodId
+              AND (:countryId      IS NULL OR a.countryId      = :countryId)
+              AND (:departmentId   IS NULL OR a.departmentId   = :departmentId)
+              AND (:roleId         IS NULL OR a.roleId         = :roleId)
+              AND (:employmentType IS NULL OR a.employmentType = :employmentType)
+            """)
+    BigDecimal sumReferenceTotalByPeriodAndDimension(
+            @Param("periodId") UUID periodId,
+            @Param("countryId") UUID countryId,
+            @Param("departmentId") UUID departmentId,
+            @Param("roleId") UUID roleId,
+            @Param("employmentType") EmploymentType employmentType);
 }

@@ -66,6 +66,10 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
     @Autowired
     private EntityManager entityManager;
 
+    // ------------------------------------------------------------------
+    // save / findById
+    // ------------------------------------------------------------------
+
     @Test
     @DisplayName("save then findById returns the persisted assignment")
     void saveThenFindByIdReturnsPersistedAssignment() {
@@ -149,6 +153,10 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
         assertTrue(adapter.findById(missing).isEmpty());
     }
 
+    // ------------------------------------------------------------------
+    // findByEmployeeId
+    // ------------------------------------------------------------------
+
     @Test
     @DisplayName("findByEmployeeId returns the employee's assignments")
     void findByEmployeeIdReturnsAssignments() {
@@ -164,6 +172,10 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
 
         assertTrue(result.isEmpty());
     }
+
+    // ------------------------------------------------------------------
+    // list
+    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("list returns matching rows sorted by the requested field")
@@ -258,6 +270,10 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
         assertFalse(page.last());
     }
 
+    // ------------------------------------------------------------------
+    // deleteById
+    // ------------------------------------------------------------------
+
     @Test
     @DisplayName("deleteById removes an unreferenced assignment")
     void deleteByIdRemovesUnreferencedAssignment() {
@@ -310,6 +326,10 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
         assertTrue(jpaRepository.existsById(ASSIGNMENT_1));
     }
 
+    // ------------------------------------------------------------------
+    // save — fresh id
+    // ------------------------------------------------------------------
+
     @Test
     @DisplayName("save generates and persists a fresh id")
     void savePersistsFreshId() {
@@ -331,6 +351,140 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
         assertNull(assignment.getEndDate());
         assertEquals(PayrollPeriodFrequency.BI_WEEKLY, assignment.getPayrollFrequency());
     }
+
+    // ------------------------------------------------------------------
+    // findByEmployeeIdAndDateRange
+    //
+    // The query filters on:
+    //   start_date >= :startDate  AND  start_date <= :endDate
+    //   AND (end_date IS NULL OR end_date <= :endDate)
+    //   ORDER BY start_date DESC
+    // `in_effect` is NOT part of the predicate.
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("findByEmployeeIdAndDateRange returns an assignment whose start and end fit inside the range")
+    void findByEmployeeIdAndDateRangeFullFit() {
+        // ASSIGNMENT_1: start 2026-01-01, end 2026-06-30.
+        // Range [2026-01-01, 2026-06-30] satisfies all three predicates.
+        Optional<EmployeePeriodicAssignment> result = adapter
+                .findByEmployeeIdAndDateRange(ADA,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 6, 30));
+
+        assertTrue(result.isPresent());
+        assertEquals(ASSIGNMENT_1, result.get().getId());
+    }
+
+    @Test
+    @DisplayName("findByEmployeeIdAndDateRange excludes an assignment whose end is after the range")
+    void findByEmployeeIdAndDateRangeEndAfterRange() {
+        // ASSIGNMENT_1 ends 2026-06-30, range ends 2026-03-31 → 2026-06-30 > 2026-03-31 → excluded.
+        Optional<EmployeePeriodicAssignment> result = adapter
+                .findByEmployeeIdAndDateRange(ADA,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 3, 31));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("findByEmployeeIdAndDateRange excludes an assignment whose start is before the range")
+    void findByEmployeeIdAndDateRangeStartBeforeRange() {
+        // ASSIGNMENT_1 starts 2026-01-01, range starts 2026-02-01 → 2026-01-01 < 2026-02-01 → excluded.
+        Optional<EmployeePeriodicAssignment> result = adapter
+                .findByEmployeeIdAndDateRange(ADA,
+                        LocalDate.of(2026, 2, 1),
+                        LocalDate.of(2026, 6, 30));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("findByEmployeeIdAndDateRange excludes an assignment whose start is after the range")
+    void findByEmployeeIdAndDateRangeStartAfterRange() {
+        // ASSIGNMENT_1 starts 2026-01-01, range ends 2025-12-31 → start > end → excluded.
+        Optional<EmployeePeriodicAssignment> result = adapter
+                .findByEmployeeIdAndDateRange(ADA,
+                        LocalDate.of(2025, 1, 1),
+                        LocalDate.of(2025, 12, 31));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("findByEmployeeIdAndDateRange includes inactive assignments (in_effect is not filtered)")
+    void findByEmployeeIdAndDateRangeIncludesInactive() {
+        // ASSIGNMENT_2 is in_effect = 0 but its dates fit:
+        //   start 2026-07-01, end NULL. Range [2026-07-01, 2026-12-31] qualifies.
+        Optional<EmployeePeriodicAssignment> result = adapter
+                .findByEmployeeIdAndDateRange(ADA,
+                        LocalDate.of(2026, 7, 1),
+                        LocalDate.of(2026, 12, 31));
+
+        assertTrue(result.isPresent());
+        assertEquals(ASSIGNMENT_2, result.get().getId());
+        assertFalse(result.get().getInEffect());
+    }
+
+    @Test
+    @DisplayName("findByEmployeeIdAndDateRange includes an open-ended assignment (end_date NULL)")
+    void findByEmployeeIdAndDateRangeOpenEnded() {
+        // ASSIGNMENT_2: start 2026-07-01, end NULL. Range [2026-07-01, 2026-12-31].
+        Optional<EmployeePeriodicAssignment> result = adapter
+                .findByEmployeeIdAndDateRange(ADA,
+                        LocalDate.of(2026, 7, 1),
+                        LocalDate.of(2026, 12, 31));
+
+        assertTrue(result.isPresent());
+        assertEquals(ASSIGNMENT_2, result.get().getId());
+        assertNull(result.get().getEndDate());
+    }
+
+    @Test
+    @DisplayName("findByEmployeeIdAndDateRange picks the latest start_date when two assignments qualify")
+    void findByEmployeeIdAndDateRangePicksLatest() {
+        // The seed is sequential (ASSIGNMENT_1 ends 2026-06-30, ASSIGNMENT_2
+        // starts 2026-07-01), so no single range can match both. Widen
+        // ASSIGNMENT_2 backward so one range can match both, exercising the
+        // ORDER BY start_date DESC tie-break.
+        entityManager.createNativeQuery("""
+                UPDATE employee_periodic_assignments
+                SET start_date = '2026-06-01'
+                WHERE id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee2'
+                """).executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+
+        // Now both assignments start inside [2026-01-01, 2026-12-31]:
+        //   ASSIGNMENT_1: start 2026-01-01, end 2026-06-30
+        //   ASSIGNMENT_2: start 2026-06-01, end NULL
+        // ORDER BY start_date DESC → ASSIGNMENT_2 wins.
+        Optional<EmployeePeriodicAssignment> result = adapter
+                .findByEmployeeIdAndDateRange(ADA,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 12, 31));
+
+        assertTrue(result.isPresent());
+        assertEquals(ASSIGNMENT_2, result.get().getId());
+    }
+
+    @Test
+    @DisplayName("findByEmployeeIdAndDateRange returns empty for an unknown employee")
+    void findByEmployeeIdAndDateRangeUnknownEmployee() {
+        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        Optional<EmployeePeriodicAssignment> result = adapter
+                .findByEmployeeIdAndDateRange(missing,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 6, 30));
+
+        assertTrue(result.isEmpty());
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
 
     private Country country(UUID id) {
         return Country.builder()
