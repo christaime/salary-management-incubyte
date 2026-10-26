@@ -60,7 +60,7 @@ export class EarningsRankingReportFormComponent {
   readonly currentYear = new Date().getFullYear();
 
   readonly groupKeys: ReadonlyArray<{ value: GroupKey | null; label: string }> = [
-    { value: null,             label: 'Global (no grouping)' },
+    { value: null,             label: 'Global' },
     { value: 'COUNTRY',        label: 'Per Country' },
     { value: 'DEPARTMENT',     label: 'Per Department' },
     { value: 'ROLE',           label: 'Per Role' },

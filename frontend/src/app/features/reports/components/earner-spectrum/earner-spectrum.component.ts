@@ -5,7 +5,7 @@ import { EarnerRankingDto } from '../../models';
 @Component({
   selector: 'app-earner-spectrum',
   standalone: true,
-  imports: [RouterLink],
+  imports: [],
   templateUrl: './earner-spectrum.component.html',
   styleUrl: './earner-spectrum.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

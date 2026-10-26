@@ -32,7 +32,10 @@
               <span class="text-sm font-semibold text-slate-900 truncate">{{ item.employee.name }}</span>
               <span class="text-[10px] font-mono text-slate-400">{{ item.employee.matricule }}</span>
               @if (item.country) {
-              <span class="text-base leading-none" [title]="item.country.name">
+                  <span class="w-10 h-5 rounded bg-slate-100 border border-slate-200/80 flex items-center justify-center font-mono font-semibold text-[10px] text-slate-700 shrink-0">
+                    {{ item.country.code }}
+                  </span>
+                  <span class="text-base leading-none" [title]="item.country.name">
                     {{ countryFlag(item.country.code) }}
                   </span>
               }
@@ -63,9 +66,9 @@
       <span>
         Range: {{ formatAnnual(bottomRange().min) }} – {{ formatAnnual(bottomRange().max) }}
       </span>
-      <a class="text-blue-600 hover:underline flex items-center gap-1" [routerLink]="[]">
+     <!-- <a class="text-blue-600 hover:underline flex items-center gap-1" [routerLink]="[]">
         Click any row for full profile →
-      </a>
+      </a>-->
     </div>
   </div>
 
@@ -101,7 +104,10 @@
               <span class="text-sm font-semibold text-slate-900 truncate">{{ item.employee.name }}</span>
               <span class="text-[10px] font-mono text-slate-400">{{ item.employee.matricule }}</span>
               @if (item.country) {
-              <span class="text-base leading-none" [title]="item.country.name">
+                  <span class="w-10 h-5 rounded bg-slate-100 border border-slate-200/80 flex items-center justify-center font-mono font-semibold text-[10px] text-slate-700 shrink-0">
+                    {{ item.country.code }}
+                  </span>
+                  <span class="text-base leading-none" [title]="item.country.name">
                     {{ countryFlag(item.country.code) }}
                   </span>
               }

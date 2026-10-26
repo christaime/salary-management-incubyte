@@ -19,7 +19,7 @@
   />
 
   <!-- Form -->
-  <section class="mb-4 mt-4">
+  <section class="mb-2 mt-2">
     <app-earnings-ranking-report-form
       [submitting]="isLoading()"
       (submitForm)="onSubmit($event)"
@@ -39,7 +39,7 @@
   @let r = report()!;
 
   <!-- Report metadata strip -->
-  <section class="flex items-center justify-between border-b border-slate-200 pb-3">
+  <section class="flex items-center justify-between border-b border-slate-200 pb-1">
     <div class="flex items-center gap-2 text-xs text-slate-500">
       <span class="font-mono uppercase tracking-wider">{{ r.period.name }}</span>
       <span class="text-slate-300">·</span>
