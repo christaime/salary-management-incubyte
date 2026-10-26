@@ -1,4 +1,4 @@
-@if (warnings().length > 0) {
+@if (warnings() && warnings().length > 0) {
 <div data-testid="warning-banner"
      class="p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-900 shadow-xs">
   <h3 class="text-sm font-semibold flex items-center gap-2 m-0">
@@ -12,7 +12,7 @@
 
       @switch (warn.code) {
       @case ('MISSING_PAYROLL_SUMMARY') {
-      @if ($any(warn).countConcerned > 0 || $any(warn).employees.length > 0) {
+      @if ($any(warn).countConcerned > 0 || $any(warn).employees?.length > 0) {
       <div class="mt-1 text-xs text-yellow-700 flex flex-col gap-1.5">
         @if ($any(warn).countConcerned > 0) {
         <div>

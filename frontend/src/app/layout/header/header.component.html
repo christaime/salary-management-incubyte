@@ -1,7 +1,8 @@
-<header class="app-header">
+<header class="app-header" data-testid="app-header">
   <div class="header-left">
     <button
       class="btn-icon"
+      data-testid="sidebar-toggle-button"
       (click)="sidebarService.toggleOpen()"
       title="Toggle Sidebar"
       aria-label="Toggle Sidebar"
@@ -10,9 +11,9 @@
         <path d="M3 12h18M3 6h18M3 18h18"/>
       </svg>
     </button>
-    <div class="brand">
-      <span class="brand-logo"></span>
-      <h1 class="brand-title">Salary Management</h1>
+    <div class="brand" data-testid="brand">
+      <span class="brand-logo" data-testid="brand-logo"></span>
+      <h1 class="brand-title" data-testid="brand-title">Salary Management</h1>
     </div>
   </div>
 </header>

@@ -1,0 +1,381 @@
+{
+  "kind": "RANKING",
+  "period": {
+    "id": "f0000001-0000-4000-8000-000000000003",
+    "name": "2026-03 Monthly",
+    "startDate": "2026-03-01",
+    "endDate": "2026-03-31",
+    "frequency": "MONTHLY",
+    "closed": true
+  },
+  "referenceCurrency": "USD",
+  "groupKey": null,
+  "tops": [
+    {
+      "monthlyReferenceAmount": 25624.98,
+      "frequency": "MONTHLY",
+      "percentile": 10000,
+      "rank": 1,
+      "employee": {
+        "id": "0000043c-0000-4000-8000-00000000043c",
+        "matricule": "EMP-001084",
+        "name": "Emma Weber"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000005",
+        "code": "SENG",
+        "name": "Senior Streaming Engineer"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000005",
+        "code": "MARKETING",
+        "name": "Marketing"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000003",
+        "code": "FR",
+        "name": "France"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    },
+    {
+      "monthlyReferenceAmount": 25453.88,
+      "frequency": "MONTHLY",
+      "percentile": 9978,
+      "rank": 2,
+      "employee": {
+        "id": "000015ac-0000-4000-8000-0000000015ac",
+        "matricule": "EMP-005548",
+        "name": "Olivia Silva"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000005",
+        "code": "SENG",
+        "name": "Senior Streaming Engineer"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000009",
+        "code": "PEOPLE",
+        "name": "People & Culture"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000006",
+        "code": "CA",
+        "name": "Canada"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    },
+    {
+      "monthlyReferenceAmount": 25353.35,
+      "frequency": "MONTHLY",
+      "percentile": 9964,
+      "rank": 3,
+      "employee": {
+        "id": "0000175c-0000-4000-8000-00000000175c",
+        "matricule": "EMP-005980",
+        "name": "Wei Zhang"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000005",
+        "code": "SENG",
+        "name": "Senior Streaming Engineer"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000001",
+        "code": "CONTENT",
+        "name": "Content Production"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000004",
+        "code": "IN",
+        "name": "India"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    },
+    {
+      "monthlyReferenceAmount": 25177.58,
+      "frequency": "MONTHLY",
+      "percentile": 9941,
+      "rank": 4,
+      "employee": {
+        "id": "0000196c-0000-4000-8000-00000000196c",
+        "matricule": "EMP-006508",
+        "name": "Ananya Kumar"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000005",
+        "code": "SENG",
+        "name": "Senior Streaming Engineer"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000009",
+        "code": "PEOPLE",
+        "name": "People & Culture"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000004",
+        "code": "IN",
+        "name": "India"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    },
+    {
+      "monthlyReferenceAmount": 24988.06,
+      "frequency": "MONTHLY",
+      "percentile": 9916,
+      "rank": 5,
+      "employee": {
+        "id": "00001b7c-0000-4000-8000-000000001b7c",
+        "matricule": "EMP-007036",
+        "name": "Ming Nakamura"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000005",
+        "code": "SENG",
+        "name": "Senior Streaming Engineer"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000007",
+        "code": "ADVERTIS",
+        "name": "Advertising Sales"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000004",
+        "code": "IN",
+        "name": "India"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    }
+  ],
+  "bottoms": [
+    {
+      "monthlyReferenceAmount": 4578.97,
+      "frequency": "MONTHLY",
+      "percentile": 0,
+      "rank": 8572,
+      "employee": {
+        "id": "000002be-0000-4000-8000-0000000002be",
+        "matricule": "EMP-000702",
+        "name": "Mia Schneider"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000007",
+        "code": "EVENT",
+        "name": "Event Coordinator"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000003",
+        "code": "MUSIC",
+        "name": "Music"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000002",
+        "code": "DE",
+        "name": "Germany"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    },
+    {
+      "monthlyReferenceAmount": 4597.17,
+      "frequency": "MONTHLY",
+      "percentile": 6,
+      "rank": 8571,
+      "employee": {
+        "id": "0000175e-0000-4000-8000-00000000175e",
+        "matricule": "EMP-005982",
+        "name": "Priya Li"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000007",
+        "code": "EVENT",
+        "name": "Event Coordinator"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000003",
+        "code": "MUSIC",
+        "name": "Music"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000004",
+        "code": "IN",
+        "name": "India"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    },
+    {
+      "monthlyReferenceAmount": 4601.3,
+      "frequency": "MONTHLY",
+      "percentile": 8,
+      "rank": 8570,
+      "employee": {
+        "id": "000000ce-0000-4000-8000-0000000000ce",
+        "matricule": "EMP-000206",
+        "name": "Sofia Martin"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000003",
+        "code": "EDIT",
+        "name": "Video Editor"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000007",
+        "code": "ADVERTIS",
+        "name": "Advertising Sales"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000007",
+        "code": "GB",
+        "name": "United Kingdom"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    },
+    {
+      "monthlyReferenceAmount": 4628.89,
+      "frequency": "MONTHLY",
+      "percentile": 17,
+      "rank": 8569,
+      "employee": {
+        "id": "00000b1e-0000-4000-8000-000000000b1e",
+        "matricule": "EMP-002846",
+        "name": "Sofia Martin"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000003",
+        "code": "EDIT",
+        "name": "Video Editor"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000007",
+        "code": "ADVERTIS",
+        "name": "Advertising Sales"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000007",
+        "code": "GB",
+        "name": "United Kingdom"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    },
+    {
+      "monthlyReferenceAmount": 4664.8,
+      "frequency": "MONTHLY",
+      "percentile": 29,
+      "rank": 8568,
+      "employee": {
+        "id": "00000a0e-0000-4000-8000-000000000a0e",
+        "matricule": "EMP-002574",
+        "name": "Marie Brown"
+      },
+      "role": {
+        "id": "a1000000-0000-0000-0000-000000000007",
+        "code": "EVENT",
+        "name": "Event Coordinator"
+      },
+      "department": {
+        "id": "d0000000-0000-0000-0000-000000000005",
+        "code": "MARKETING",
+        "name": "Marketing"
+      },
+      "country": {
+        "id": "c0000000-0000-0000-0000-000000000002",
+        "code": "DE",
+        "name": "Germany"
+      },
+      "employmentType": "FULL_TIME",
+      "period": {
+        "id": "f0000001-0000-4000-8000-000000000003",
+        "name": "2026-03 Monthly",
+        "startDate": "2026-03-01",
+        "endDate": "2026-03-31",
+        "frequency": "MONTHLY",
+        "closed": true
+      }
+    }
+  ],
+  "positionContext": {
+    "employeeCount": 8572,
+    "min": 4578.97,
+    "p10": 7503.14,
+    "p25": 9078.57,
+    "p50": 11663.03,
+    "p75": 14237.88,
+    "p90": 18003.31,
+    "max": 25624.98
+  },
+  "totalReferenceAmount": 111674309.89,
+  "totalDimensionReferenceAmount": 111674309.89,
+  "totalMonthlyPeriod": 1,
+  "totalBiWeeklyPeriod": 0
+}

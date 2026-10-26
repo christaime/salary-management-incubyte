@@ -68,6 +68,12 @@ export class EarningsRankingReportPage {
     ),
   );
 
+  readonly hasData = computed(() => {
+    const r = this.report();
+    if (!r) return false;
+    return r.tops.length > 0 || r.bottoms.length > 0;
+  });
+
   onSubmit(request: EarningRankingReportRequest): void {
     this.state.set('loading');
     this.error.set(null);

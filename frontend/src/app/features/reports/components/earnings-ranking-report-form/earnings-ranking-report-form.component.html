@@ -14,7 +14,7 @@
 
     <!-- Rankings per -->
     <mat-form-field appearance="outline" class="mt-5 w-full lg:w-56 shrink-0">
-      <mat-label>Rankings per</mat-label>
+      <mat-label>Rankings view</mat-label>
       <mat-select formControlName="groupKey" data-testid="group-key">
         @for (g of groupKeys; track g.value) {
         <mat-option [value]="g.value">{{ g.label }}</mat-option>

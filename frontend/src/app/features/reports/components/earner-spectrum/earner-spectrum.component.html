@@ -1,7 +1,7 @@
 <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
   <!-- ─────────────── Bottom 5 ─────────────── -->
-  <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+  <div data-testid="bottom-card" class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
     <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="inline-flex items-center justify-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-mono font-semibold">
@@ -16,26 +16,30 @@
       </div>
       <div class="text-right">
         <div class="text-[10px] font-mono uppercase text-slate-400">Aggregate</div>
-        <div class="font-mono font-bold text-slate-900">{{ formatAnnual(bottomTotalAnnual()) }}</div>
+        <div data-testid="bottom-total-annual" class="font-mono font-bold text-slate-900">{{ formatAnnual(bottomTotalAnnual()) }}</div>
       </div>
     </div>
 
     <div class="space-y-1">
       @for (item of bottoms(); track item.employee.id) {
-      <div class="p-3 rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-between gap-3">
+      <div
+        data-testid="bottom-row"
+        [attr.data-employee-id]="item.employee.id"
+        [attr.data-rank]="item.rank"
+        class="p-3 rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 min-w-0">
             <span class="w-7 h-7 rounded bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold font-mono flex items-center justify-center shrink-0">
               {{ item.rank }}
             </span>
           <div class="min-w-0">
             <div class="flex items-center gap-1.5 truncate">
-              <span class="text-sm font-semibold text-slate-900 truncate">{{ item.employee.name }}</span>
+              <span [attr.data-testid]="'bottom-name-' + item.employee.id" class="text-sm font-semibold text-slate-900 truncate">{{ item.employee.name }}</span>
               <span class="text-[10px] font-mono text-slate-400">{{ item.employee.matricule }}</span>
               @if (item.country) {
-                  <span class="w-10 h-5 rounded bg-slate-100 border border-slate-200/80 flex items-center justify-center font-mono font-semibold text-[10px] text-slate-700 shrink-0">
+              <span class="w-10 h-5 rounded bg-slate-100 border border-slate-200/80 flex items-center justify-center font-mono font-semibold text-[10px] text-slate-700 shrink-0">
                     {{ item.country.code }}
                   </span>
-                  <span class="text-base leading-none" [title]="item.country.name">
+              <span class="text-base leading-none" [title]="item.country.name">
                     {{ countryFlag(item.country.code) }}
                   </span>
               }
@@ -47,13 +51,13 @@
           </div>
         </div>
         <div class="text-right shrink-0">
-          <div class="text-[10px] font-mono font-bold text-slate-500">
+          <div [attr.data-testid]="'bottom-percentile-' + item.employee.id" class="text-[10px] font-mono font-bold text-slate-500">
             {{ formatPercentile(item.percentile) }}
           </div>
-          <div class="font-mono text-sm font-bold text-slate-900 tabular-nums">
+          <div [attr.data-testid]="'bottom-annual-' + item.employee.id" class="font-mono text-sm font-bold text-slate-900 tabular-nums">
             {{ formatAnnual(annual(item)) }}
           </div>
-          <div class="text-[10px] font-mono text-slate-500 tabular-nums">
+          <div [attr.data-testid]="'bottom-monthly-' + item.employee.id" class="text-[10px] font-mono text-slate-500 tabular-nums">
             {{ formatMonthly(item.monthlyReferenceAmount) }} {{ cadenceLabel(item.frequency) }}
           </div>
         </div>
@@ -63,17 +67,14 @@
 
     <!-- Footer -->
     <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-      <span>
+      <span data-testid="bottom-range">
         Range: {{ formatAnnual(bottomRange().min) }} – {{ formatAnnual(bottomRange().max) }}
       </span>
-     <!-- <a class="text-blue-600 hover:underline flex items-center gap-1" [routerLink]="[]">
-        Click any row for full profile →
-      </a>-->
     </div>
   </div>
 
   <!-- ─────────────── Top 5 ─────────────── -->
-  <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+  <div data-testid="top-card" class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
     <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
       <div class="flex items-center gap-2 flex-wrap">
         <span class="inline-flex items-center justify-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-mono font-semibold">
@@ -88,26 +89,30 @@
       </div>
       <div class="text-right">
         <div class="text-[10px] font-mono uppercase text-slate-400">Aggregate</div>
-        <div class="font-mono font-bold text-slate-900">{{ formatAnnual(topTotalAnnual()) }}</div>
+        <div data-testid="top-total-annual" class="font-mono font-bold text-slate-900">{{ formatAnnual(topTotalAnnual()) }}</div>
       </div>
     </div>
 
     <div class="space-y-1">
       @for (item of tops(); track item.employee.id) {
-      <div class="p-3 rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-between gap-3">
+      <div
+        data-testid="top-row"
+        [attr.data-employee-id]="item.employee.id"
+        [attr.data-rank]="item.rank"
+        class="p-3 rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 min-w-0">
             <span class="w-7 h-7 rounded bg-slate-900 text-white text-xs font-bold font-mono flex items-center justify-center shrink-0">
               #{{ item.rank }}
             </span>
           <div class="min-w-0">
             <div class="flex items-center gap-1.5 truncate">
-              <span class="text-sm font-semibold text-slate-900 truncate">{{ item.employee.name }}</span>
+              <span [attr.data-testid]="'top-name-' + item.employee.id" class="text-sm font-semibold text-slate-900 truncate">{{ item.employee.name }}</span>
               <span class="text-[10px] font-mono text-slate-400">{{ item.employee.matricule }}</span>
               @if (item.country) {
-                  <span class="w-10 h-5 rounded bg-slate-100 border border-slate-200/80 flex items-center justify-center font-mono font-semibold text-[10px] text-slate-700 shrink-0">
+              <span class="w-10 h-5 rounded bg-slate-100 border border-slate-200/80 flex items-center justify-center font-mono font-semibold text-[10px] text-slate-700 shrink-0">
                     {{ item.country.code }}
                   </span>
-                  <span class="text-base leading-none" [title]="item.country.name">
+              <span class="text-base leading-none" [title]="item.country.name">
                     {{ countryFlag(item.country.code) }}
                   </span>
               }
@@ -119,13 +124,13 @@
           </div>
         </div>
         <div class="text-right shrink-0">
-          <div class="text-[10px] font-mono font-bold text-blue-600">
+          <div [attr.data-testid]="'top-percentile-' + item.employee.id" class="text-[10px] font-mono font-bold text-blue-600">
             {{ formatPercentile(item.percentile) }}
           </div>
-          <div class="font-mono text-sm font-bold text-slate-900 tabular-nums">
+          <div [attr.data-testid]="'top-annual-' + item.employee.id" class="font-mono text-sm font-bold text-slate-900 tabular-nums">
             {{ formatAnnual(annual(item)) }}
           </div>
-          <div class="text-[10px] font-mono text-slate-500 tabular-nums">
+          <div [attr.data-testid]="'top-monthly-' + item.employee.id" class="text-[10px] font-mono text-slate-500 tabular-nums">
             {{ formatMonthly(item.monthlyReferenceAmount) }} {{ cadenceLabel(item.frequency) }}
           </div>
         </div>
@@ -135,12 +140,9 @@
 
     <!-- Footer -->
     <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-      <span>
+      <span data-testid="top-range">
         Range: {{ formatAnnual(topRange().min) }} – {{ formatAnnual(topRange().max) }}
       </span>
-      <!-- <a class="text-blue-600 hover:underline flex items-center gap-1" [routerLink]="[]">
-         Click any row for full profile →
-       </a>-->
     </div>
   </div>
 

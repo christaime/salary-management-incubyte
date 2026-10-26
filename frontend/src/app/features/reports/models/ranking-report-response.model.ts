@@ -26,7 +26,7 @@ export interface EarningRankingReportResponse {
   groupKey: GroupKey | null;
   tops: EarnerRankingDto[];
   bottoms: EarnerRankingDto[];
-  positionContext: PositionContextDto;
+  positionContext: PositionContextDto | null;
   totalReferenceAmount: number;
   totalDimensionReferenceAmount: number;
   totalMonthlyPeriod: number;
