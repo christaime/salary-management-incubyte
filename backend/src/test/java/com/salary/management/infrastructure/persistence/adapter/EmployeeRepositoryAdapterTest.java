@@ -4,6 +4,7 @@ import com.salary.management.common.pagination.DataPage;
 import com.salary.management.common.pagination.SortDirection;
 import com.salary.management.domain.model.Country;
 import com.salary.management.domain.model.Employee;
+import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.repository.criteria.EmployeeCriteria;
 import com.salary.management.infrastructure.persistence.repository.EmployeeJpaRepository;
 import jakarta.persistence.EntityManager;
@@ -40,7 +41,14 @@ class EmployeeRepositoryAdapterTest {
     private static final UUID ADA = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID GRACE = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static final UUID ALAN = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
-
+    private static final UUID ENGINEERING =
+            UUID.fromString("33333333-3333-3333-3333-333333333333");
+    private static final UUID FINANCE =
+            UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final UUID ENGINEER =
+            UUID.fromString("55555555-5555-5555-5555-555555555555");
+    private static final UUID MANAGER =
+            UUID.fromString("66666666-6666-6666-6666-666666666666");
     @Autowired
     private EmployeeRepositoryAdapter adapter;
 
@@ -264,14 +272,6 @@ class EmployeeRepositoryAdapterTest {
     void deleteByIdThrowsWhenReferenced() {
         // Seed an assignment that references ADA through employee_id.
         entityManager.createNativeQuery("""
-                INSERT INTO departments (id, code, name)
-                VALUES ('55555555-5555-5555-5555-555555555555', 'ENG', 'Engineering')
-                """).executeUpdate();
-        entityManager.createNativeQuery("""
-                INSERT INTO roles (id, code, name)
-                VALUES ('66666666-6666-6666-6666-666666666666', 'SWE', 'Engineer')
-                """).executeUpdate();
-        entityManager.createNativeQuery("""
                 INSERT INTO employee_periodic_assignments
                     (id, employee_id, start_date, end_date, country_id,
                      department_id, role_id, employment_type, frequency, in_effect)
@@ -305,6 +305,136 @@ class EmployeeRepositoryAdapterTest {
         assertTrue(jpaRepository.existsById(employee.getId()));
     }
 
+    // ------------------------------------------------------------------
+    // Assignment filters
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("list filters by assignment country")
+    void listFiltersByAssignmentCountry() {
+        EmployeeCriteria criteria = EmployeeCriteria.builder()
+                .anyAssignmentCountryIds(Set.of(FR))
+                .build();
+
+        List<Employee> result = adapter.list(criteria);
+
+        // ADA has the FR assignment; GRACE is DE; ALAN has none.
+        assertEquals(1, result.size());
+        assertEquals(ADA, result.get(0).getId());
+    }
+
+    @Test
+    @DisplayName("list filters by assignment country returns empty when no assignment matches")
+    void listFiltersByAssignmentCountryReturnsEmptyWhenNoMatch() {
+        EmployeeCriteria criteria = EmployeeCriteria.builder()
+                .anyAssignmentCountryIds(Set.of(UUID.fromString(
+                        "99999999-9999-9999-9999-999999999999")))
+                .build();
+
+        List<Employee> result = adapter.list(criteria);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("list filters by assignment department")
+    void listFiltersByAssignmentDepartment() {
+        EmployeeCriteria criteria = EmployeeCriteria.builder()
+                .anyDepartmentIds(Set.of(FINANCE))
+                .build();
+
+        List<Employee> result = adapter.list(criteria);
+
+        // GRACE is the only employee with a FINANCE assignment.
+        assertEquals(1, result.size());
+        assertEquals(GRACE, result.get(0).getId());
+    }
+
+    @Test
+    @DisplayName("list filters by assignment role")
+    void listFiltersByAssignmentRole() {
+        EmployeeCriteria criteria = EmployeeCriteria.builder()
+                .anyRoleIds(Set.of(ENGINEER))
+                .build();
+
+        List<Employee> result = adapter.list(criteria);
+
+        assertEquals(1, result.size());
+        assertEquals(ADA, result.get(0).getId());
+    }
+
+    @Test
+    @DisplayName("list filters by employment type")
+    void listFiltersByEmploymentType() {
+        EmployeeCriteria criteria = EmployeeCriteria.builder()
+                .anyEmploymentTypes(Set.of(EmploymentType.PART_TIME))
+                .build();
+
+        List<Employee> result = adapter.list(criteria);
+
+        // GRACE has PART_TIME; ADA has FULL_TIME.
+        assertEquals(1, result.size());
+        assertEquals(GRACE, result.get(0).getId());
+    }
+
+    @Test
+    @DisplayName("list returns employees for multiple values of the same filter")
+    void listFiltersByMultipleAssignmentCountries() {
+        EmployeeCriteria criteria = EmployeeCriteria.builder()
+                .anyAssignmentCountryIds(Set.of(FR, DE))
+                .build();
+
+        List<Employee> result = adapter.list(criteria);
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().anyMatch(e -> e.getId().equals(ADA)));
+        assertTrue(result.stream().anyMatch(e -> e.getId().equals(GRACE)));
+    }
+
+    @Test
+    @DisplayName("list combines assignment filters (AND semantics across fields)")
+    void listCombinesAssignmentFilters() {
+        EmployeeCriteria criteria = EmployeeCriteria.builder()
+                .anyAssignmentCountryIds(Set.of(FR))
+                .anyDepartmentIds(Set.of(ENGINEERING))
+                .anyRoleIds(Set.of(ENGINEER))
+                .anyEmploymentTypes(Set.of(EmploymentType.FULL_TIME))
+                .build();
+
+        List<Employee> result = adapter.list(criteria);
+
+        // Only ADA matches all four.
+        assertEquals(1, result.size());
+        assertEquals(ADA, result.get(0).getId());
+    }
+
+    @Test
+    @DisplayName("list excludes employees without an assignment when an assignment filter is set")
+    void listExcludesEmployeesWithoutAssignment() {
+        EmployeeCriteria criteria = EmployeeCriteria.builder()
+                .anyAssignmentCountryIds(Set.of(FR, DE))
+                .build();
+
+        List<Employee> result = adapter.list(criteria);
+
+        // ALAN has no assignment, so even though the filter has values, ALAN
+        // is not returned. The join with employee_periodic_assignments is
+        // effectively an INNER JOIN.
+        assertTrue(result.stream().noneMatch(e -> e.getId().equals(ALAN)));
+    }
+
+    @Test
+    @DisplayName("list without assignment filters returns all employees, with or without assignment")
+    void listWithoutAssignmentFiltersReturnsAll() {
+        EmployeeCriteria criteria = EmployeeCriteria.builder()
+                .build();
+
+        List<Employee> result = adapter.list(criteria);
+
+        // All 3 employees, including ALAN who has no assignment.
+        assertEquals(3, result.size());
+        assertTrue(result.stream().anyMatch(e -> e.getId().equals(ALAN)));
+    }
     private Country country(UUID id) {
         return Country.builder()
                 .id(id)

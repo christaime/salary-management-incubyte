@@ -6,22 +6,24 @@ import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import lombok.Builder;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * Assignment information attached to an employee in a report.
  *
- * <p>Carries the fields that describe the assignment's scope and schedule
- * (country, department, role, employment type, payroll frequency, active
- * dates). Does not carry {@code id} (internal to the domain) or
- * {@code inEffect} (always true for the assignments the report selects).</p>
+ * <p>{@code unEditable} is only populated by
+ * {@link com.salary.management.application.service.EmployeeService#findById}
+ * and is {@code null} in list/search responses.</p>
  */
 @Builder
 public record EmployeeAssignmentDto(
+        UUID id,
         LocalDate startDate,
-        LocalDate endDate,                // nullable for open-ended assignments
+        LocalDate endDate,
         RefDto country,
         RefDto department,
         RefDto role,
         EmploymentType employmentType,
-        PayrollPeriodFrequency payrollFrequency
+        PayrollPeriodFrequency payrollFrequency,
+        Boolean hasPayroll
 ) {}

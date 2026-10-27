@@ -20,17 +20,15 @@ public interface EmployeeApiMapper {
     @Mapping(target = "name", source = "employee.name")
     @Mapping(target = "email", source = "employee.email")
     @Mapping(target = "birthDate", source = "employee.birthDate")
-    @Mapping(target = "originCountry", source = "employee.originCountry",
-            qualifiedByName = "countryToRef")
-    @Mapping(target = "assignmentInEffect", source = "assignment",
-            qualifiedByName = "assignmentToDto")
-    EmployeeWithInEffectAssignmentDto toDto(
-            Employee employee, EmployeePeriodicAssignment assignment);
+    @Mapping(target = "originCountry", source = "employee.originCountry", qualifiedByName = "countryToRef")
+    @Mapping(target = "assignmentInEffect", source = "assignment", qualifiedByName = "assignmentToDto")
+    EmployeeWithInEffectAssignmentDto toDto( Employee employee, EmployeePeriodicAssignment assignment);
 
     @Named("assignmentToDto")
     @Mapping(target = "country", source = "country", qualifiedByName = "countryToRef")
     @Mapping(target = "department", source = "department", qualifiedByName = "departmentToRef")
     @Mapping(target = "role", source = "role", qualifiedByName = "roleToRef")
+    @Mapping(target = "hasPayroll", ignore = true)
     EmployeeAssignmentDto toAssignmentDto(EmployeePeriodicAssignment assignment);
 
     @Named("countryToRef")

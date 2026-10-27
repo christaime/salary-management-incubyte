@@ -5,6 +5,7 @@ import com.salary.management.domain.model.EmployeePeriodicAssignment;
 import com.salary.management.domain.repository.EmployeePeriodicAssignmentRepository;
 import com.salary.management.domain.repository.criteria.EmployeePeriodicAssignmentCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
+import com.salary.management.infrastructure.persistence.adapter.utils.DataIntegrityMessages;
 import com.salary.management.infrastructure.persistence.entity.CountryEntity;
 import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
 import com.salary.management.infrastructure.persistence.entity.EmployeePeriodicAssignmentEntity;
@@ -113,8 +114,7 @@ public class EmployeePeriodicAssignmentRepositoryAdapter
             return;
         }
         if (jpaRepository.isReferenced(id)) {
-            throw new DataIntegrityViolationException(
-                    "EmployeePeriodicAssignment is referenced and cannot be deleted: " + id);
+            throw DataIntegrityMessages.referenced("EmployeePeriodicAssignment", id);
         }
         jpaRepository.deleteById(id);
     }

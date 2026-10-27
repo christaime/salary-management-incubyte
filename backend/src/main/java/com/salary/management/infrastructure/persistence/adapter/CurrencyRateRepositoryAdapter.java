@@ -6,6 +6,7 @@ import com.salary.management.domain.model.CurrencyRate;
 import com.salary.management.domain.repository.CurrencyRateRepository;
 import com.salary.management.domain.repository.criteria.CurrencyRateCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
+import com.salary.management.infrastructure.persistence.adapter.utils.DataIntegrityMessages;
 import com.salary.management.infrastructure.persistence.entity.CurrencyRateEntity;
 import com.salary.management.infrastructure.persistence.mapper.CurrencyRatePersistenceMapper;
 import com.salary.management.infrastructure.persistence.repository.CurrencyRateJpaRepository;
@@ -43,8 +44,9 @@ public class CurrencyRateRepositoryAdapter implements CurrencyRateRepository {
     @Transactional
     public List<CurrencyRate> saveAll(List<CurrencyRate> currencyRates) {
         if (currencyRates.isEmpty()) {
-            throw new DataIntegrityViolationException(
-                    "currency_rates saveAll requires at least one row; use deleteAll to clear");
+            throw DataIntegrityMessages.invariant(
+                    "CurrencyRate", "saveAll",
+                    "requires at least one row; use deleteAll to clear");
         }
         enforceRateInvariants(currencyRates);
         jpaRepository.deleteAllInBatch();
@@ -111,13 +113,15 @@ public class CurrencyRateRepositoryAdapter implements CurrencyRateRepository {
                 .map(CurrencyRate::getReferenceCurrencyCode)
                 .collect(Collectors.toSet());
         if (references.size() > 1) {
-            throw new DataIntegrityViolationException(
-                    "currency_rates batch mixes reference currencies: " + references);
+            throw DataIntegrityMessages.invariant(
+                    "CurrencyRate", "saveAll",
+                    "batch mixes reference currencies: " + references);
         }
         for (CurrencyRate rate : rates) {
             if (rate.getCurrencyCode().equals(rate.getReferenceCurrencyCode())) {
-                throw new DataIntegrityViolationException(
-                        "currency_rates row must not pair a currency with itself: "
+                throw DataIntegrityMessages.invariant(
+                        "CurrencyRate", "saveAll",
+                        "row must not pair a currency with itself: "
                                 + rate.getCurrencyCode());
             }
         }

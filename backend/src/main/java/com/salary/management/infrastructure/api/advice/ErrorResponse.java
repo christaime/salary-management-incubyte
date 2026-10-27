@@ -31,4 +31,5 @@ public record ErrorResponse(
 
     /** Any other unexpected failure. */
     public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
+    public static final String DATA_CONFLICT = "DATA_CONFLICT";
 }

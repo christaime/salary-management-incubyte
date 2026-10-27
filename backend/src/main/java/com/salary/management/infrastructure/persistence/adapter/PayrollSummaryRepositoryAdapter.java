@@ -29,6 +29,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -141,6 +142,16 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
     @Override
     public void deleteById(UUID id) {
         jpaRepository.deleteById(id);
+    }
+
+    @Override
+    public LocalDate latestLinkedPeriodStart(UUID assignmentId) {
+        return jpaRepository.latestLinkedPeriodStart(assignmentId);
+    }
+
+    @Override
+    public boolean hasAnySummaryForAssignment(UUID assignmentId) {
+        return jpaRepository.hasAnySummaryForAssignment(assignmentId);
     }
 
     private DataPage<PayrollSummary> toDataPage(Page<PayrollSummaryEntity> page) {

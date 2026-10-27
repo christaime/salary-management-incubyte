@@ -25,11 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /** Integration tests for {@link PayrollSummaryRepositoryAdapter}. */
 @SpringBootTest
@@ -367,6 +363,85 @@ class PayrollSummaryRepositoryAdapterTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> adapter.pageNonExistent(criteria));
+    }
+
+    @Test
+    @DisplayName("latestLinkedPeriodStart returns the latest linked period's start date")
+    void latestLinkedPeriodStartReturnsLatest() {
+        UUID assignmentId = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1");
+
+        // New periods (not in the seed) for the same assignment.
+        entityManager.createNativeQuery("""
+                INSERT INTO payroll_periods
+                    (id, name, start_date, end_date, frequency, closed)
+                VALUES ('aaaaaaaa-0000-0000-0000-000000000001',
+                        'TEST 2026-04', '2026-04-01', '2026-04-30', 'MONTHLY', 0),
+                       ('aaaaaaaa-0000-0000-0000-000000000002',
+                        'TEST 2026-05', '2026-05-01', '2026-05-31', 'MONTHLY', 0)
+                """).executeUpdate();
+        entityManager.createNativeQuery("""
+                INSERT INTO payroll_summaries
+                    (id, employee_id, payroll_period_id, employee_periodic_assignment_id,
+                     assignment_country_id, assignment_department_id, assignment_role_id,
+                     assignment_employment_type, base, variable, allowances,
+                     employer_taxes, total, currency, status)
+                VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
+                        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+                        'aaaaaaaa-0000-0000-0000-000000000001',
+                        'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1',
+                        '11111111-1111-1111-1111-111111111111',
+                        '22222222-2222-2222-2222-222222222222',
+                        '33333333-3333-3333-3333-333333333333',
+                        'FULL_TIME', 1000, 100, 50, 200, 1350, 'EUR', 'VALIDATED'),
+                       ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2',
+                        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+                        'aaaaaaaa-0000-0000-0000-000000000002',
+                        'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1',
+                        '11111111-1111-1111-1111-111111111111',
+                        '22222222-2222-2222-2222-222222222222',
+                        '33333333-3333-3333-3333-333333333333',
+                        'FULL_TIME', 1000, 100, 50, 200, 1350, 'EUR', 'VALIDATED')
+                """).executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+
+        LocalDate latest = adapter.latestLinkedPeriodStart(assignmentId);
+
+        // Latest among the two new periods AND the seed's ADA summary (2026-01-01).
+        assertEquals(LocalDate.of(2026, 5, 1), latest);
+    }
+
+    @Test
+    @DisplayName("latestLinkedPeriodStart returns null when no VALIDATED summary is linked")
+    void latestLinkedPeriodStartNullWhenNone() {
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999998");
+
+        assertNull(adapter.latestLinkedPeriodStart(missing));
+    }
+
+    @Test
+    @DisplayName("latestLinkedPeriodStart ignores DRAFT summaries")
+    void latestLinkedPeriodStartIgnoresDrafts() {
+        UUID assignmentId = UUID.fromString("55555555-5555-5555-5555-555555555555");
+        entityManager.createNativeQuery("""
+                INSERT INTO payroll_summaries
+                    (id, employee_id, payroll_period_id, employee_periodic_assignment_id,
+                     assignment_country_id, assignment_department_id, assignment_role_id,
+                     assignment_employment_type, base, variable, allowances,
+                     employer_taxes, total, currency, status)
+                VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3',
+                        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+                        '99999999-9999-9999-9999-999999999999',
+                        '55555555-5555-5555-5555-555555555555',
+                        '11111111-1111-1111-1111-111111111111',
+                        '22222222-2222-2222-2222-222222222222',
+                        '33333333-3333-3333-3333-333333333333',
+                        'FULL_TIME', 1000, 100, 50, 200, 1350, 'EUR', 'DRAFT')
+                """).executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+
+        assertNull(adapter.latestLinkedPeriodStart(assignmentId));
     }
 
     private PayrollPeriod payrollPeriod(UUID id, String name,

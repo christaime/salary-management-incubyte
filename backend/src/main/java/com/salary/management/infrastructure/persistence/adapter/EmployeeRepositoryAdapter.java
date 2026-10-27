@@ -5,6 +5,7 @@ import com.salary.management.domain.model.Employee;
 import com.salary.management.domain.repository.EmployeeRepository;
 import com.salary.management.domain.repository.criteria.EmployeeCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
+import com.salary.management.infrastructure.persistence.adapter.utils.DataIntegrityMessages;
 import com.salary.management.infrastructure.persistence.entity.CountryEntity;
 import com.salary.management.infrastructure.persistence.entity.EmployeeEntity;
 import com.salary.management.infrastructure.persistence.mapper.EmployeePersistenceMapper;
@@ -81,8 +82,7 @@ public class EmployeeRepositoryAdapter implements EmployeeRepository {
             return;
         }
         if (jpaRepository.isReferenced(id)) {
-            throw new DataIntegrityViolationException(
-                    "Employee is referenced and cannot be deleted: " + id);
+            throw DataIntegrityMessages.referenced("Employee", id);
         }
         jpaRepository.deleteById(id);
     }
