@@ -1,0 +1,49 @@
+{
+  "content": [
+    {
+      "id": "e-1",
+      "matricule": "EMP-000001",
+      "name": "Alexandre Vance",
+      "email": "a.vance@acme.test",
+      "birthDate": "1985-04-12",
+      "originCountry": { "id": "cm", "code": "CM", "name": "Cameroon" },
+      "assignmentInEffect": {
+        "id": "a-1",
+        "startDate": "2021-04-01",
+        "endDate": null,
+        "country": { "id": "fr", "code": "FR", "name": "France" },
+        "department": { "id": "eng", "code": "ENG", "name": "Engineering" },
+        "role": { "id": "dev", "code": "DEV", "name": "Developer" },
+        "employmentType": "FULL_TIME",
+        "payrollFrequency": "MONTHLY",
+        "hasPayroll": true
+      }
+    },
+    {
+      "id": "e-2",
+      "matricule": "EMP-000002",
+      "name": "Elena Rostova",
+      "email": "e.rostova@acme.test",
+      "birthDate": "1990-07-30",
+      "originCountry": { "id": "cm", "code": "CM", "name": "Cameroon" },
+      "assignmentInEffect": {
+        "id": "a-2",
+        "startDate": "2020-11-15",
+        "endDate": null,
+        "country": { "id": "cm", "code": "CM", "name": "Cameroon" },
+        "department": { "id": "eng", "code": "ENG", "name": "Engineering" },
+        "role": { "id": "dev", "code": "DEV", "name": "Developer" },
+        "employmentType": "CONTRACTOR",
+        "payrollFrequency": "BI_WEEKLY",
+        "hasPayroll": false
+      }
+    }
+  ],
+  "page": 0,
+  "size": 10,
+  "totalElements": 2,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "empty": false
+}

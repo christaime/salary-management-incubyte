@@ -3,34 +3,24 @@ import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
 import { of, throwError, Observable } from 'rxjs';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+
 import { EmployeeListPage } from './employee-list.page';
 import { EmployeeService } from '../../services/employee.service';
 import { EmployeeFilterBarComponent } from '../../components/employee-filter-bar/employee-filter-bar.component';
 import { EmployeeTableComponent } from '../../components/employee-table/employee-table.component';
 import { PaginatorComponent } from '@core/components/paginator/paginator.component';
-import {
-  DataPage
-} from '@core/models';
+import { DataPage } from '@core/models';
 
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { CountryService } from '../../../country/services/country.service';
 import { DepartmentService } from '../../../department/services/department.service';
 import { RoleService } from '../../../role/services/role.service';
-import {
-  EmployeeWithInEffectAssignmentDto,
-} from '../../models';
+import { EmployeeWithInEffectAssignmentDto } from '../../models';
 
-const emptyPage = {
-  content: [],
-  totalElements: 0,
-  totalPages: 0,
-  first: true,
-  last: true,
-  empty: true,
-  page: 0,
-  size: 10,
-};
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
 
 function makeEmployee(id: string): EmployeeWithInEffectAssignmentDto {
   return {
@@ -41,7 +31,7 @@ function makeEmployee(id: string): EmployeeWithInEffectAssignmentDto {
     birthDate: '1990-01-01',
     originCountry: { id: 'c-us', code: 'US', name: 'United States' },
     assignmentInEffect: {
-      id:"1",
+      id: '1',
       startDate: '2021-04-01',
       endDate: null,
       country: { id: 'c-us', code: 'US', name: 'United States' },
@@ -66,14 +56,22 @@ function makePage(content: EmployeeWithInEffectAssignmentDto[]): DataPage<Employ
   };
 }
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 describe('EmployeeListPage', () => {
   let fixture: ComponentFixture<EmployeeListPage>;
   let component: EmployeeListPage;
   let employeeService: jasmine.SpyObj<EmployeeService>;
 
   beforeEach(async () => {
-    employeeService = jasmine.createSpyObj('EmployeeService', ['search']);
+    employeeService = jasmine.createSpyObj('EmployeeService', [
+      'search',
+      'delete',
+    ]);
     employeeService.search.and.returnValue(of(makePage([])));
+    employeeService.delete.and.returnValue(of(void 0));
 
     const emptyPage = { content: [], totalElements: 0, totalPages: 1, size: 20, number: 0 };
 
@@ -215,10 +213,8 @@ describe('EmployeeListPage', () => {
   });
 
   it('renders the table loading state while a request is in flight', () => {
-    // Simulate a request in flight by not settling the observable synchronously
     let settled = false;
     employeeService.search.and.returnValue(new Observable((sub: any) => {
-      // no emission until released
       return () => { settled = true; };
     }));
 
@@ -295,64 +291,62 @@ describe('EmployeeListPage', () => {
     expect(component.employeeEditRoute).toBe('/employees');
   });
 
+  // ------------------------------------------------------------------
+  // Delete flow (dialog + service)
+  // ------------------------------------------------------------------
+
   describe('onDelete', () => {
     let dialog: jasmine.SpyObj<MatDialog>;
 
     beforeEach(() => {
+      // Inject a MatDialog spy on the already-created component.
+      // Recreating the TestBed would throw away the fixture used
+      // by the parent tests, so we override the instance directly.
       dialog = jasmine.createSpyObj('MatDialog', ['open']);
-      TestBed.overrideProvider(MatDialog, { useValue: dialog });
+      (component as any).dialog = dialog;
     });
 
+    function dialogReturning(result: boolean): MatDialogRef<any, boolean> {
+      return { afterClosed: () => of(result) } as any;
+    }
+
     it('opens the confirm dialog with the employee name and matricule', () => {
-      setup(null);
-      const emp = makeEmployee();
-      const afterClosed = jasmine.createSpyObj<MatDialogRef<any, boolean>>('MatDialogRef', [], {
-        afterClosed: () => of(false),
-      });
-      dialog.open.and.returnValue(afterClosed);
+      const emp = makeEmployee('1');
+      dialog.open.and.returnValue(dialogReturning(false));
 
       component.onDelete(emp);
 
       expect(dialog.open).toHaveBeenCalled();
-      const [_, config] = dialog.open.calls.mostRecent().args;
+      const [, config] = dialog.open.calls.mostRecent().args;
       expect((config as any).data.message).toContain(emp.name);
       expect((config as any).data.message).toContain(emp.matricule);
     });
 
-    it('does not call the delete endpoint when the user cancels', () => {
-      setup(null);
-      const emp = makeEmployee();
-      dialog.open.and.returnValue({
-        afterClosed: () => of(false),
-      } as any);
+    it('does not call delete when the user cancels', () => {
+      const emp = makeEmployee('1');
+      dialog.open.and.returnValue(dialogReturning(false));
 
-      const service = TestBed.inject(EmployeeService) as jasmine.SpyObj<EmployeeService>;
       component.onDelete(emp);
-      expect(service.delete).not.toHaveBeenCalled();
+
+      expect(employeeService.delete).not.toHaveBeenCalled();
     });
 
-    it('calls the delete endpoint and reloads when the user confirms', () => {
-      setup(null);
-      const emp = makeEmployee();
-      dialog.open.and.returnValue({ afterClosed: () => of(true) } as any);
-
-      const service = TestBed.inject(EmployeeService) as jasmine.SpyObj<EmployeeService>;
-      service.delete.and.returnValue(of(void 0));
-      service.search.and.returnValue(of(makePage([])));
+    it('calls delete and reloads when the user confirms', () => {
+      const emp = makeEmployee('1');
+      dialog.open.and.returnValue(dialogReturning(true));
 
       component.onDelete(emp);
 
-      expect(service.delete).toHaveBeenCalledWith(emp.id);
-      expect(service.search).toHaveBeenCalled();
+      expect(employeeService.delete).toHaveBeenCalledWith(emp.id);
+      expect(employeeService.search).toHaveBeenCalled();
     });
 
     it('shows an error banner if delete fails', () => {
-      setup(null);
-      const emp = makeEmployee();
-      dialog.open.and.returnValue({ afterClosed: () => of(true) } as any);
-
-      const service = TestBed.inject(EmployeeService) as jasmine.SpyObj<EmployeeService>;
-      service.delete.and.returnValue(throwError(() => ({ message: 'Boom' })));
+      const emp = makeEmployee('1');
+      dialog.open.and.returnValue(dialogReturning(true));
+      employeeService.delete.and.returnValue(
+        throwError(() => ({ message: 'Boom' })),
+      );
 
       component.onDelete(emp);
       fixture.detectChanges();

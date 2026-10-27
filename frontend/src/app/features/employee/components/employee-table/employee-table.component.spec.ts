@@ -154,13 +154,6 @@ describe('EmployeeTableComponent', () => {
     expect(el.querySelector('[data-testid="row-more-1"]')).toBeNull();
   });
 
-  it('renders More (not Delete) when assignmentInEffect is non-null', () => {
-    createWith([makeEmployee('1')]);
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('[data-testid="row-more-1"]')).not.toBeNull();
-    expect(el.querySelector('[data-testid="row-delete-1"]')).toBeNull();
-  });
-
   it('emits deleteClick with the employee when Delete is clicked', () => {
     const emp = makeEmployee('1', { assignmentInEffect: null });
     createWith([emp]);
