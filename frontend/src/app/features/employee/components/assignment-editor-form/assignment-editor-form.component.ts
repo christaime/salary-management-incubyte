@@ -54,11 +54,7 @@ export class AssignmentEditorFormComponent implements OnInit {
   private readonly roleService = inject(RoleService);
 
   readonly formGroup = input.required<FormGroup<AssignmentEditorForm>>();
-
-  /** When true, the form fields are read-only (used by the pill case). */
   readonly readOnly = input<boolean>(false);
-
-  /** Optional label shown above the grid, e.g. "New assignment". */
   readonly heading = input<string | null>(null);
 
   readonly countries = signal<CountryData[]>([]);
@@ -93,15 +89,18 @@ export class AssignmentEditorFormComponent implements OnInit {
         this.endBeforeStartSignal.set(group.hasError('endBeforeStart')),
       );
 
-    this.countryService.search()
+    this.countryService
+      .search()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((res) => this.countries.set(res.content));
 
-    this.departmentService.search()
+    this.departmentService
+      .search()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((res) => this.departments.set(res.content));
 
-    this.roleService.search()
+    this.roleService
+      .search()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((res) => this.roles.set(res.content));
   }

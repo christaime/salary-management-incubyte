@@ -8,8 +8,8 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed , toSignal} from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -24,7 +24,6 @@ import {
   EMPLOYMENT_TYPES,
   EMPLOYMENT_TYPE_LABELS,
   EmploymentType,
-  EmployeeCriteria,
 } from '../../models';
 
 export interface EmployeeFilterValue {
@@ -39,6 +38,9 @@ interface Option {
   id: string;
   name: string;
 }
+
+/** Keyword max length enforced on the input. */
+export const KEYWORD_MAX_LENGTH = 500;
 
 @Component({
   selector: 'app-employee-filter-bar',
@@ -62,11 +64,15 @@ export class EmployeeFilterBarComponent {
   private readonly departmentService = inject(DepartmentService);
   private readonly roleService = inject(RoleService);
 
-  /** Emitted whenever a filter changes. The page composes it into EmployeeCriteria. */
   readonly filterChange = output<EmployeeFilterValue>();
 
+  readonly keywordMaxLength = KEYWORD_MAX_LENGTH;
+
   readonly form = new FormGroup({
-    keyword: new FormControl<string>('', { nonNullable: true }),
+    keyword: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.maxLength(KEYWORD_MAX_LENGTH)],
+    }),
     assignmentCountryId: new FormControl<string | null>(null),
     departmentId: new FormControl<string | null>(null),
     roleId: new FormControl<string | null>(null),
@@ -79,11 +85,10 @@ export class EmployeeFilterBarComponent {
   readonly employmentTypes = EMPLOYMENT_TYPES;
   readonly employmentTypeLabels = EMPLOYMENT_TYPE_LABELS;
 
-  // Convert form valueChanges into a tracked signal
   private readonly formValue = toSignal(this.form.valueChanges, {
     initialValue: this.form.getRawValue(),
   });
-  /** True when at least one filter is set (used to enable/disable Reset). */
+
   readonly hasActiveFilters = computed(() => {
     const v = this.formValue();
     return (
@@ -95,15 +100,21 @@ export class EmployeeFilterBarComponent {
     );
   });
 
+  /** Character count + overflow state for the keyword field. */
+  readonly keywordLength = computed(() => this.formValue()?.keyword?.length ?? 0);
+  readonly keywordOverflow = computed(() => this.keywordLength() > KEYWORD_MAX_LENGTH);
+
   constructor() {
     this.loadLookups();
 
-    // Debounced keyword → filterChange
     this.form.controls.keyword.valueChanges
-      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe(() => this.emit());
 
-    // Immediate dropdowns → filterChange
     this.form.controls.assignmentCountryId.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.emit());
@@ -126,7 +137,6 @@ export class EmployeeFilterBarComponent {
       roleId: null,
       employmentType: null,
     });
-    // The subscriptions fire and emit; no explicit emit needed.
   }
 
   employmentTypeLabel(value: EmploymentType): string {
@@ -145,16 +155,25 @@ export class EmployeeFilterBarComponent {
   }
 
   private loadLookups(): void {
-    this.countryService.search()
+    this.countryService
+      .search()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(res => this.countries.set(res.content.map(c => ({ id: c.id, name: c.name }))));
+      .subscribe((res) =>
+        this.countries.set(res.content.map((c) => ({ id: c.id, name: c.name }))),
+      );
 
-    this.departmentService.search()
+    this.departmentService
+      .search()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(res => this.departments.set(res.content.map(d => ({ id: d.id, name: d.name }))));
+      .subscribe((res) =>
+        this.departments.set(res.content.map((d) => ({ id: d.id, name: d.name }))),
+      );
 
-    this.roleService.search()
+    this.roleService
+      .search()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(res => this.roles.set(res.content.map(r => ({ id: r.id, name: r.name }))));
+      .subscribe((res) =>
+        this.roles.set(res.content.map((r) => ({ id: r.id, name: r.name }))),
+      );
   }
 }

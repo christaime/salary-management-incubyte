@@ -1,0 +1,19 @@
+{
+  "id": "e-2",
+  "matricule": "EMP-000002",
+  "name": "Elena Rostova",
+  "email": "e.rostova@acme.test",
+  "birthDate": "1990-07-30",
+  "originCountry": { "id": "cm", "code": "CM", "name": "Cameroon" },
+  "assignmentInEffect": {
+    "id": "a-2",
+    "startDate": "2020-11-15",
+    "endDate": null,
+    "country": { "id": "cm", "code": "CM", "name": "Cameroon" },
+    "department": { "id": "eng", "code": "ENG", "name": "Engineering" },
+    "role": { "id": "dev", "code": "DEV", "name": "Developer" },
+    "employmentType": "CONTRACTOR",
+    "payrollFrequency": "BI_WEEKLY",
+    "hasPayroll": false
+  }
+}

@@ -2,17 +2,28 @@
   <div class="flex flex-col lg:flex-row lg:items-center gap-2">
 
     <!-- Omni-search -->
-    <div class="relative flex-1 min-w-[260px]">
-      <mat-icon class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 !w-4 !h-4 !text-[16px]">
-        search
-      </mat-icon>
-      <input
-        data-testid="filter-keyword"
-        type="text"
-        [formControl]="form.controls.keyword"
-        placeholder="Search by matricule, name, or email…"
-        class="w-full h-9 pl-9 pr-3 bg-slate-50 rounded-md border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
-      />
+    <div class="relative flex-1 min-w-[260px] flex flex-col gap-1">
+      <div class="relative">
+        <mat-icon class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 !w-4 !h-4 !text-[16px]">
+          search
+        </mat-icon>
+        <input
+          data-testid="filter-keyword"
+          type="text"
+          [formControl]="form.controls.keyword"
+          [attr.maxlength]="keywordMaxLength"
+          placeholder="Search by matricule, name, or email…"
+          class="w-full h-9 pl-9 pr-3 bg-slate-50 rounded-md border text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+          [class.border-slate-200]="!keywordOverflow()"
+          [class.border-red-400]="keywordOverflow()"
+        />
+      </div>
+
+      @if (keywordOverflow()) {
+      <p data-testid="filter-keyword-error" class="text-[11px] text-red-600 m-0">
+        Keyword must be at most {{ keywordMaxLength }} characters ({{ keywordLength() }}/{{ keywordMaxLength }}).
+      </p>
+      }
     </div>
 
     <!-- Jurisdiction -->
