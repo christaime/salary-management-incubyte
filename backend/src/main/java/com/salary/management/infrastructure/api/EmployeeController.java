@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -45,34 +47,34 @@ public class EmployeeController {
     @Operation(summary = "Search and paginate employees with their in-effect assignment")
     public ResponseEntity<DataPage<EmployeeWithInEffectAssignmentDto>> search(
             @Parameter(description = "Keyword search in matricule, name, or email")
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) @Size(max = 500) String keyword,
 
             @Parameter(description = "Exact matricule match")
-            @RequestParam(required = false) String matricule,
+            @RequestParam(required = false) @Size(max = 100) String matricule,
 
             @Parameter(description = "Filter by origin country ids")
-            @RequestParam(name = "anyOriginCountryIds", required = false) Set<UUID> originCountryIds,
+            @RequestParam(name = "anyOriginCountryIds", required = false) @Size(max=50) Set<UUID> originCountryIds,
 
             @Parameter(description = "Filter by assignment country ids")
-            @RequestParam(name = "anyAssignmentCountryIds", required = false) Set<UUID> assignmentCountryIds,
+            @RequestParam(name = "anyAssignmentCountryIds", required = false) @Size(max=50) Set<UUID> assignmentCountryIds,
 
             @Parameter(description = "Filter by department ids")
-            @RequestParam(name = "anyDepartmentIds", required = false) Set<UUID> departmentIds,
+            @RequestParam(name = "anyDepartmentIds", required = false) @Size(max=50) Set<UUID> departmentIds,
 
             @Parameter(description = "Filter by role ids")
-            @RequestParam(name = "anyRoleIds", required = false) Set<UUID> roleIds,
+            @RequestParam(name = "anyRoleIds", required = false) @Size(max=50) Set<UUID> roleIds,
 
             @Parameter(description = "Filter by employment types")
-            @RequestParam(required = false) Set<EmploymentType> employmentTypes,
+            @RequestParam(required = false) @Size(max = 50) Set<EmploymentType> employmentTypes,
 
             @Parameter(description = "Page number (0-indexed)")
             @RequestParam(defaultValue = "0") int page,
 
             @Parameter(description = "Page size")
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "20") @Max(100) int size,
 
             @Parameter(description = "Sort field (matricule, name, email, birthDate)")
-            @RequestParam(defaultValue = "matricule") String sortBy,
+            @RequestParam(defaultValue = "matricule") @Size(max = 100) String sortBy,
 
             @Parameter(description = "Sort direction (ASC or DESC)")
             @RequestParam(defaultValue = "ASC") SortDirection sortDirection

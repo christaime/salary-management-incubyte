@@ -1,6 +1,9 @@
 package com.salary.management.application.dto.employee;
 
 import com.salary.management.application.dto.RefDto;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
 import java.time.LocalDate;
@@ -16,10 +19,10 @@ import java.util.UUID;
 @Builder
 public record EmployeeWithInEffectAssignmentDto(
         UUID id,
-        String matricule,
-        String name,
-        String email,
-        LocalDate birthDate,
+        @NotBlank @Size(max=100) String matricule,
+        @NotBlank @Size(max=100) String name,
+        @NotBlank @Size(max=254) String email,
+        @Past LocalDate birthDate,
         RefDto originCountry,
         EmployeeAssignmentDto assignmentInEffect
 ) {}
