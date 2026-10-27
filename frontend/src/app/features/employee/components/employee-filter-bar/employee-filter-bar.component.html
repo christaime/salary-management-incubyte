@@ -1,0 +1,74 @@
+<div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm" data-testid="employee-filter-bar">
+  <div class="flex flex-col lg:flex-row lg:items-center gap-2">
+
+    <!-- Omni-search -->
+    <div class="relative flex-1 min-w-[260px]">
+      <mat-icon class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 !w-4 !h-4 !text-[16px]">
+        search
+      </mat-icon>
+      <input
+        data-testid="filter-keyword"
+        type="text"
+        [formControl]="form.controls.keyword"
+        placeholder="Search by matricule, name, or email…"
+        class="w-full h-9 pl-9 pr-3 bg-slate-50 rounded-md border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+      />
+    </div>
+
+    <!-- Jurisdiction -->
+    <mat-form-field appearance="outline" class="w-full lg:w-56" subscriptSizing="dynamic">
+      <mat-label>Jurisdiction</mat-label>
+      <mat-select data-testid="filter-jurisdiction" [formControl]="form.controls.assignmentCountryId">
+        <mat-option [value]="null">All jurisdictions</mat-option>
+        @for (c of countries(); track c.id) {
+        <mat-option [value]="c.id">{{ c.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Department -->
+    <mat-form-field appearance="outline" class="w-full lg:w-56" subscriptSizing="dynamic">
+      <mat-label>Department</mat-label>
+      <mat-select data-testid="filter-department" [formControl]="form.controls.departmentId">
+        <mat-option [value]="null">All departments</mat-option>
+        @for (d of departments(); track d.id) {
+        <mat-option [value]="d.id">{{ d.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Role -->
+    <mat-form-field appearance="outline" class="w-full lg:w-56" subscriptSizing="dynamic">
+      <mat-label>Role</mat-label>
+      <mat-select data-testid="filter-role" [formControl]="form.controls.roleId">
+        <mat-option [value]="null">All roles</mat-option>
+        @for (r of roles(); track r.id) {
+        <mat-option [value]="r.id">{{ r.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Employment type -->
+    <mat-form-field appearance="outline" class="w-full lg:w-48" subscriptSizing="dynamic">
+      <mat-label>Type</mat-label>
+      <mat-select data-testid="filter-employment-type" [formControl]="form.controls.employmentType">
+        <mat-option [value]="null">All types</mat-option>
+        @for (t of employmentTypes; track t) {
+        <mat-option [value]="t">{{ employmentTypeLabel(t) }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Reset -->
+    <button
+      data-testid="filter-reset"
+      type="button"
+      mat-stroked-button
+      [disabled]="!hasActiveFilters()"
+      (click)="onReset()"
+      class="h-9 shrink-0"
+    >
+      Reset
+    </button>
+  </div>
+</div>

@@ -1,0 +1,241 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { of, throwError } from 'rxjs';
+
+import { EmployeeEditorPage } from './employee-editor.page';
+import { EmployeeService } from '../../services/employee.service';
+import { EmployeeWithInEffectAssignmentDto } from '../../models';
+
+function makeEmployee(overrides: Partial<EmployeeWithInEffectAssignmentDto> = {}): EmployeeWithInEffectAssignmentDto {
+  return {
+    id: 'e-1',
+    matricule: 'EMP-000001',
+    name: 'Employee One',
+    email: 'e1@acme.test',
+    birthDate: '1990-01-01',
+    originCountry: { id: 'c-ch', code: 'CH', name: 'Switzerland' },
+    assignmentInEffect: {
+      id: 'a-1',
+      startDate: '2021-04-01',
+      endDate: null,
+      country: { id: 'c-us', code: 'US', name: 'United States' },
+      department: { id: 'd-eng', code: 'ENG', name: 'Engineering' },
+      role: { id: 'r-cto', code: 'CTO', name: 'CTO' },
+      employmentType: 'FULL_TIME',
+      payrollFrequency: 'MONTHLY',
+      hasPayroll: false,
+    },
+    ...overrides,
+  };
+}
+
+function provideRouteParam(id: string | null) {
+  return {
+    provide: ActivatedRoute,
+    useValue: {
+      paramMap: of(convertToParamMap(id ? { id } : {})),
+      snapshot: { paramMap: convertToParamMap(id ? { id } : {}) },
+    },
+  };
+}
+
+describe('EmployeeEditorPage', () => {
+  let fixture: ComponentFixture<EmployeeEditorPage>;
+  let component: EmployeeEditorPage;
+  let service: jasmine.SpyObj<EmployeeService>;
+
+  function setup(id: string | null, employee?: EmployeeWithInEffectAssignmentDto): void {
+    service = jasmine.createSpyObj('EmployeeService', ['getById', 'save']);
+    if (employee) {
+      service.getById.and.returnValue(of(employee));
+    }
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [EmployeeEditorPage, NoopAnimationsModule],
+      providers: [
+        provideRouter([]),
+        provideRouteParam(id),
+        { provide: EmployeeService, useValue: service },
+      ],
+    });
+    fixture = TestBed.createComponent(EmployeeEditorPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  // ------------------------------------------------------------------
+  // Create mode
+  // ------------------------------------------------------------------
+
+  it('starts empty in create mode', () => {
+    setup(null);
+    expect(component.isEditMode()).toBeFalse();
+    expect(component.currentAssignment()).toBeNull();
+    expect(component.hasPayroll()).toBeFalse();
+  });
+
+  it('submits a create payload with assignmentInEffect.id = null and toClose = null', () => {
+    setup(null);
+
+    component.form.controls.identity.patchValue({
+      matricule: 'EMP-99',
+      fullName: 'New Guy',
+      email: 'new@acme.test',
+      dateOfBirth: '1995-01-01',
+      countryOfOrigin: 'c-ch',
+    });
+    const current = component.form.controls.inEffectPlacement.controls.current;
+    current.patchValue({
+      employmentType: 'FULL_TIME',
+      departmentId: 'd-eng',
+      roleId: 'r-cto',
+      assignmentCountryId: 'c-us',
+      payrollFrequency: 'MONTHLY',
+      startDate: '2026-01-01',
+    });
+
+    service.save.and.returnValue(of(makeEmployee()));
+    component.onSubmit();
+
+    const req = service.save.calls.mostRecent().args[0];
+    expect(req.id).toBeNull();
+    expect(req.assignmentInEffect?.id).toBeNull();
+    expect(req.toClose).toBeNull();
+  });
+
+  // ------------------------------------------------------------------
+  // Edit mode, hasPayroll = false
+  // ------------------------------------------------------------------
+
+  it('allows full editing when hasPayroll is false', () => {
+    const emp = makeEmployee();
+    setup('e-1', emp);
+
+    expect(component.hasPayroll()).toBeFalse();
+
+    // Change a placement field
+    component.form.controls.inEffectPlacement.controls.current.patchValue({
+      roleId: 'r-vp',
+    });
+
+    service.save.and.returnValue(of(emp));
+    component.onSubmit();
+
+    const req = service.save.calls.mostRecent().args[0];
+    expect(req.assignmentInEffect?.id).toBe('a-1');
+    expect(req.toClose).toBeNull();
+  });
+
+  // ------------------------------------------------------------------
+  // Edit mode, hasPayroll = true
+  // ------------------------------------------------------------------
+
+  it('exposes currentAssignment and hasPayroll for the pill', () => {
+    const emp = makeEmployee({
+      assignmentInEffect: { ...makeEmployee().assignmentInEffect!, hasPayroll: true },
+    });
+    setup('e-1', emp);
+
+    expect(component.hasPayroll()).toBeTrue();
+    expect(component.currentAssignment()?.id).toBe('a-1');
+  });
+
+  it('builds update payload (not close) when hasPayroll = true and no new assignment', () => {
+    const emp = makeEmployee({
+      assignmentInEffect: { ...makeEmployee().assignmentInEffect!, hasPayroll: true },
+    });
+    setup('e-1', emp);
+
+    // Set end date only
+    component.form.controls.inEffectPlacement.controls.current.patchValue({
+      endDate: '2026-03-31',
+    });
+
+    service.save.and.returnValue(of(emp));
+    component.onSubmit();
+
+    const req = service.save.calls.mostRecent().args[0];
+    expect(req.assignmentInEffect?.id).toBe('a-1');
+    expect(req.toClose).toBeNull();
+  });
+
+  it('builds close + new payload when hasPayroll = true and new assignment added', () => {
+    const emp = makeEmployee({
+      assignmentInEffect: { ...makeEmployee().assignmentInEffect!, hasPayroll: true },
+    });
+    setup('e-1', emp);
+
+    // Fill the new assignment
+    const placement = component.form.controls.inEffectPlacement;
+    placement.controls.current.patchValue({ endDate: '2026-03-31' });
+    placement.controls.next.patchValue({
+      employmentType: 'CONTRACTOR',
+      departmentId: 'd-eng',
+      roleId: 'r-cto',
+      assignmentCountryId: 'c-us',
+      payrollFrequency: 'MONTHLY',
+      startDate: '2026-04-01',
+    });
+    // Toggle on by enabling the next form (simulates the pill button).
+    placement.controls.next.enable();
+    placement.updateValueAndValidity();
+
+    service.save.and.returnValue(of(emp));
+    component.onSubmit();
+
+    const req = service.save.calls.mostRecent().args[0];
+    expect(req.assignmentInEffect?.id).toBeNull();
+    expect(req.assignmentInEffect?.startDate).toBe('2026-04-01');
+    expect(req.toClose).toEqual({ id: 'a-1', endDate: '2026-03-31' });
+  });
+
+  // ------------------------------------------------------------------
+  // Server error rendering
+  // ------------------------------------------------------------------
+
+  it('attaches server field errors to the matching control', () => {
+    setup(null);
+
+    component.form.controls.identity.patchValue({
+      matricule: 'EMP-000001',
+      fullName: 'X',
+      email: 'x@x.x',
+      dateOfBirth: '1990-01-01',
+      countryOfOrigin: 'c-ch',
+    });
+    component.form.controls.inEffectPlacement.controls.current.patchValue({
+      employmentType: 'FULL_TIME',
+      departmentId: 'd-eng',
+      roleId: 'r-cto',
+      assignmentCountryId: 'c-us',
+      payrollFrequency: 'MONTHLY',
+      startDate: '2026-01-01',
+    });
+
+    service.save.and.returnValue(
+      throwError(() => ({
+        code: 'VALIDATION_FAILED',
+        message: 'One or more fields are invalid',
+        errors: [
+          {
+            field: 'matricule',
+            code: 'Conflict',
+            message: 'matricule already in use: EMP-000001',
+          },
+        ],
+      })),
+    );
+
+    component.onSubmit();
+    fixture.detectChanges();
+
+    expect(component.error()?.code).toBe('VALIDATION_FAILED');
+    expect(component.form.controls.identity.controls.matricule.errors?.['serverError'])
+      .toContain('matricule already in use');
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="employee-editor-error"]')?.textContent)
+      .toContain('One or more fields are invalid');
+  });
+});

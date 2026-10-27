@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, input, output } from '@angular/core';
-import { EMPLOYMENT_TYPE_LABELS } from '../../models'
+import { EMPLOYMENT_TYPE_LABELS } from '@features/employee/models';
 import { AggregateLineDto, AggregateReportResponse, GroupKey } from '../../models';
 
 interface BarRow {

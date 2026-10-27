@@ -1,0 +1,55 @@
+<div class="max-w-[1800px] mx-auto flex flex-col gap-4 p-4 md:px-8" data-testid="employee-list-page">
+
+  <!-- Header -->
+  <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+    <div class="flex flex-col gap-1">
+      <h1 data-testid="employee-list-title" class="text-xl font-semibold text-slate-900 m-0">
+        Employee Directory &amp; Placement
+      </h1>
+      <p class="text-sm text-slate-500 m-0 max-w-3xl">
+        Manage workforce identity, in-effect jurisdictions, and statutory placement lifecycles.
+      </p>
+    </div>
+    <button
+      data-testid="employee-list-new"
+      type="button"
+      (click)="onCreateNew()"
+      class="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shrink-0"
+    >
+      <mat-icon class="!w-[18px] !h-[18px] !text-[18px]">person_add</mat-icon>
+      New Employee
+    </button>
+  </header>
+
+  <!-- Filters -->
+  <app-employee-filter-bar (filterChange)="onFilterChange($event)" />
+
+  <!-- Error banner -->
+  @if (state() === 'error' && error()) {
+  <div data-testid="employee-list-error"
+       class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+    <span class="font-bold">Error:</span> {{ error() }}
+  </div>
+  }
+
+  <!-- Table -->
+  <app-employee-table
+    [employees]="employees()"
+    [loading]="isLoading()"
+    (editClick)="onEdit($event)"
+    (deleteClick)="onDelete($event)"
+    (moreClick)="onMore($event)"
+  />
+
+  <!-- Paginator -->
+  @if (state() === 'success' && result()) {
+  <app-paginator
+    [totalElements]="totalElements()"
+    [page]="page()"
+    [size]="size()"
+    unitLabel="employees"
+    (pageChange)="onPageChange($event)"
+  />
+  }
+
+</div>

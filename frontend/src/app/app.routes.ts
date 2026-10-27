@@ -17,5 +17,31 @@ export const routes: Routes = [
         .then(m => m.EarningsRankingReportPage),
     title: 'Earnings Ranking',
   },
+  {
+    path: 'employees',
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./features/employee/pages/employee-list/employee-list.page')
+            .then(m => m.EmployeeListPage),
+        title: 'Employees',
+      },
+      {
+        path: 'new',
+        loadComponent: () =>
+          import('./features/employee/pages/employee-editor/employee-editor.page')
+            .then(m => m.EmployeeEditorPage),
+        title: 'New employee',
+      },
+      {
+        path: ':id',
+        loadComponent: () =>
+          import('./features/employee/pages/employee-editor/employee-editor.page')
+            .then(m => m.EmployeeEditorPage),
+        title: 'Edit employee',
+      },
+    ],
+  },
   { path: '**', redirectTo: 'reports/aggregate' },
 ];

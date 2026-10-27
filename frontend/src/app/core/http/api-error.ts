@@ -5,9 +5,15 @@ export interface ApiError {
   code: string;
   message: string;
   severity: ErrorSeverity;
-  details?: Record<string, unknown>;
+  errors?: ApiDetailError[];
 }
 
+export interface ApiDetailError {
+  code: string;
+  message: string;
+  severity: ErrorSeverity;
+  details?: Record<string, unknown>;
+}
 /** Type guard used by callers that receive an `unknown` error. */
 export function isApiError(value: unknown): value is ApiError {
   if (typeof value !== 'object' || value === null) return false;

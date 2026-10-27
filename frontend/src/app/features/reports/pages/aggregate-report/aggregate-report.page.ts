@@ -22,8 +22,7 @@ import { AggregateReportResultsComponent } from '../../components/aggregate-repo
 import { ReportKindToggleComponent } from '../../components/report-kind-toggle/report-kind-toggle.component';
 import { BlockerBannerComponent } from '../../components/blocker-banner/blocker-banner.component';
 import { WarningBannerComponent } from '../../components/warning-banner/warning-banner.component';
-
-type PageState = 'idle' | 'submitting' | 'success' | 'error';
+import { PageState } from '@core/models';
 
 @Component({
   selector: 'app-aggregate-report-page',

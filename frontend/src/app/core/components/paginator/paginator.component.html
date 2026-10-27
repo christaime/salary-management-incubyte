@@ -1,0 +1,38 @@
+<div
+  data-testid="paginator"
+  class="bg-white rounded-xl border border-slate-200 px-4 py-2 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-2"
+>
+  <!-- Summary line -->
+  <div class="flex items-center gap-2 text-xs text-slate-500">
+    <span data-testid="paginator-range">
+      Showing
+      <span class="font-mono font-semibold text-slate-800">
+        {{ formatNumber(range()[0]) }}–{{ formatNumber(range()[1]) }}
+      </span>
+      of
+      <span class="font-mono font-semibold text-slate-800">
+        {{ formatNumber(totalElements()) }}
+      </span>
+      {{ unitLabel() }}
+    </span>
+    <span class="text-slate-300">·</span>
+    <span class="font-mono">
+      Page
+      <span class="font-semibold text-slate-800">{{ page() + 1 }}</span>
+      /
+      {{ totalPages() }}
+    </span>
+  </div>
+
+  <!-- Material paginator, restyled -->
+  <mat-paginator
+    data-testid="mat-paginator"
+    [length]="length()"
+    [pageIndex]="page()"
+    [pageSize]="size()"
+    [pageSizeOptions]="[10, 25, 50, 100]"
+    [showFirstLastButtons]="true"
+    (page)="onPageEvent($event)"
+    class="shared-paginator"
+  />
+</div>

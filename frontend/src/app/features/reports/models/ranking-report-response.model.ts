@@ -1,8 +1,8 @@
-import { EmploymentType } from './employment-type.model';
+import { EmploymentType } from '@features/employee/models';
 import { GroupKey } from './group-key.model';
 import { PayrollPeriodDto } from '@features/payroll-period/models';
 import { PositionContextDto } from './position-context.model';
-import { EmployeeRefDto } from './employee.model';
+import { EmployeeRefDto } from '@features/employee/models';
 import { RefDto } from '@core/models';
 import { ReportWarningDto } from './report-warning.model';
 

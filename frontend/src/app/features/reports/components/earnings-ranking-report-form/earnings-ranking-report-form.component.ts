@@ -23,13 +23,15 @@ import { DepartmentService } from '../../../department/services/department.servi
 import { RoleService } from '../../../role/services/role.service';
 
 import {
-  EMPLOYMENT_TYPES,
-  EMPLOYMENT_TYPE_LABELS,
-  EmploymentType,
   GroupKey,
   EarningRankingReportRequest,
 } from '../../models';
 
+import {
+  EMPLOYMENT_TYPES,
+  EMPLOYMENT_TYPE_LABELS,
+  EmploymentType
+} from '@features/employee/models';
 type DimensionOption = { id: string; label: string };
 
 @Component({

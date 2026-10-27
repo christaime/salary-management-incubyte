@@ -1,5 +1,5 @@
 import { DateRange } from './date-range.model';
-import { EmploymentType } from './employment-type.model';
+import { EmploymentType } from '@features/employee/models';
 import { GroupKey } from './group-key.model';
 
 /**

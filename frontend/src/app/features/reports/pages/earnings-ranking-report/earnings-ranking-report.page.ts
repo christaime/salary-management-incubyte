@@ -19,7 +19,7 @@ import { EarningsRankingReportFormComponent } from '../../components/earnings-ra
 import { BlockerBannerComponent } from '../../components/blocker-banner/blocker-banner.component';
 import { WarningBannerComponent } from '../../components/warning-banner/warning-banner.component';
 
-type PageState = 'idle' | 'loading' | 'success' | 'error';
+import { PageState } from '@core/models';
 
 @Component({
   selector: 'app-earnings-ranking-report-page',
