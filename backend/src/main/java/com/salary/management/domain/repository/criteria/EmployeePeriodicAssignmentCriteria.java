@@ -23,6 +23,7 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
     private final Set<UUID> anyRoleIds;
     private final Set<EmploymentType> anyEmploymentTypes;
     private final Set<PayrollPeriodFrequency> anyPayrollFrequencies;
+    private final Boolean inEffect;
     private final String sortBy;
     private final SortDirection sortDirection;
     private final int page;
@@ -37,6 +38,7 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
         this.anyRoleIds = builder.anyRoleIds;
         this.anyEmploymentTypes = builder.anyEmploymentTypes;
         this.anyPayrollFrequencies = builder.anyPayrollFrequencies;
+        this.inEffect = builder.inEffect;
         this.sortBy = builder.sortBy;
         this.sortDirection = builder.sortDirection;
         this.page = builder.page;
@@ -119,6 +121,15 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
         return anyPayrollFrequencies;
     }
 
+    /**
+     * Filter on inEffect
+     *
+     * @return assignment status
+     */
+    public Boolean inEffect(){
+        return inEffect;
+    }
+
     @Override
     public String sortBy() {
         return sortBy;
@@ -165,6 +176,7 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
         private Set<UUID> anyRoleIds;
         private Set<EmploymentType> anyEmploymentTypes;
         private Set<PayrollPeriodFrequency> anyPayrollFrequencies;
+        private Boolean inEffect;
         private String sortBy;
         private SortDirection sortDirection;
         private int page;
@@ -182,6 +194,11 @@ public final class EmployeePeriodicAssignmentCriteria implements Criteria {
 
         public Builder endDate(LocalDate endDate) {
             this.endDate = endDate;
+            return this;
+        }
+
+        public Builder inEffect(Boolean inEffect) {
+            this.inEffect = inEffect;
             return this;
         }
 

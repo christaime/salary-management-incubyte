@@ -58,6 +58,8 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
             UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee1");
     private static final UUID ASSIGNMENT_2 =
             UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee2");
+    private static final UUID ASSIGNMENT_3 =
+            UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeee3");
 
     @Autowired
     private EmployeePeriodicAssignmentRepositoryAdapter adapter;
@@ -519,6 +521,90 @@ class EmployeePeriodicAssignmentRepositoryAdapterTest {
                 .findByEmployeeIdAndDateRange(missing,
                         LocalDate.of(2026, 1, 1),
                         LocalDate.of(2026, 6, 30));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("list filters by inEffect = true")
+    void listFiltersByInEffectTrue() {
+        EmployeePeriodicAssignmentCriteria criteria =
+                EmployeePeriodicAssignmentCriteria.builder()
+                        .inEffect(true)
+                        .sortBy("startDate")
+                        .sortDirection(SortDirection.ASC)
+                        .build();
+
+        List<EmployeePeriodicAssignment> result = adapter.list(criteria);
+
+        // ASSIGNMENT_1 (ADA) and ASSIGNMENT_3 (ALAINE) are in effect.
+        assertEquals(2, result.size());
+        assertTrue(result.stream().allMatch(EmployeePeriodicAssignment::getInEffect));
+        assertTrue(result.stream().anyMatch(a -> a.getId().equals(ASSIGNMENT_1)));
+        assertTrue(result.stream().anyMatch(a -> a.getId().equals(ASSIGNMENT_3)));
+        assertTrue(result.stream().noneMatch(a -> a.getId().equals(ASSIGNMENT_2)));
+    }
+
+    @Test
+    @DisplayName("list filters by inEffect = false")
+    void listFiltersByInEffectFalse() {
+        EmployeePeriodicAssignmentCriteria criteria =
+                EmployeePeriodicAssignmentCriteria.builder()
+                        .inEffect(false)
+                        .build();
+
+        List<EmployeePeriodicAssignment> result = adapter.list(criteria);
+
+        // Only ASSIGNMENT_2 (ADA) is not in effect.
+        assertEquals(1, result.size());
+        assertEquals(ASSIGNMENT_2, result.get(0).getId());
+        assertFalse(result.get(0).getInEffect());
+    }
+
+    @Test
+    @DisplayName("list with inEffect = null returns both in-effect and not-in-effect rows")
+    void listWithoutInEffectReturnsAll() {
+        EmployeePeriodicAssignmentCriteria criteria =
+                EmployeePeriodicAssignmentCriteria.builder()
+                        .build();
+
+        List<EmployeePeriodicAssignment> result = adapter.list(criteria);
+
+        assertEquals(3, result.size());
+        assertTrue(result.stream().anyMatch(EmployeePeriodicAssignment::getInEffect));
+        assertTrue(result.stream().anyMatch(a -> !a.getInEffect()));
+    }
+
+    @Test
+    @DisplayName("list combines employeeId and inEffect = true")
+    void listFiltersByEmployeeAndInEffect() {
+        EmployeePeriodicAssignmentCriteria criteria =
+                EmployeePeriodicAssignmentCriteria.builder()
+                        .employeeId(ADA)
+                        .inEffect(true)
+                        .build();
+
+        List<EmployeePeriodicAssignment> result = adapter.list(criteria);
+
+        // ADA has two assignments: ASSIGNMENT_1 (in_effect = 1) and
+        // ASSIGNMENT_2 (in_effect = 0). Only ASSIGNMENT_1 matches.
+        assertEquals(1, result.size());
+        assertEquals(ASSIGNMENT_1, result.get(0).getId());
+        assertTrue(result.get(0).getInEffect());
+    }
+
+    @Test
+    @DisplayName("list returns empty when employeeId and inEffect match nothing")
+    void listEmployeeWithInEffectEmptyWhenNone() {
+        // GRACE (in the seed, but with no assignments). Filtering by
+        // inEffect = true still returns 0 because GRACE has no assignments.
+        EmployeePeriodicAssignmentCriteria criteria =
+                EmployeePeriodicAssignmentCriteria.builder()
+                        .employeeId(GRACE)
+                        .inEffect(true)
+                        .build();
+
+        List<EmployeePeriodicAssignment> result = adapter.list(criteria);
 
         assertTrue(result.isEmpty());
     }

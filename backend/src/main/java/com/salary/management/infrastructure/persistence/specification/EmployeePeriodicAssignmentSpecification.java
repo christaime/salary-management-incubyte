@@ -28,6 +28,10 @@ public final class EmployeePeriodicAssignmentSpecification {
                 predicates.add(cb.equal(root.get("employeeId"), criteria.employeeId()));
             }
 
+            if (criteria.inEffect() != null) {
+                predicates.add(cb.equal(root.get("inEffect"), criteria.inEffect()));
+            }
+
             if (criteria.startDate() != null) {
                 predicates.add(cb.greaterThanOrEqualTo(
                         root.get("startDate"), criteria.startDate()));
