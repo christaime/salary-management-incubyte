@@ -206,7 +206,9 @@ describe('Aggregate Report Page', () => {
     cy.get('[data-testid="filter-departments"]').should('be.visible');
     cy.get('[data-testid="filter-departments"]').click();
     cy.get('mat-option').contains('Engineering').click();
+    cy.get('[data-testid="filter-departments"]').type('{esc}');
 
+    cy.get('[data-testid="btn-customize"]').click();
     cy.get('[data-testid="btn-drawer-apply"]').click();
     cy.get('[data-testid="btn-generate"]').click();
 
