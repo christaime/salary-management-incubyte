@@ -45,9 +45,9 @@ describe('SidebarComponent', () => {
   // Nav items
   // ------------------------------------------------------------------
 
-  it('renders 5 nav items', () => {
+  it('renders 6 nav items', () => {
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelectorAll('.nav-item').length).toBe(5);
+    expect(el.querySelectorAll('.nav-item').length).toBe(6);
   });
 
   it('exposes the employee, aggregate, and earnings ranking nav items', () => {
@@ -66,7 +66,7 @@ describe('SidebarComponent', () => {
     rerender();
     const el = fixture.nativeElement as HTMLElement;
 
-    expect(el.querySelectorAll('.nav-label').length).toBe(5);
+    expect(el.querySelectorAll('.nav-label').length).toBe(6);
     expect(el.querySelector('[data-testid="sidebar-title"]')?.textContent)
       .toContain('Navigation');
   });

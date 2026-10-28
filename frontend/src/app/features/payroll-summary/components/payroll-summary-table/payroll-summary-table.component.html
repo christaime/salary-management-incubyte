@@ -1,0 +1,190 @@
+<div
+  class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+  data-testid="payroll-summary-table"
+>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse">
+      <thead>
+      <tr class="bg-slate-50 h-10 text-slate-500 font-mono uppercase tracking-wider text-xs">
+        <th class="px-3 py-2.5">Employee</th>
+        <th class="px-3 py-2.5">Period</th>
+        <th class="px-3 py-2.5">Placement</th>
+        <th class="px-3 py-2.5 text-right">Total</th>
+        <th class="px-3 py-2.5">Status</th>
+        <th class="px-3 py-2.5 text-right">Actions</th>
+      </tr>
+      </thead>
+
+      <tbody class="divide-y divide-slate-100 text-sm">
+      @if (loading()) {
+      <tr data-testid="table-loading">
+        <td colspan="6" class="px-4 py-12 text-center text-slate-400 text-sm">
+          Loading payroll summaries…
+        </td>
+      </tr>
+      }
+
+      @if (!loading() && rows().length === 0) {
+      <tr data-testid="table-empty">
+        <td colspan="6" class="px-4 py-12 text-center text-slate-400 text-sm">
+          No payroll summaries match the current filters.
+        </td>
+      </tr>
+      }
+
+      @if (!loading()) {
+      @for (row of rows(); track row.id) {
+      <tr
+        [attr.data-testid]="'payroll-row-' + row.id"
+        [attr.data-status]="row.status"
+        class="hover:bg-slate-50/70 transition-colors cursor-pointer"
+        (click)="rowClick.emit(row)"
+      >
+        <!-- Employee -->
+        <td class="px-3 py-3">
+          <div class="flex flex-col min-w-0 gap-0.5">
+                  <span
+                    [attr.data-testid]="'row-employee-name-' + row.id"
+                    class="text-sm font-semibold text-slate-900 truncate leading-tight"
+                  >
+                    {{ row.employee.name }}
+                  </span>
+            <span
+              [attr.data-testid]="'row-employee-matricule-' + row.id"
+              class="font-mono text-xs text-slate-500 truncate"
+            >
+                    {{ row.employee.matricule }}
+                  </span>
+          </div>
+        </td>
+
+        <!-- Period -->
+        <td class="px-3 py-3">
+          <div class="flex flex-col min-w-0 gap-0.5">
+                  <span
+                    [attr.data-testid]="'row-period-name-' + row.id"
+                    class="text-sm font-medium text-slate-900 truncate"
+                  >
+                    {{ row.period.name }}
+                  </span>
+            <span
+              [attr.data-testid]="'row-period-range-' + row.id"
+              class="font-mono text-[11px] text-slate-500"
+            >
+                    {{ formatPeriodRange(row.period.startDate, row.period.endDate) }}
+                  </span>
+          </div>
+        </td>
+
+        <!-- Placement (combined) -->
+        <td class="px-3 py-3">
+          <div class="flex flex-col min-w-0 gap-0.5">
+            <!-- Country + department -->
+            <div class="flex items-center gap-1.5 min-w-0">
+                    <span
+                      class="text-base leading-none shrink-0"
+                      [title]="row.country.name"
+                      [attr.data-testid]="'row-country-' + row.id"
+                    >
+                      {{ countryFlag(row.country.code) }}
+                    </span>
+              <span class="text-sm font-semibold text-slate-900 truncate">
+                      {{ row.country.name }}
+                    </span>
+              <span
+                class="font-mono text-[10px] text-blue-700 bg-blue-50 px-1 py-0.5 rounded shrink-0"
+              >
+                      {{ row.country.code }}
+                    </span>
+              <span class="text-slate-300 shrink-0">·</span>
+              <span class="text-sm text-slate-700 truncate">
+                      {{ row.department.name }}
+                    </span>
+            </div>
+
+            <!-- Role + type -->
+            <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-sm text-slate-600 truncate">
+                      {{ row.role.name }}
+                    </span>
+              <span class="font-mono text-[10px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded shrink-0">
+                      {{ row.role.code }}
+                    </span>
+              <span class="text-slate-300 shrink-0">·</span>
+              <span
+                [attr.data-testid]="'row-employment-type-' + row.id"
+                class="font-mono text-[10px] text-slate-500 shrink-0"
+              >
+                      {{ employmentTypeLabel(row.employmentType) }}
+                    </span>
+            </div>
+          </div>
+        </td>
+
+        <!-- Total -->
+        <td class="px-3 py-3 text-right whitespace-nowrap">
+                <span
+                  [attr.data-testid]="'row-total-' + row.id"
+                  [attr.data-currency]="row.amounts.currency"
+                  [attr.data-amount]="row.amounts.total"
+                  class="font-mono text-sm font-semibold text-slate-900"
+                >
+                  {{ formatMoney(row.amounts.total, row.amounts.currency) }}
+                </span>
+        </td>
+
+        <!-- Status -->
+        <td class="px-3 py-3 whitespace-nowrap">
+          <app-payroll-summary-status-badge [status]="row.status" />
+        </td>
+
+        <!-- Actions -->
+        <td
+          class="px-3 py-3 text-right whitespace-nowrap"
+          (click)="$event.stopPropagation()"
+        >
+          <div class="flex items-center justify-end gap-1">
+            @if (row.status === 'DRAFT') {
+            <button
+              [attr.data-testid]="'row-edit-' + row.id"
+              type="button"
+              class="p-2 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
+              title="Edit summary"
+              (click)="editClick.emit(row)"
+            >
+              <mat-icon class="!w-4 !h-4 !text-[16px]">edit</mat-icon>
+            </button>
+
+            <button
+              [attr.data-testid]="'row-validate-' + row.id"
+              type="button"
+              class="p-2 rounded hover:bg-emerald-50 text-emerald-600 hover:text-emerald-800 transition-colors"
+              title="Validate summary"
+              (click)="validateClick.emit(row)"
+            >
+              <mat-icon class="!w-4 !h-4 !text-[16px]">check_circle</mat-icon>
+            </button>
+
+            <button
+              [attr.data-testid]="'row-delete-' + row.id"
+              type="button"
+              class="p-2 rounded hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors"
+              title="Delete summary"
+              (click)="deleteClick.emit(row)"
+            >
+              <mat-icon class="!w-4 !h-4 !text-[16px]">delete</mat-icon>
+            </button>
+            } @else {
+            <span class="text-[11px] text-slate-400 font-mono uppercase tracking-wider px-2">
+                      Final
+                    </span>
+            }
+          </div>
+        </td>
+      </tr>
+      }
+      }
+      </tbody>
+    </table>
+  </div>
+</div>

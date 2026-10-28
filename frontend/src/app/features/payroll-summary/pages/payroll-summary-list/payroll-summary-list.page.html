@@ -1,0 +1,97 @@
+<div
+  class="max-w-[1800px] mx-auto flex flex-col gap-4 p-4 md:px-8"
+  data-testid="payroll-summary-list-page"
+>
+  <!-- Header -->
+  <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+    <div class="flex flex-col gap-1">
+      <h1
+        data-testid="payroll-summary-list-title"
+        class="text-xl font-semibold text-slate-900 m-0"
+      >
+        Payroll Summaries
+      </h1>
+      <p class="text-sm text-slate-500 m-0 max-w-3xl">
+        Record, validate, and audit employee payroll outcomes. Drafts can be
+        edited or deleted; validated summaries are final.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2 shrink-0">
+      <select
+        data-testid="bulk-validate-period-select"
+        class="h-9 px-2 rounded-md border border-slate-200 bg-white text-sm font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+        (change)="onPeriodSelect($any($event.target).value)"
+      >
+        <option value="">Select a period to bulk-validate…</option>
+        @for (p of availablePeriods(); track p.id) {
+        <option [value]="p.id">{{ p.name }}</option>
+        }
+      </select>
+      <button
+        data-testid="payroll-summary-bulk-validate"
+        type="button"
+        mat-stroked-button
+        [disabled]="!canBulkValidate()"
+        (click)="onBulkValidate()"
+      >
+        <mat-icon class="!w-4 !h-4 !text-[16px]">checklist</mat-icon>
+        Validate all drafts
+      </button>
+      <button
+        data-testid="payroll-summary-new"
+        type="button"
+        (click)="onNew()"
+        class="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shrink-0"
+      >
+        <mat-icon class="!w-[18px] !h-[18px] !text-[18px]">add</mat-icon>
+        New payroll summary
+      </button>
+    </div>
+  </header>
+
+  <!-- Filters -->
+  <app-payroll-summary-filter-bar (filterChange)="onFilterChange($event)" (filterReset)="onFilterReset()" />
+
+  <!-- Error banner -->
+  @if (state() === 'error' && error()) {
+  <div
+    data-testid="payroll-summary-list-error"
+    class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+  >
+    <span class="font-bold">Error:</span> {{ error() }}
+  </div>
+  }
+
+  <!-- Empty initial state -->
+  @if (state() === 'idle' && rows().length === 0) {
+  <div
+    data-testid="payroll-summary-list-idle"
+    class="text-center py-16 text-slate-400 text-sm border border-dashed border-slate-200 rounded-xl"
+  >
+    Pick a date range and click Apply to see payroll summaries.
+  </div>
+  }
+
+  <!-- Table + paginator (only after a search has run) -->
+  @if (state() !== 'idle') {
+  <app-payroll-summary-table
+    [rows]="rows()"
+    [loading]="isLoading()"
+    (rowClick)="onRowClick($event)"
+    (editClick)="onEdit($event)"
+    (validateClick)="onValidate($event)"
+    (deleteClick)="onDelete($event)"
+  />
+
+  @if (state() === 'success' && totalElements() > 0) {
+  <app-paginator
+    [totalElements]="totalElements()"
+    [page]="page()"
+    [size]="size()"
+    unitLabel="payroll summaries"
+    (pageChange)="onPageChange($event)"
+  />
+  }
+  }
+</div>

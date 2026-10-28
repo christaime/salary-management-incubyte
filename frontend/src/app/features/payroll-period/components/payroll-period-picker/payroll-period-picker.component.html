@@ -81,6 +81,7 @@
             type="text"
             [formControl]="searchControl"
             (focus)="onPeriodInputFocus()"
+            (click)="onPeriodInputClick($event)"
             (input)="onPeriodSearchInput()"
             [placeholder]="internalYear() ? 'Type period (e.g. September)...' : 'Search or select period...'"
             class="w-full bg-transparent text-xs text-slate-900 placeholder:text-slate-400 border-none outline-none focus:ring-0 p-0"
