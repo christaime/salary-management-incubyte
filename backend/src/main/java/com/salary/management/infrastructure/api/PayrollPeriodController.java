@@ -9,6 +9,8 @@ import com.salary.management.domain.repository.criteria.PayrollPeriodCriteria;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +33,7 @@ public class PayrollPeriodController {
     @Operation(summary = "Search and paginate payroll periods")
     public ResponseEntity<DataPage<PayrollPeriodResponse>> search(
             @Parameter(description = "Keyword search in name")
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) @Size(max = 500) String keyword,
 
             @Parameter(description = "Inclusive lower bound on start date (YYYY-MM-DD)")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -49,10 +51,10 @@ public class PayrollPeriodController {
             @RequestParam(defaultValue = "0") int page,
 
             @Parameter(description = "Page size")
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "20") @Max(100) int size,
 
             @Parameter(description = "Sort field (startDate, endDate, name)")
-            @RequestParam(defaultValue = "startDate") String sortBy,
+            @RequestParam(defaultValue = "startDate") @Size(max = 100) String sortBy,
 
             @Parameter(description = "Sort direction (ASC or DESC)")
             @RequestParam(defaultValue = "DESC") SortDirection sortDirection

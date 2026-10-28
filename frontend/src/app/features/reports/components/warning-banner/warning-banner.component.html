@@ -1,0 +1,50 @@
+@if (warnings() && warnings().length > 0) {
+<div data-testid="warning-banner"
+     class="p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-900 shadow-xs">
+  <h3 class="text-sm font-semibold flex items-center gap-2 m-0">
+    <mat-icon class="text-yellow-600">warning</mat-icon>
+    Data Quality Warnings
+  </h3>
+  <ul class="text-sm mt-2 ml-6 list-disc flex flex-col gap-3">
+    @for (warn of warnings(); track warn.code + warn.message) {
+    <li>
+      <div class="font-medium">{{ warn.message }}</div>
+
+      @switch (warn.code) {
+      @case ('MISSING_PAYROLL_SUMMARY') {
+      @if ($any(warn).countConcerned > 0 || $any(warn).employees?.length > 0) {
+      <div class="mt-1 text-xs text-yellow-700 flex flex-col gap-1.5">
+        @if ($any(warn).countConcerned > 0) {
+        <div>
+                    <span [attr.data-testid]="'warn-count-' + warn.code"
+                          [attr.data-value]="$any(warn).countConcerned"
+                          class="font-semibold text-yellow-900">
+                      {{ $any(warn).countConcerned | number }}
+                    </span> total employee(s) affected:
+        </div>
+        }
+        @if ($any(warn).employees.length > 0) {
+        <div class="flex flex-wrap gap-1.5">
+          @for (emp of $any(warn).employees; track emp.id ?? emp.matricule) {
+          <span [attr.data-testid]="'warn-employee-' + (emp.id ?? emp.matricule)"
+                [attr.data-value]="emp.matricule"
+                class="inline-flex items-center px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-900 font-mono text-[11px] border border-yellow-200">
+                        {{ emp.matricule }}
+                      </span>
+          }
+          @if ($any(warn).countConcerned > $any(warn).employees.length) {
+          <span class="inline-flex items-center px-1.5 py-0.5 text-yellow-700 text-[11px] italic">
+                        + {{ $any(warn).countConcerned - $any(warn).employees.length | number }} more
+                      </span>
+          }
+        </div>
+        }
+      </div>
+      }
+      }
+      }
+    </li>
+    }
+  </ul>
+</div>
+}

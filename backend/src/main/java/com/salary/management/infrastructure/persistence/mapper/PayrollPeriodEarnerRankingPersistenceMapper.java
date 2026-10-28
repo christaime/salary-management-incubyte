@@ -41,6 +41,8 @@ public interface PayrollPeriodEarnerRankingPersistenceMapper {
     @Mapping(target = "employeeId", source = "employee.id")
     @Mapping(target = "originalAmount", source = "originalAmount")
     @Mapping(target = "referenceAmount", source = "referenceAmount")
+    @Mapping(target = "monthlyRateAmount", source = "monthlyRateAmount")
+    @Mapping(target = "daysCovered", source = "daysCovered")
     PayrollPeriodEarnerRankingEntity toEntity(PayrollPeriodEarnerRanking ranking);
 
     /**

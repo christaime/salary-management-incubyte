@@ -288,6 +288,116 @@ class PayrollPeriodAggregateRepositoryAdapterTest {
         assertEquals(2, jpaRepository.count());
     }
 
+    // ------------------------------------------------------------------
+    // sumReferenceTotalByPeriodId
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodId sums every aggregate of the period")
+    void sumReferenceTotalByPeriodIdSumsAll() {
+        BigDecimal total = adapter.sumReferenceTotalByPeriodId(JANUARY);
+
+        // AGG_FR.reference_total = 1458.00, AGG_DE.reference_total = 729.00
+        assertEquals(0, total.compareTo(new BigDecimal("2187.00")));
+    }
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodId returns zero for a period with no rows")
+    void sumReferenceTotalByPeriodIdReturnsZeroWhenEmpty() {
+        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        BigDecimal total = adapter.sumReferenceTotalByPeriodId(missing);
+
+        assertEquals(0, total.compareTo(BigDecimal.ZERO));
+    }
+
+    // ------------------------------------------------------------------
+    // sumReferenceTotalByPeriodAndDimension
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodAndDimension with all-null filters equals the full total")
+    void sumByDimensionWithNullFiltersReturnsFullTotal() {
+        BigDecimal total = adapter.sumReferenceTotalByPeriodAndDimension(
+                JANUARY, null, null, null, null);
+
+        assertEquals(0, total.compareTo(new BigDecimal("2187.00")));
+    }
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodAndDimension filters by country")
+    void sumByDimensionFiltersByCountry() {
+        BigDecimal fr = adapter.sumReferenceTotalByPeriodAndDimension(
+                JANUARY, FR, null, null, null);
+        BigDecimal de = adapter.sumReferenceTotalByPeriodAndDimension(
+                JANUARY, DE, null, null, null);
+
+        assertEquals(0, fr.compareTo(new BigDecimal("1458.00")));
+        assertEquals(0, de.compareTo(new BigDecimal("729.00")));
+    }
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodAndDimension filters by department")
+    void sumByDimensionFiltersByDepartment() {
+        BigDecimal total = adapter.sumReferenceTotalByPeriodAndDimension(
+                JANUARY, null, ENGINEERING, null, null);
+
+        assertEquals(0, total.compareTo(new BigDecimal("2187.00")));
+    }
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodAndDimension filters by role")
+    void sumByDimensionFiltersByRole() {
+        BigDecimal total = adapter.sumReferenceTotalByPeriodAndDimension(
+                JANUARY, null, null, ENGINEER, null);
+
+        assertEquals(0, total.compareTo(new BigDecimal("2187.00")));
+    }
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodAndDimension filters by employment type")
+    void sumByDimensionFiltersByEmploymentType() {
+        BigDecimal full = adapter.sumReferenceTotalByPeriodAndDimension(
+                JANUARY, null, null, null, EmploymentType.FULL_TIME);
+        BigDecimal part = adapter.sumReferenceTotalByPeriodAndDimension(
+                JANUARY, null, null, null, EmploymentType.PART_TIME);
+
+        // AGG_FR is FULL_TIME (1458.00), AGG_DE is PART_TIME (729.00).
+        assertEquals(0, full.compareTo(new BigDecimal("1458.00")));
+        assertEquals(0, part.compareTo(new BigDecimal("729.00")));
+    }
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodAndDimension combines filters")
+    void sumByDimensionCombinesFilters() {
+        BigDecimal total = adapter.sumReferenceTotalByPeriodAndDimension(
+                JANUARY, FR, ENGINEERING, ENGINEER, EmploymentType.FULL_TIME);
+
+        assertEquals(0, total.compareTo(new BigDecimal("1458.00")));
+    }
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodAndDimension returns zero when no row matches")
+    void sumByDimensionReturnsZeroWhenNoMatch() {
+        UUID unknownCountry = UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        BigDecimal total = adapter.sumReferenceTotalByPeriodAndDimension(
+                JANUARY, unknownCountry, null, null, null);
+
+        assertEquals(0, total.compareTo(BigDecimal.ZERO));
+    }
+
+    @Test
+    @DisplayName("sumReferenceTotalByPeriodAndDimension returns zero for an empty period")
+    void sumByDimensionReturnsZeroWhenEmptyPeriod() {
+        UUID missing = UUID.fromString("99999999-9999-9999-9999-999999999999");
+
+        BigDecimal total = adapter.sumReferenceTotalByPeriodAndDimension(
+                missing, FR, null, null, null);
+
+        assertEquals(0, total.compareTo(BigDecimal.ZERO));
+    }
+
     private PayrollPeriod payrollPeriod(UUID id, String name,
                                         LocalDate start, LocalDate end) {
         return PayrollPeriod.builder()

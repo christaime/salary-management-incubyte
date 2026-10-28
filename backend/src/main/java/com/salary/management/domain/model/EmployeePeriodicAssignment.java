@@ -92,6 +92,10 @@ public final class EmployeePeriodicAssignment {
         return toBuilder().payrollFrequency(newFrequency).build();
     }
 
+    public EmployeePeriodicAssignment withEmploymentType(EmploymentType employmentType) {
+        return toBuilder().employmentType(employmentType).build();
+    }
+
     private Builder toBuilder() {
         return new Builder()
                 .id(this.id)

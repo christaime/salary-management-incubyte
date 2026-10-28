@@ -9,12 +9,14 @@ import { AggregateReportRequest, AggregateReportResponse } from '../models';
 import { ReportsError } from './reports-error';
 import { apiUrl } from '@core/config/api-base-url';
 import { httpErrorInterceptor } from '@core/http/http-error.interceptor';
+import { EarningRankingReportRequest, EarningRankingReportResponse } from '../models';
 
 describe('ReportsService', () => {
   let service: ReportsService;
   let httpMock: HttpTestingController;
 
   const URL = apiUrl('/api/v1/reports/aggregate');
+  const URL_RANKING = apiUrl('/api/v1/reports/rankings');
 
   const baseRequest: AggregateReportRequest = {
     dateRange: { startDate: '2026-01-01', endDate: '2026-01-31' },
@@ -442,5 +444,41 @@ describe('ReportsService', () => {
     });
 
     httpMock.expectOne(URL).error(new ProgressEvent('error'));
+  });
+
+  describe('generateRankingReport', () => {
+    it('POSTs to /api/v1/reports/rankings and returns the body', () => {
+      const req: EarningRankingReportRequest = {
+        periodId: 'p-1',
+        groupKey: null,
+        countryId: null,
+        departmentId: null,
+        roleId: null,
+        employmentType: null,
+      };
+      const response: EarningRankingReportResponse = { /* ... */ } as any;
+
+      service.generateRankingReport(req).subscribe(r => expect(r).toEqual(response));
+
+      const http = httpMock.expectOne(URL_RANKING);
+      expect(http.request.method).toBe('POST');
+      expect(http.request.body).toEqual(req);
+      http.flush(response);
+    });
+
+    it('maps error bodies through toReportsError', () => {
+      service.generateRankingReport({ periodId: 'p-1' } as any).subscribe({
+        error: (err: ReportsError) => {
+          expect(err.code).toBe('REPORT_BLOCKED');
+          expect(err.warnings.length).toBeGreaterThan(0);
+        },
+      });
+
+      const http = httpMock.expectOne(URL_RANKING);
+      http.flush(
+        { code: 'REPORT_BLOCKED', message: 'Blocked', errors: [{ code: 'MISSING_FX_RATE', message: 'Missing XAF', severity: 'BLOCKER', details: { currency: 'XAF' } }] },
+        { status: 400, statusText: 'Bad Request' },
+      );
+    });
   });
 });

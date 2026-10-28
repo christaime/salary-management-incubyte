@@ -15,7 +15,7 @@ import { DepartmentData } from '../../../department/models/department.model';
 import { DepartmentService } from '../../../department/services/department.service';
 import { RoleData } from '../../../role/models/role.model';
 import { RoleService } from '../../../role/services/role.service';
-import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, EmploymentType } from '../../models';
+import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, EmploymentType } from '@features/employee/models';
 
 // We type the form as the full parent form, but we only use the filter controls
 export type FilterFormGroup = FormGroup<{

@@ -55,7 +55,10 @@ const formValue = (
   ...overrides,
 });
 
-function successBody(groupKeys: AggregateReportRequest['groupKeys']) {
+function successBody(
+  groupKeys: AggregateReportRequest['groupKeys'],
+  warnings: any[] = [],
+) {
   return {
     kind: 'AGGREGATE',
     dateRange: { startDate: '2026-01-01', endDate: '2026-01-31' },
@@ -68,7 +71,7 @@ function successBody(groupKeys: AggregateReportRequest['groupKeys']) {
         country: 'CM',
       },
     ],
-    warnings: [],
+    warnings,
   };
 }
 
@@ -79,7 +82,8 @@ function blockedBody() {
     errors: [
       {
         code: 'MISSING_PAYROLL_SUMMARY',
-        message: 'Some employees with an in-effect assignment have no payroll summary',
+        message:
+          'Some employees with an in-effect assignment have no payroll summary',
         severity: 'WARNING',
         details: {
           count: 1,
@@ -98,25 +102,28 @@ describe('AggregateReportPageComponent', () => {
   let toast: jasmine.SpyObj<ToastService>;
 
   beforeEach(async () => {
+    const emptyPage = {
+      content: [],
+      totalElements: 0,
+      totalPages: 1,
+      size: 20,
+      number: 0,
+    };
     const spyPeriod = jasmine.createSpyObj('PayrollPeriodsService', ['search']);
-    spyPeriod.search.and.returnValue(
-      of({ content: [], totalElements: 0, totalPages: 1, size: 20, number: 0 }),
-    );
+    spyPeriod.search.and.returnValue(of(emptyPage));
     const spyCountry = jasmine.createSpyObj('CountryService', ['search']);
-    spyCountry.search.and.returnValue(
-      of({ content: [], totalElements: 0, totalPages: 1, size: 20, number: 0 }),
-    );
+    spyCountry.search.and.returnValue(of(emptyPage));
     const spyDepartment = jasmine.createSpyObj('DepartmentService', ['search']);
-    spyDepartment.search.and.returnValue(
-      of({ content: [], totalElements: 0, totalPages: 1, size: 20, number: 0 }),
-    );
+    spyDepartment.search.and.returnValue(of(emptyPage));
     const spyRole = jasmine.createSpyObj('RoleService', ['search']);
-    spyRole.search.and.returnValue(
-      of({ content: [], totalElements: 0, totalPages: 1, size: 20, number: 0 }),
-    );
+    spyRole.search.and.returnValue(of(emptyPage));
 
     toast = jasmine.createSpyObj<ToastService>('ToastService', [
-      'success', 'error', 'info', 'warning', 'dismiss',
+      'success',
+      'error',
+      'info',
+      'warning',
+      'dismiss',
     ]);
 
     await TestBed.configureTestingModule({
@@ -152,6 +159,12 @@ describe('AggregateReportPageComponent', () => {
     expect(component.reportError()).toBeNull();
   });
 
+  it('does not render blocker or warning banner wrappers on idle', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="blocker-banner-wrapper"]')).toBeNull();
+    expect(el.querySelector('[data-testid="warning-banner-wrapper"]')).toBeNull();
+  });
+
   // -----------------------------------------------------------------
   // submit → results
   // -----------------------------------------------------------------
@@ -169,6 +182,7 @@ describe('AggregateReportPageComponent', () => {
     expect(req.request.body.includeBreakdown).toBeTrue();
 
     req.flush(successBody([]));
+    fixture.detectChanges();
 
     expect(component.state()).toBe('success');
     expect(component.showResults()).toBeTrue();
@@ -246,10 +260,10 @@ describe('AggregateReportPageComponent', () => {
   });
 
   // -----------------------------------------------------------------
-  // blockers
+  // blocker banner
   // -----------------------------------------------------------------
 
-  it('shows blocker banner on REPORT_BLOCKED and toasts', () => {
+  it('shows the blocker banner wrapper on REPORT_BLOCKED and toasts', () => {
     component.onFormSubmit(formValue());
     http.expectOne(apiUrl(URL)).flush(blockedBody(), {
       status: 400,
@@ -257,21 +271,65 @@ describe('AggregateReportPageComponent', () => {
     });
     fixture.detectChanges();
 
+    const el = fixture.nativeElement as HTMLElement;
     expect(component.state()).toBe('error');
-    expect(component.showBlockerBanner()).toBeTrue();
     expect(component.blockers().length).toBe(1);
+    expect(el.querySelector('[data-testid="blocker-banner"]')).not.toBeNull();
+    expect(el.querySelector('[data-testid="warning-banner"]')).toBeNull();
     expect(toast.error).toHaveBeenCalled();
   });
 
-  it('dismissBanner clears error and returns to idle', () => {
+  it('dismissBanner clears error and hides the blocker wrapper', () => {
     component.onFormSubmit(formValue());
     http.expectOne(apiUrl(URL)).flush(blockedBody(), {
       status: 400,
       statusText: 'Bad Request',
     });
+    fixture.detectChanges();
+
     component.dismissBanner();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
     expect(component.state()).toBe('idle');
-    expect(component.showBlockerBanner()).toBeFalse();
+    expect(el.querySelector('[data-testid="blocker-banner"]')).toBeNull();
+  });
+
+  // -----------------------------------------------------------------
+  // warning banner
+  // -----------------------------------------------------------------
+
+  it('shows the warning banner wrapper when the response carries warnings', () => {
+    const warnings = [
+      {
+        code: 'MISSING_PAYROLL_SUMMARY',
+        message: '3 employees have no payroll summary',
+        severity: 'WARNING',
+        details: {
+          count: 3,
+          employees: [{ id: '1', matricule: 'EMP-001', name: 'John Doe' }],
+        },
+      },
+    ];
+
+    component.onFormSubmit(formValue());
+    http.expectOne(apiUrl(URL)).flush(successBody([], warnings));
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(component.state()).toBe('success');
+    expect(el.querySelector('[data-testid="warning-banner"]')).not.toBeNull();
+    expect(el.querySelector('[data-testid="blocker-banner"]')).toBeNull();
+  });
+
+  it('hides the warning banner wrapper when the response has no warnings', () => {
+    component.onFormSubmit(formValue());
+    http.expectOne(apiUrl(URL)).flush(successBody([]));
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="warning-banner"]')).toBeNull();
+    expect(el.querySelector('[data-testid="blocker-banner"]')).toBeNull();
   });
 
   // -----------------------------------------------------------------
@@ -290,23 +348,24 @@ describe('AggregateReportPageComponent', () => {
 
     // change the form → reset everything
     component.onFormChange();
+    fixture.detectChanges();
 
+    const el = fixture.nativeElement as HTMLElement;
     expect(component.reportResponse()).toBeNull();
     expect(component.reportError()).toBeNull();
     expect(component.state()).toBe('idle');
     expect(component.selectedKind()).toBe('TOTAL');
     expect(component.showResults()).toBeFalse();
-    expect(component.showBlockerBanner()).toBeFalse();
+    expect(el.querySelector('[data-testid="blocker-banner"]')).toBeNull();
+    expect(el.querySelector('[data-testid="warning-banner"]')).toBeNull();
   });
 
   it('onFormChange invalidates the cache so a subsequent toggle fetches again', () => {
-    // first cycle: submit + switch to COUNTRY
     component.onFormSubmit(formValue());
     http.expectOne(apiUrl(URL)).flush(successBody([]));
     component.onKindChange('COUNTRY');
     http.expectOne(apiUrl(URL)).flush(successBody(['COUNTRY']));
 
-    // change the form → cache cleared
     component.onFormChange();
 
     // toggle back to TOTAL with no prior submit → no request, no cache hit
@@ -322,18 +381,21 @@ describe('AggregateReportPageComponent', () => {
     expect(component.state()).toBe('success');
   });
 
-  it('onFormChange after a blocker clears the error banner', () => {
+  it('onFormChange after a blocker hides the blocker wrapper', () => {
     component.onFormSubmit(formValue());
     http.expectOne(apiUrl(URL)).flush(blockedBody(), {
       status: 400,
       statusText: 'Bad Request',
     });
-    expect(component.showBlockerBanner()).toBeTrue();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="blocker-banner"]')).not.toBeNull();
 
     component.onFormChange();
+    fixture.detectChanges();
 
-    expect(component.reportError()).toBeNull();
-    expect(component.showBlockerBanner()).toBeFalse();
+    expect(el.querySelector('[data-testid="blocker-banner"]')).toBeNull();
     expect(component.state()).toBe('idle');
   });
 
@@ -349,6 +411,7 @@ describe('AggregateReportPageComponent', () => {
     expect(component.reportResponse()).not.toBeNull();
 
     component.onFormReset();
+    fixture.detectChanges();
 
     expect(component.state()).toBe('idle');
     expect(component.selectedKind()).toBe('TOTAL');

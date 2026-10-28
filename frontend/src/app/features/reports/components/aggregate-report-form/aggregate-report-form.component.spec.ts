@@ -96,7 +96,7 @@ describe('AggregateReportFormComponent', () => {
     const pickers = fixture.debugElement.queryAll(By.directive(PayrollPeriodPickerComponent));
     const endPickerInstance = pickers[1].componentInstance as PayrollPeriodPickerComponent;
 
-    expect(endPickerInstance.initialFilter()).toEqual({ startDate: '2026-01-31' });
+    expect(endPickerInstance.initialFilter()).toEqual({ startDate: '2026-01-31', frequency: 'MONTHLY' });
   });
 
   it('should update the end picker filter when the start period changes', () => {
@@ -121,12 +121,12 @@ describe('AggregateReportFormComponent', () => {
     fixture.detectChanges();
     let pickers = fixture.debugElement.queryAll(By.directive(PayrollPeriodPickerComponent));
     expect((pickers[1].componentInstance as PayrollPeriodPickerComponent).initialFilter())
-      .toEqual({ startDate: '2026-01-31' });
+      .toEqual({ startDate: '2026-01-31',frequency: 'MONTHLY' });
 
     component.form.controls.startPeriod.setValue(june);
     fixture.detectChanges();
     pickers = fixture.debugElement.queryAll(By.directive(PayrollPeriodPickerComponent));
     expect((pickers[1].componentInstance as PayrollPeriodPickerComponent).initialFilter())
-      .toEqual({ startDate: '2026-06-30' });
+      .toEqual({ startDate: '2026-06-30' ,frequency: 'MONTHLY'});
   });
 });

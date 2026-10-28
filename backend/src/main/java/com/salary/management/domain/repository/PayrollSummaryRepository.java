@@ -3,7 +3,10 @@ package com.salary.management.domain.repository;
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.domain.model.PayrollSummary;
 import com.salary.management.domain.repository.criteria.PayrollSummaryCriteria;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,5 +52,26 @@ public interface PayrollSummaryRepository {
     DataPage<PayrollSummary> pageNonExistent(PayrollSummaryCriteria criteria);
 
     void deleteById(UUID id);
+    /**
+     * Returns the maximum {@code startDate} of the payroll periods whose
+     * VALIDATED summaries are attached to the given assignment, or
+     * {@code null} if no such summary exists.
+     *
+     * <p>Used to enforce "the assignment's endDate must not be earlier than
+     * the latest linked payroll period's start".</p>
+     *
+     * @param assignmentId the employee periodic assignment id
+     * @return the latest linked payroll period's start date, or {@code null}
+     */
+    LocalDate latestLinkedPeriodStart(UUID assignmentId);
+
+    /**
+     * Returns whether at least one payroll summary (any status) is attached
+     * to the given assignment.
+     *
+     * @param assignmentId the employee periodic assignment id
+     * @return {@code true} when a summary exists
+     */
+    boolean hasAnySummaryForAssignment(UUID assignmentId);
 }
 

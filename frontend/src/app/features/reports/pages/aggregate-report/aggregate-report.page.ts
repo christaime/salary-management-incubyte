@@ -20,8 +20,9 @@ import {
 } from '../../components/aggregate-report-form/aggregate-report-form.component';
 import { AggregateReportResultsComponent } from '../../components/aggregate-report-results/aggregate-report-results.component';
 import { ReportKindToggleComponent } from '../../components/report-kind-toggle/report-kind-toggle.component';
-
-type PageState = 'idle' | 'submitting' | 'success' | 'error';
+import { BlockerBannerComponent } from '../../components/blocker-banner/blocker-banner.component';
+import { WarningBannerComponent } from '../../components/warning-banner/warning-banner.component';
+import { PageState } from '@core/models';
 
 @Component({
   selector: 'app-aggregate-report-page',
@@ -34,6 +35,8 @@ type PageState = 'idle' | 'submitting' | 'success' | 'error';
     AggregateReportFormComponent,
     AggregateReportResultsComponent,
     ReportKindToggleComponent,
+    BlockerBannerComponent,
+    WarningBannerComponent,
   ],
   templateUrl: './aggregate-report.page.html',
   styleUrl: './aggregate-report.page.scss',
@@ -45,7 +48,6 @@ export class AggregateReportPageComponent {
   readonly state = signal<PageState>('idle');
   readonly selectedKind = signal<ReportKind>('TOTAL');
 
-  // The Map indicating which reports have been fetched for the current criteria
   private readonly reportCache = signal<
     Partial<Record<ReportKind, AggregateReportResponse>>
   >({});
@@ -53,13 +55,12 @@ export class AggregateReportPageComponent {
   readonly reportResponse = signal<AggregateReportResponse | null>(null);
   readonly reportError = signal<ReportsError | null>(null);
 
-  // Stores the criteria used for the current generation cycle
   private lastSubmittedFormValue: AggregateReportFormValue | null = null;
 
   readonly isLoading = computed(() => this.state() === 'submitting');
 
   readonly blockers = computed<BaseReportWarning[]>(
-    () => (this.reportError()?.warnings ?? []) as BaseReportWarning[]
+    () => (this.reportError()?.warnings ?? []) as BaseReportWarning[],
   );
 
   readonly warnings = computed<BaseReportWarning[]>(() => {
@@ -68,18 +69,10 @@ export class AggregateReportPageComponent {
     return res.warnings.map(mapReportWarning) as BaseReportWarning[];
   });
 
-  readonly showBlockerBanner = computed(() => this.blockers().length > 0);
-  readonly showWarningsBanner = computed(() => this.warnings().length > 0);
-
   readonly showResults = computed(
     () => this.state() === 'success' && this.reportResponse() !== null,
   );
 
-  /**
-   * Called when the form emits formChange.
-   * This happens when the period changes OR when the user clicks Apply in the drawer.
-   * We clear the map, the current results, and the last submitted value.
-   */
   onFormChange(): void {
     this.reportResponse.set(null);
     this.reportError.set(null);
@@ -89,23 +82,16 @@ export class AggregateReportPageComponent {
     this.lastSubmittedFormValue = null;
   }
 
-  /**
-   * Called when the user clicks the Generate button.
-   */
   onFormSubmit(value: AggregateReportFormValue): void {
     this.lastSubmittedFormValue = value;
     this.reportCache.set({});
     this.fetch(this.selectedKind(), value);
   }
 
-  /**
-   * Called when the user clicks a toggle button.
-   */
   onKindChange(kind: ReportKind): void {
     if (kind === this.selectedKind() && this.reportResponse()) return;
     this.selectedKind.set(kind);
 
-    // Check the Map: Do we already have this report for the current criteria?
     const cached = this.reportCache()[kind];
     if (cached) {
       this.reportResponse.set(cached);
@@ -114,7 +100,6 @@ export class AggregateReportPageComponent {
       return;
     }
 
-    // If not cached, but we have a valid form value, fetch it
     if (this.lastSubmittedFormValue) {
       this.fetch(kind, this.lastSubmittedFormValue);
     }
@@ -130,7 +115,6 @@ export class AggregateReportPageComponent {
   }
 
   private fetch(kind: ReportKind, formValue: AggregateReportFormValue): void {
-    console.log({kind, formValue});
     this.state.set('submitting');
     this.reportError.set(null);
 
@@ -168,12 +152,12 @@ export class AggregateReportPageComponent {
     const end = formValue.endPeriod ?? start;
 
     const today = new Date().toISOString().slice(0, 10);
-    const currentYear= new Date().getFullYear();
+    const currentYear = new Date().getFullYear();
 
     return {
       dateRange: {
-        startDate: start?.startDate?? year+"-01-01",
-        endDate: end?.endDate?? (year && year < currentYear ? year+"-12-31" : today),
+        startDate: start?.startDate ?? `${year}-01-01`,
+        endDate: end?.endDate ?? (year && year < currentYear ? `${year}-12-31` : today),
       },
       groupKeys: groupKeysFor(kind),
       anyCountryIds: formValue.filters.countryIds,

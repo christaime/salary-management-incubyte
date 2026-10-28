@@ -1,5 +1,6 @@
 package com.salary.management.infrastructure.persistence.repository;
 
+import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarnerRankingEntity;
 import com.salary.management.infrastructure.persistence.projection.RankedRow;
 import com.salary.management.infrastructure.persistence.projection.StatisticsRow;
@@ -261,4 +262,30 @@ public interface PayrollPeriodEarnerRankingJpaRepository
             @Param("roleIds") Collection<UUID> roleIds,
             @Param("employmentTypes")
             Collection<com.salary.management.domain.model.enums.EmploymentType> employmentTypes);
+
+    /**
+     * Returns the rankings of one period that belong to the given dimension.
+     * A {@code null} parameter means "this dimension column must be null" —
+     * so the call for the global group passes all-null and gets the rows whose
+     * dimension columns are all null, and the call for a country passes one
+     * UUID and nulls elsewhere and gets the country-scoped rows.
+     */
+    @Query("""
+            SELECT r FROM PayrollPeriodEarnerRankingEntity r
+            WHERE r.payrollPeriodId = :payrollPeriodId
+              AND ((:countryId IS NULL AND r.countryId IS NULL)
+                   OR r.countryId = :countryId)
+              AND ((:departmentId IS NULL AND r.departmentId IS NULL)
+                   OR r.departmentId = :departmentId)
+              AND ((:roleId IS NULL AND r.roleId IS NULL)
+                   OR r.roleId = :roleId)
+              AND ((:employmentType IS NULL AND r.employmentType IS NULL)
+                   OR r.employmentType = :employmentType)
+            """)
+    List<PayrollPeriodEarnerRankingEntity> findByPayrollPeriodAndDimension(
+            @Param("payrollPeriodId") UUID payrollPeriodId,
+            @Param("countryId") UUID countryId,
+            @Param("departmentId") UUID departmentId,
+            @Param("roleId") UUID roleId,
+            @Param("employmentType") EmploymentType employmentType);
 }

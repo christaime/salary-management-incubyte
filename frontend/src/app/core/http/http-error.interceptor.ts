@@ -21,10 +21,10 @@ export const httpErrorInterceptor: HttpInterceptorFn = (req, next) => {
       // Handle non-blocking warnings vs blocking errors
       if (apiError.severity === 'WARNING') {
         // Handle non-blocking warnings (e.g., trigger a snackbar/toast warning)
-        console.warn(`[API Warning] ${apiError.code}: ${apiError.message}`, apiError.details);
+        console.warn(`[API Warning] ${apiError.code}: ${apiError.message}`, apiError.errors);
       } else {
         // Handle standard blocking errors
-        console.error(`[API Error] ${apiError.code}: ${apiError.message}`, apiError.details);
+        console.error(`[API Error] ${apiError.code}: ${apiError.message}`, apiError.errors);
       }
 
       // Pass the normalized apiError downstream to components/services

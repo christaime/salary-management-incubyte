@@ -7,6 +7,7 @@ import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.values.ReportWarning;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -25,7 +26,7 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-    private static final String BLOCKER_SEVERITY = "BLOCKER";
+    private static final String BLOCKER_SEVERITY = "ERROR";
     private static final String WARNING_SEVERITY = "WARNING";
     /**
      * Handles domain validation failures.
@@ -167,6 +168,62 @@ public class GlobalExceptionHandler {
                 List.of(error),
                 Instant.now());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
+    /**
+     * Handles database constraint violations (unique, foreign key, not null,
+     * check).
+     *
+     * <p>Most of these are caller errors — duplicate {@code matricule},
+     * deleting a row that is still referenced — and belong to {@code 409 Conflict}.
+     * NOT NULL and CHECK violations usually indicate a bug, but they are still
+     * a request-level error; mapping to 409 keeps the classification
+     * consistent, and the message names the constraint.</p>
+     *
+     * @param ex the exception
+     * @return 409 with a single error naming the violated constraint
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex) {
+        String constraint = extractConstraintName(ex);
+        String message = constraint == null
+                ? "Request conflicts with existing data"
+                : "Request conflicts with existing data (" + constraint + ")";
+
+        log.warn("Data integrity violation: {}", ex.getMostSpecificCause().getMessage());
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        if (constraint != null) {
+            details.put("constraint", constraint);
+        }
+        ApiError error = new ApiError(
+                ErrorResponse.DATA_CONFLICT, message, BLOCKER_SEVERITY, details);
+        ErrorResponse body = new ErrorResponse(
+                ErrorResponse.DATA_CONFLICT, message, List.of(error), Instant.now());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
+     * Extracts the violated constraint name from the driver message, if present.
+     * SQLite reports "UNIQUE constraint failed: table.column" style; Postgres
+     * puts it in a structured field. This is best-effort — {@code null} when
+     * nothing can be parsed.
+     */
+    private String extractConstraintName(DataIntegrityViolationException ex) {
+        String message = ex.getMostSpecificCause().getMessage();
+        if (message == null) {
+            return null;
+        }
+        // SQLite: "UNIQUE constraint failed: payroll_summaries.employee_id, payroll_summaries.payroll_period_id"
+        int idx = message.indexOf("constraint failed:");
+        if (idx >= 0) {
+            return message.substring(idx + "constraint failed:".length()).trim();
+        }
+        // SQLite: "FOREIGN KEY constraint failed"
+        if (message.contains("FOREIGN KEY")) {
+            return "foreign key";
+        }
+        return null;
     }
 
     private ApiError toApiError(ReportWarning w, String severity) {

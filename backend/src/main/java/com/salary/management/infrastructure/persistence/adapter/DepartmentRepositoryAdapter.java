@@ -5,6 +5,7 @@ import com.salary.management.domain.model.Department;
 import com.salary.management.domain.repository.DepartmentRepository;
 import com.salary.management.domain.repository.criteria.DepartmentCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
+import com.salary.management.infrastructure.persistence.adapter.utils.DataIntegrityMessages;
 import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
 import com.salary.management.infrastructure.persistence.mapper.DepartmentPersistenceMapper;
 import com.salary.management.infrastructure.persistence.repository.DepartmentJpaRepository;
@@ -75,8 +76,7 @@ public class DepartmentRepositoryAdapter implements DepartmentRepository {
             return;
         }
         if (jpaRepository.isReferenced(id)) {
-            throw new DataIntegrityViolationException(
-                    "Department is referenced and cannot be deleted: " + id);
+            throw DataIntegrityMessages.referenced("Department", id);
         }
         jpaRepository.deleteById(id);
     }

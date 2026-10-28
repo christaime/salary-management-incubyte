@@ -9,4 +9,7 @@ import java.util.UUID;
  * @param name display name
  */
 public record RefDto(UUID id, String code, String name) {
+    public static RefDto of(UUID id, String code, String name){
+        return new RefDto(id, code, name);
+    }
 }

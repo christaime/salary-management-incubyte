@@ -2,9 +2,7 @@ package com.salary.management.domain.model;
 
 import com.salary.management.common.validation.DomainValidation;
 import com.salary.management.common.validation.ValidationError;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import lombok.Getter;
 
 import java.time.LocalDate;
@@ -26,15 +24,19 @@ public final class Employee {
     private final UUID id;
 
     @NotBlank
+    @Size(max = 100)
     private final String matricule;
 
     @NotBlank
+    @Size(max = 100)
     private final String name;
 
     @NotBlank
     @Email
+    @Size(max = 254)
     private final String email;
 
+    @Past
     private final LocalDate birthDate;
 
     private final Country originCountry;

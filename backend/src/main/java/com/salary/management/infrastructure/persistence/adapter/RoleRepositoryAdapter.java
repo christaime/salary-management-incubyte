@@ -5,6 +5,7 @@ import com.salary.management.domain.model.Role;
 import com.salary.management.domain.repository.RoleRepository;
 import com.salary.management.domain.repository.criteria.RoleCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
+import com.salary.management.infrastructure.persistence.adapter.utils.DataIntegrityMessages;
 import com.salary.management.infrastructure.persistence.entity.RoleEntity;
 import com.salary.management.infrastructure.persistence.mapper.RolePersistenceMapper;
 import com.salary.management.infrastructure.persistence.repository.RoleJpaRepository;
@@ -75,8 +76,7 @@ public class RoleRepositoryAdapter implements RoleRepository {
             return;
         }
         if (jpaRepository.isReferenced(id)) {
-            throw new DataIntegrityViolationException(
-                    "Role is referenced and cannot be deleted: " + id);
+            throw DataIntegrityMessages.referenced("Role", id);
         }
         jpaRepository.deleteById(id);
     }

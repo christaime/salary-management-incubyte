@@ -1,5 +1,7 @@
 package com.salary.management.infrastructure.persistence.repository;
 
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
+import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -7,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,6 +27,28 @@ public interface PayrollPeriodJpaRepository
      * @return matching period, or empty
      */
     Optional<PayrollPeriodEntity> findByName(String name);
+
+    /**
+     * Finds all payroll periods that fall entirely within the given date range,
+     * matching the specific status and frequency.
+     *
+     * @param startDate the inclusive start of the range
+     * @param endDate   the inclusive end of the range
+     * @param frequency the payroll period frequency (e.g., MONTHLY, BI_WEEKLY)
+     * @return a list of matching payroll period entities
+     */
+    @Query("""
+            SELECT p FROM PayrollPeriodEntity p
+            WHERE p.startDate >= :startDate
+              AND p.endDate <= :endDate
+              AND p.frequency = :frequency
+            ORDER BY p.startDate ASC
+            """)
+    List<PayrollPeriodEntity> findPeriodsInRangeWithStatusAndFrequency(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("frequency") PayrollPeriodFrequency frequency
+    );
 
     /**
      * Returns whether any payroll summary belongs to this period.
@@ -66,6 +92,19 @@ public interface PayrollPeriodJpaRepository
     boolean isReferencedByRanking(@Param("payrollPeriodId") UUID payrollPeriodId);
 
     /**
+     * Returns whether any earner percentile entry belongs to this period.
+     *
+     * @param payrollPeriodId payroll period identifier
+     * @return {@code true} when at least one percentile references it
+     */
+    @Query("""
+            SELECT COUNT(p) > 0
+            FROM PayrollPeriodEarnerPercentileEntity p
+            WHERE p.payrollPeriodId = :payrollPeriodId
+            """)
+    boolean isReferencedByPercentile(@Param("payrollPeriodId") UUID payrollPeriodId);
+
+    /**
      * Returns whether the payroll period is referenced anywhere in the schema.
      *
      * @param payrollPeriodId payroll period identifier
@@ -74,6 +113,7 @@ public interface PayrollPeriodJpaRepository
     default boolean isReferenced(UUID payrollPeriodId) {
         return isReferencedByPayrollSummary(payrollPeriodId)
                 || isReferencedByAggregate(payrollPeriodId)
-                || isReferencedByRanking(payrollPeriodId);
+                || isReferencedByRanking(payrollPeriodId)
+                || isReferencedByPercentile(payrollPeriodId);
     }
 }

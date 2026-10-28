@@ -5,6 +5,7 @@ import com.salary.management.domain.model.Country;
 import com.salary.management.domain.repository.CountryRepository;
 import com.salary.management.domain.repository.criteria.CountryCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
+import com.salary.management.infrastructure.persistence.adapter.utils.DataIntegrityMessages;
 import com.salary.management.infrastructure.persistence.entity.CountryEntity;
 import com.salary.management.infrastructure.persistence.mapper.CountryPersistenceMapper;
 import com.salary.management.infrastructure.persistence.repository.CountryJpaRepository;
@@ -70,8 +71,7 @@ public class CountryRepositoryAdapter implements CountryRepository {
             return;
         }
         if (jpaRepository.isReferenced(id)) {
-            throw new DataIntegrityViolationException(
-                    "Country is referenced and cannot be deleted: " + id);
+            throw DataIntegrityMessages.referenced("Country", id);
         }
         jpaRepository.deleteById(id);
     }

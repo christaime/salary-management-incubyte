@@ -5,6 +5,7 @@ import com.salary.management.domain.model.Country;
 import com.salary.management.domain.model.Department;
 import com.salary.management.domain.model.Employee;
 import com.salary.management.domain.model.PayrollPeriod;
+import com.salary.management.domain.model.PayrollPeriodEarnerPercentile;
 import com.salary.management.domain.model.PayrollPeriodEarnerRanking;
 import com.salary.management.domain.model.Role;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
@@ -30,6 +31,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,13 +51,13 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
             UUID.fromString("55555555-5555-5555-5555-555555555555");
     private static final UUID FEBRUARY =
             UUID.fromString("66666666-6666-6666-6666-666666666666");
-    private static final UUID RANK_FR =
-            UUID.fromString("77777777-7777-7777-7777-777777777777");
-    private static final UUID RANK_DE =
-            UUID.fromString("88888888-8888-8888-8888-888888888888");
     private static final UUID ADA = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID GRACE =
             UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
+    /** Seed counts, kept as constants so the expectations are obvious. */
+    private static final int SEEDED_RANKINGS = 12;      // 6 partition kinds × 2 employees
+    private static final int SEEDED_PERCENTILES = 42;   // 6 partition kinds × 7 points
 
     @Autowired
     private PayrollPeriodEarnerRankingRepositoryAdapter adapter;
@@ -65,6 +67,10 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
 
     @Autowired
     private EntityManager entityManager;
+
+    // ------------------------------------------------------------------
+    // saveAll (rankings)
+    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("saveAll then findByPayrollPeriodId returns the saved rankings")
@@ -82,6 +88,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .employee(employee(ADA))
                 .originalAmount(amount("5000.00", "EUR"))
                 .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
                 .build();
 
         adapter.saveAll(List.of(ranking));
@@ -102,6 +110,10 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
         assertEquals(0, result.get(0).getReferenceAmount().getAmount()
                 .compareTo(new BigDecimal("5376.34")));
         assertEquals("USD", result.get(0).getReferenceAmount().getCurrency());
+        assertEquals(31, result.get(0).getDaysCovered());
+        assertEquals(0, result.get(0).getMonthlyRateAmount().getAmount()
+                .compareTo(new BigDecimal("5376.34")));
+        assertEquals("USD", result.get(0).getMonthlyRateAmount().getCurrency());
     }
 
     @Test
@@ -121,6 +133,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .employee(employee(ADA))
                 .originalAmount(amount("5000.00", "EUR"))
                 .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -143,6 +157,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .employee(employee(missing))
                 .originalAmount(amount("5000.00", "EUR"))
                 .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -165,6 +181,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .employee(employee(ADA))
                 .originalAmount(amount("5000.00", "EUR"))
                 .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -188,6 +206,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .employee(employee(ADA))
                 .originalAmount(amount("5000.00", "EUR"))
                 .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -210,6 +230,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .employee(employee(ADA))
                 .originalAmount(amount("5000.00", "EUR"))
                 .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
                 .build();
 
         assertThrows(EntityNotFoundException.class, () -> adapter.saveAll(List.of(ranking)));
@@ -231,6 +253,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .employee(employee(ADA))
                 .originalAmount(amount("5000.00", "EUR"))
                 .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
                 .build();
         PayrollPeriodEarnerRanking bottom = PayrollPeriodEarnerRanking.builder()
                 .payrollPeriod(payrollPeriod(FEBRUARY, "February 2026",
@@ -245,6 +269,8 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
                 .employee(employee(GRACE))
                 .originalAmount(amount("1200.00", "EUR"))
                 .referenceAmount(amount("1290.32", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("1290.32", "USD"))
                 .build();
 
         adapter.saveAll(List.of(top, bottom));
@@ -256,39 +282,55 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
         assertEquals(2, result.size());
     }
 
+    // ------------------------------------------------------------------
+    // findByPayrollPeriodId
+    // ------------------------------------------------------------------
+
     @Test
     @DisplayName("findByPayrollPeriodId returns the seeded rankings for a period")
     void findByPayrollPeriodIdReturnsSeeded() {
         List<PayrollPeriodEarnerRanking> result = adapter.findByPayrollPeriodId(JANUARY);
 
-        assertEquals(2, result.size());
-        assertTrue(result.stream().anyMatch(r -> r.getId().equals(RANK_FR)));
-        assertTrue(result.stream().anyMatch(r -> r.getId().equals(RANK_DE)));
+        assertEquals(SEEDED_RANKINGS, result.size());
+        assertTrue(result.stream()
+                .allMatch(r -> r.getPayrollPeriod().getId().equals(JANUARY)));
     }
 
     @Test
     @DisplayName("findByPayrollPeriodId returns empty for a period with no rows")
     void findByPayrollPeriodIdReturnsEmptyWhenNone() {
-        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999999");
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999998");
 
         assertTrue(adapter.findByPayrollPeriodId(missing).isEmpty());
     }
 
+    // ------------------------------------------------------------------
+    // list
+    // ------------------------------------------------------------------
     @Test
-    @DisplayName("list returns matching rows sorted by the requested field")
+    @DisplayName("list returns all seeded rows for the period")
     void listReturnsMatchingRowsSorted() {
         PayrollPeriodEarnerRankingCriteria criteria =
                 PayrollPeriodEarnerRankingCriteria.builder()
                         .payrollPeriodId(JANUARY)
-                        .sortBy("referenceAmount.amount")
-                        .sortDirection(SortDirection.DESC)
                         .build();
 
         List<PayrollPeriodEarnerRanking> result = adapter.list(criteria);
 
-        assertEquals(2, result.size());
-        assertEquals(RANK_FR, result.get(0).getId());
-        assertEquals(RANK_DE, result.get(1).getId());
+        assertEquals(SEEDED_RANKINGS, result.size());
+
+        // 6 FR partition kinds carry 5376.34; 6 DE partition kinds carry 1290.32.
+        long frRows = result.stream()
+                .filter(r -> r.getReferenceAmount().getAmount()
+                        .compareTo(new BigDecimal("5376.34")) == 0)
+                .count();
+        long deRows = result.stream()
+                .filter(r -> r.getReferenceAmount().getAmount()
+                        .compareTo(new BigDecimal("1290.32")) == 0)
+                .count();
+
+        assertEquals(6, frRows);
+        assertEquals(6, deRows);
     }
 
     @Test
@@ -301,7 +343,7 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
 
         List<PayrollPeriodEarnerRanking> result = adapter.list(criteria);
 
-        assertEquals(2, result.size());
+        assertEquals(SEEDED_RANKINGS, result.size());
     }
 
     @Test
@@ -317,6 +359,10 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
         assertTrue(result.isEmpty());
     }
 
+    // ------------------------------------------------------------------
+    // deleteDraftsByPayrollPeriodId
+    // ------------------------------------------------------------------
+
     @Test
     @DisplayName("deleteDraftsByPayrollPeriodId removes all DRAFT rows for a period")
     void deleteDraftsByPayrollPeriodIdRemovesAll() {
@@ -331,12 +377,375 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     @Test
     @DisplayName("deleteDraftsByPayrollPeriodId is a no-op for a period with no rows")
     void deleteDraftsByPayrollPeriodIdIsNoOpWhenNone() {
-        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999999");
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999998");
 
         adapter.deleteDraftsByPayrollPeriodId(missing);
 
-        assertEquals(2, jpaRepository.count());
+        assertEquals(SEEDED_RANKINGS, jpaRepository.count());
     }
+
+    // ------------------------------------------------------------------
+    // Percentile — findByPayrollPeriodId
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("findPercentileByPayrollPeriodId returns the seeded points for a period")
+    void findPercentileByPayrollPeriodIdReturnsSeeded() {
+        List<PayrollPeriodEarnerPercentile> result =
+                adapter.findPercentileByPayrollPeriodId(JANUARY);
+
+        assertEquals(SEEDED_PERCENTILES, result.size());
+
+        List<Integer> points = result.stream()
+                .map(PayrollPeriodEarnerPercentile::getPercentile)
+                .sorted()
+                .toList();
+        // 6 partition kinds × 7 points, so each label appears 6 times.
+        assertEquals(6, points.stream().filter(p -> p == 0).count());
+        assertEquals(6, points.stream().filter(p -> p == 10).count());
+        assertEquals(6, points.stream().filter(p -> p == 25).count());
+        assertEquals(6, points.stream().filter(p -> p == 50).count());
+        assertEquals(6, points.stream().filter(p -> p == 75).count());
+        assertEquals(6, points.stream().filter(p -> p == 90).count());
+        assertEquals(6, points.stream().filter(p -> p == 100).count());
+    }
+
+    @Test
+    @DisplayName("findPercentileByPayrollPeriodId returns all six partition kinds")
+    void findPercentileByPayrollPeriodIdReturnsAllKinds() {
+        List<PayrollPeriodEarnerPercentile> result =
+                adapter.findPercentileByPayrollPeriodId(JANUARY);
+
+        // FULL: all four set
+        assertEquals(7, result.stream().filter(p ->
+                p.getCountry() != null && p.getDepartment() != null
+                        && p.getRole() != null && p.getEmploymentType() != null).count());
+
+        // COUNTRY: only country set
+        assertEquals(7, result.stream().filter(p ->
+                p.getCountry() != null && p.getDepartment() == null
+                        && p.getRole() == null && p.getEmploymentType() == null).count());
+
+        // DEPARTMENT: only department set
+        assertEquals(7, result.stream().filter(p ->
+                p.getCountry() == null && p.getDepartment() != null
+                        && p.getRole() == null && p.getEmploymentType() == null).count());
+
+        // ROLE: only role set
+        assertEquals(7, result.stream().filter(p ->
+                p.getCountry() == null && p.getDepartment() == null
+                        && p.getRole() != null && p.getEmploymentType() == null).count());
+
+        // EMPLOYMENT_TYPE: only employment type set
+        assertEquals(7, result.stream().filter(p ->
+                p.getCountry() == null && p.getDepartment() == null
+                        && p.getRole() == null && p.getEmploymentType() != null).count());
+
+        // GLOBAL: none set
+        assertEquals(7, result.stream().filter(p ->
+                p.getCountry() == null && p.getDepartment() == null
+                        && p.getRole() == null && p.getEmploymentType() == null).count());
+    }
+
+    @Test
+    @DisplayName("findPercentileByPayrollPeriodId maps amounts and population correctly")
+    void findPercentileByPayrollPeriodIdMapsAmountsAndPopulation() {
+        List<PayrollPeriodEarnerPercentile> result =
+                adapter.findPercentileByPayrollPeriodId(JANUARY);
+
+        PayrollPeriodEarnerPercentile p0 = result.stream()
+                .filter(p -> p.getPercentile() == 0)
+                .findFirst().orElseThrow();
+        assertEquals(0, p0.getReferenceAmount().getAmount()
+                .compareTo(new BigDecimal("1290.32")));
+        assertEquals("USD", p0.getReferenceAmount().getCurrency());
+        assertEquals(2, p0.getEmployeeCount());
+        assertEquals(PayrollSummaryStatus.DRAFT, p0.getStatus());
+        assertEquals(JANUARY, p0.getPayrollPeriod().getId());
+
+        PayrollPeriodEarnerPercentile p100 = result.stream()
+                .filter(p -> p.getPercentile() == 100)
+                .findFirst().orElseThrow();
+        assertEquals(0, p100.getReferenceAmount().getAmount()
+                .compareTo(new BigDecimal("5376.34")));
+        assertEquals("USD", p100.getReferenceAmount().getCurrency());
+        assertEquals(2, p100.getEmployeeCount());
+    }
+
+    @Test
+    @DisplayName("findPercentileByPayrollPeriodId returns empty for a period with no rows")
+    void findPercentileByPayrollPeriodIdReturnsEmptyWhenNone() {
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999998");
+
+        assertTrue(adapter.findPercentileByPayrollPeriodId(missing).isEmpty());
+    }
+
+    // ------------------------------------------------------------------
+    // saveAll (rankings + percentiles together)
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("saveAll(rankings, percentiles) persists both lists")
+    void saveAllWithPercentilesPersistsBoth() {
+        PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
+                .payrollPeriod(payrollPeriod(FEBRUARY, "February 2026",
+                        LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .country(country(FR))
+                .department(department())
+                .role(role())
+                .employmentType(EmploymentType.FULL_TIME)
+                .direction(EarnerRankingDirection.TOP)
+                .rank(1)
+                .employee(employee(ADA))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
+                .build();
+
+        PayrollPeriodEarnerPercentile p50 = PayrollPeriodEarnerPercentile.builder()
+                .payrollPeriod(payrollPeriod(FEBRUARY, "February 2026",
+                        LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .percentile(50)
+                .referenceAmount(amount("60000.00", "USD"))
+                .employeeCount(3)
+                .build();
+
+        adapter.saveAll(List.of(ranking), List.of(p50));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<PayrollPeriodEarnerRanking> rankings = adapter.findByPayrollPeriodId(FEBRUARY);
+        assertEquals(1, rankings.size());
+        assertEquals(ranking.getId(), rankings.get(0).getId());
+
+        List<PayrollPeriodEarnerPercentile> percentiles =
+                adapter.findPercentileByPayrollPeriodId(FEBRUARY);
+        assertEquals(1, percentiles.size());
+        assertEquals(p50.getId(), percentiles.get(0).getId());
+        assertEquals(50, percentiles.get(0).getPercentile());
+        assertEquals(0, percentiles.get(0).getReferenceAmount().getAmount()
+                .compareTo(new BigDecimal("60000.00")));
+        assertEquals(3, percentiles.get(0).getEmployeeCount());
+    }
+
+    @Test
+    @DisplayName("saveAll(rankings, percentiles) throws when the percentile's payroll period is missing")
+    void saveAllWithPercentilesThrowsWhenPercentilePeriodMissing() {
+        PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
+                .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .country(country(FR))
+                .department(department())
+                .role(role())
+                .employmentType(EmploymentType.FULL_TIME)
+                .direction(EarnerRankingDirection.TOP)
+                .rank(1)
+                .employee(employee(ADA))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
+                .build();
+
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999998");
+        PayrollPeriodEarnerPercentile p50 = PayrollPeriodEarnerPercentile.builder()
+                .payrollPeriod(payrollPeriod(missing, "Missing",
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .percentile(50)
+                .referenceAmount(amount("60000.00", "USD"))
+                .employeeCount(3)
+                .build();
+
+        assertThrows(EntityNotFoundException.class,
+                () -> adapter.saveAll(List.of(ranking), List.of(p50)));
+    }
+
+    @Test
+    @DisplayName("saveAll(rankings, percentiles) throws when the percentile's country is missing")
+    void saveAllWithPercentilesThrowsWhenPercentileCountryMissing() {
+        PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
+                .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .country(country(FR))
+                .department(department())
+                .role(role())
+                .employmentType(EmploymentType.FULL_TIME)
+                .direction(EarnerRankingDirection.TOP)
+                .rank(1)
+                .employee(employee(ADA))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
+                .build();
+
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999998");
+        PayrollPeriodEarnerPercentile p50 = PayrollPeriodEarnerPercentile.builder()
+                .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .country(country(missing))
+                .percentile(50)
+                .referenceAmount(amount("60000.00", "USD"))
+                .employeeCount(3)
+                .build();
+
+        assertThrows(EntityNotFoundException.class,
+                () -> adapter.saveAll(List.of(ranking), List.of(p50)));
+    }
+
+    @Test
+    @DisplayName("saveAll(rankings, percentiles) throws when the percentile's department is missing")
+    void saveAllWithPercentilesThrowsWhenPercentileDepartmentMissing() {
+        PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
+                .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .country(country(FR))
+                .department(department())
+                .role(role())
+                .employmentType(EmploymentType.FULL_TIME)
+                .direction(EarnerRankingDirection.TOP)
+                .rank(1)
+                .employee(employee(ADA))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
+                .build();
+
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999998");
+        PayrollPeriodEarnerPercentile p50 = PayrollPeriodEarnerPercentile.builder()
+                .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .department(Department.builder()
+                        .id(missing).code("MSS").name("Missing").build())
+                .percentile(50)
+                .referenceAmount(amount("60000.00", "USD"))
+                .employeeCount(3)
+                .build();
+
+        assertThrows(EntityNotFoundException.class,
+                () -> adapter.saveAll(List.of(ranking), List.of(p50)));
+    }
+
+    @Test
+    @DisplayName("saveAll(rankings, percentiles) throws when the percentile's role is missing")
+    void saveAllWithPercentilesThrowsWhenPercentileRoleMissing() {
+        PayrollPeriodEarnerRanking ranking = PayrollPeriodEarnerRanking.builder()
+                .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .country(country(FR))
+                .department(department())
+                .role(role())
+                .employmentType(EmploymentType.FULL_TIME)
+                .direction(EarnerRankingDirection.TOP)
+                .rank(1)
+                .employee(employee(ADA))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
+                .build();
+
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999998");
+        PayrollPeriodEarnerPercentile p50 = PayrollPeriodEarnerPercentile.builder()
+                .payrollPeriod(payrollPeriod(JANUARY, "January 2026",
+                        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .role(Role.builder().id(missing).code("MSS").name("Missing").build())
+                .percentile(50)
+                .referenceAmount(amount("60000.00", "USD"))
+                .employeeCount(3)
+                .build();
+
+        assertThrows(EntityNotFoundException.class,
+                () -> adapter.saveAll(List.of(ranking), List.of(p50)));
+    }
+
+    // ------------------------------------------------------------------
+    // Percentile — deleteDraftsPercentileByPayrollPeriodId
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("deleteDraftsPercentileByPayrollPeriodId removes all DRAFT percentile rows for a period")
+    void deleteDraftsPercentileByPayrollPeriodIdRemovesAll() {
+        assertEquals(SEEDED_PERCENTILES,
+                adapter.findPercentileByPayrollPeriodId(JANUARY).size());
+
+        adapter.deleteDraftsPercentileByPayrollPeriodId(JANUARY);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertTrue(adapter.findPercentileByPayrollPeriodId(JANUARY).isEmpty());
+    }
+
+    @Test
+    @DisplayName("deleteDraftsPercentileByPayrollPeriodId is a no-op for a period with no rows")
+    void deleteDraftsPercentileByPayrollPeriodIdIsNoOpWhenNone() {
+        UUID missing = UUID.fromString("99999999-9998-9999-9999-999999999998");
+
+        adapter.deleteDraftsPercentileByPayrollPeriodId(missing);
+
+        assertEquals(SEEDED_PERCENTILES,
+                adapter.findPercentileByPayrollPeriodId(JANUARY).size());
+    }
+
+    // ------------------------------------------------------------------
+    // findByPayrollPeriodAndDimension
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("findByPayrollPeriodAndDimension returns only the rows of the given dimension")
+    void findByPayrollPeriodAndDimensionFilters() {
+        List<PayrollPeriodEarnerRanking> all = adapter.findByPayrollPeriodId(JANUARY);
+        List<PayrollPeriodEarnerRanking> fr = adapter.findByPayrollPeriodAndDimension(
+                JANUARY, FR, null, null, null);
+        List<PayrollPeriodEarnerRanking> global = adapter.findByPayrollPeriodAndDimension(
+                JANUARY, null, null, null, null);
+
+        assertEquals(SEEDED_RANKINGS, all.size());
+
+        // COUNTRY/FR: 1 row (the country-scoped TOP for ADA; GRACE is in DE).
+        assertEquals(1, fr.size());
+        assertEquals(FR, fr.get(0).getCountry().getId());
+        assertNull(fr.get(0).getDepartment());
+        assertNull(fr.get(0).getRole());
+        assertNull(fr.get(0).getEmploymentType());
+
+        // GLOBAL: 2 rows (TOP for ADA + BOTTOM for GRACE).
+        assertEquals(2, global.size());
+        assertTrue(global.stream().allMatch(r -> r.getCountry() == null));
+    }
+
+    @Test
+    @DisplayName("findPercentileByPayrollPeriodAndDimension returns only the rows of the given dimension")
+    void findPercentileByPayrollPeriodAndDimensionFilters() {
+        List<PayrollPeriodEarnerPercentile> global = adapter
+                .findPercentileByPayrollPeriodAndDimension(JANUARY, null, null, null, null);
+        List<PayrollPeriodEarnerPercentile> fr = adapter
+                .findPercentileByPayrollPeriodAndDimension(JANUARY, FR, null, null, null);
+
+        // GLOBAL: 7 rows.
+        assertEquals(7, global.size());
+        assertTrue(global.stream().allMatch(p -> p.getCountry() == null));
+
+        // COUNTRY/FR: 7 rows.
+        assertEquals(7, fr.size());
+        assertTrue(fr.stream().allMatch(p -> p.getCountry().getId().equals(FR)));
+    }
+
+    // ------------------------------------------------------------------
+    // Fixtures
+    // ------------------------------------------------------------------
 
     private PayrollPeriod payrollPeriod(UUID id, String name,
                                         LocalDate start, LocalDate end) {

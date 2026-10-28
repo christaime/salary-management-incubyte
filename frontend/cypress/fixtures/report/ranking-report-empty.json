@@ -1,0 +1,13 @@
+{
+  "kind": "RANKING",
+  "period": { "id": "f0000001-0000-4000-8000-000000000003", "name": "2026-03 Monthly", "startDate": "2026-03-01", "endDate": "2026-03-31", "frequency": "MONTHLY", "closed": true },
+  "referenceCurrency": "USD",
+  "groupKey": "EMPLOYMENT_TYPE",
+  "tops": [],
+  "bottoms": [],
+  "positionContext": null,
+  "totalReferenceAmount": 111674309.89,
+  "totalDimensionReferenceAmount": 7980688.97,
+  "totalMonthlyPeriod": 1,
+  "totalBiWeeklyPeriod": 0
+}

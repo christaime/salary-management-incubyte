@@ -1,0 +1,156 @@
+<section
+  data-testid="employee-identity-section"
+  class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col gap-5"
+  [formGroup]="formGroup()"
+>
+  <!-- Section header -->
+  <div class="flex items-center gap-3 -m-6 mb-0 p-4 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
+    <span class="w-7 h-7 rounded bg-slate-900 text-white flex items-center justify-center text-xs font-bold font-mono">1</span>
+    <h2 data-testid="employee-identity-title" class="text-sm font-bold uppercase tracking-wide text-slate-900 m-0">
+      Personnel Identity
+    </h2>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+    <!-- Matricule -->
+    <div class="flex flex-col gap-1">
+      <label for="emp-matricule"
+             class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold flex items-center gap-1">
+        <span>Matricule / Global Identifier</span>
+        <span class="text-red-500">*</span>
+      </label>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm select-none">#</span>
+        <input
+          id="emp-matricule"
+          data-testid="employee-identity-matricule"
+          type="text"
+          formControlName="matricule"
+          placeholder="EMP-XXXX"
+          class="w-full h-9 pl-8 pr-3 bg-slate-50 rounded-md border text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+          [class.border-slate-200]="!showError('matricule')"
+          [class.border-red-400]="showError('matricule')"
+        />
+      </div>
+      @if (matriculeError(); as err) {
+      <p data-testid="employee-identity-matricule-error"
+         class="text-[11px] text-red-600 m-0">{{ err }}</p>
+      }
+    </div>
+
+    <!-- Full Name -->
+    <div class="flex flex-col gap-1">
+      <label for="emp-name"
+             class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold flex items-center gap-1">
+        <span>Full Name (Given &amp; Family)</span>
+        <span class="text-red-500">*</span>
+      </label>
+      <div class="relative">
+        <mat-icon class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 !w-4 !h-4 !text-[16px]">badge</mat-icon>
+        <input
+          id="emp-name"
+          data-testid="employee-identity-full-name"
+          type="text"
+          formControlName="fullName"
+          placeholder="e.g. Sophia Montgomery"
+          class="w-full h-9 pl-9 pr-3 bg-slate-50 rounded-md border text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+          [class.border-slate-200]="!showError('fullName')"
+          [class.border-red-400]="showError('fullName')"
+        />
+      </div>
+      @if (fullNameError(); as err) {
+      <p data-testid="employee-identity-full-name-error"
+         class="text-[11px] text-red-600 m-0">{{ err }}</p>
+      }
+    </div>
+
+    <!-- Email -->
+    <div class="flex flex-col gap-1">
+      <label for="emp-email"
+             class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold flex items-center gap-1">
+        <span>Corporate Email</span>
+        <span class="text-red-500">*</span>
+      </label>
+      <div class="relative">
+        <mat-icon class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 !w-4 !h-4 !text-[16px]">alternate_email</mat-icon>
+        <input
+          id="emp-email"
+          data-testid="employee-identity-email"
+          type="email"
+          formControlName="email"
+          placeholder="alias@acme.com"
+          class="w-full h-9 pl-9 pr-3 bg-slate-50 rounded-md border text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+          [class.border-slate-200]="!showError('email')"
+          [class.border-red-400]="showError('email')"
+        />
+      </div>
+      @if (emailError(); as err) {
+      <p data-testid="employee-identity-email-error"
+         class="text-[11px] text-red-600 m-0">{{ err }}</p>
+      }
+    </div>
+
+    <!-- Date of Birth -->
+    <div class="flex flex-col gap-1">
+      <label for="emp-dob"
+             class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold flex items-center justify-between gap-1">
+        <span class="flex items-center gap-1">
+          <span>Date of Birth</span>
+          <span class="text-red-500">*</span>
+        </span>
+        @if (computedAge() !== null) {
+        <span data-testid="employee-identity-age"
+              class="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-semibold">
+            {{ computedAge() }} YRS
+          </span>
+        }
+      </label>
+      <div class="relative">
+        <mat-icon class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 !w-4 !h-4 !text-[16px]">cake</mat-icon>
+        <input
+          id="emp-dob"
+          data-testid="employee-identity-dob"
+          type="date"
+          formControlName="dateOfBirth"
+          class="w-full h-9 pl-9 pr-3 bg-slate-50 rounded-md border text-sm font-mono text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+          [class.border-slate-200]="!showError('dateOfBirth')"
+          [class.border-red-400]="showError('dateOfBirth')"
+        />
+      </div>
+      @if (dobError(); as err) {
+      <p data-testid="employee-identity-dob-error"
+         class="text-[11px] text-red-600 m-0">{{ err }}</p>
+      }
+    </div>
+
+    <!-- Country of origin -->
+    <div class="flex flex-col gap-1 md:col-span-2">
+      <label for="emp-country"
+             class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold flex items-center gap-1">
+        <span>Country of Origin (Citizenship)</span>
+        <span class="text-red-500">*</span>
+      </label>
+      <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+        <mat-select
+          id="emp-country"
+          data-testid="employee-identity-country"
+          formControlName="countryOfOrigin"
+          placeholder="Select country of origin"
+        >
+          @if (countries().length === 0) {
+          <mat-option disabled>Loading…</mat-option>
+          }
+          @for (c of countries(); track c.id) {
+          <mat-option [value]="c.id">
+            {{ countryFlag(c.code) }} {{ c.name }} ({{ c.code }})
+          </mat-option>
+          }
+        </mat-select>
+        @if (countryError(); as err) {
+        <mat-error data-testid="employee-identity-country-error">{{ err }}</mat-error>
+        }
+      </mat-form-field>
+    </div>
+  </div>
+</section>

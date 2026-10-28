@@ -1,0 +1,50 @@
+<section
+  data-testid="in-effect-placement-section"
+  class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col gap-5"
+  [formGroup]="formGroup()"
+>
+  <!-- Section header -->
+  <div class="flex items-center gap-3 -m-6 mb-0 p-4 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
+    <span class="w-7 h-7 rounded bg-slate-900 text-white flex items-center justify-center text-xs font-bold font-mono">2</span>
+    <h2 data-testid="in-effect-placement-title" class="text-sm font-bold uppercase tracking-wide text-slate-900 m-0">
+      In-effect Placement
+    </h2>
+  </div>
+
+  <!-- ─────────── Case A: create mode OR !hasPayroll — full editor ─────────── -->
+  @if (showCurrentEditor()) {
+  <app-assignment-editor-form [formGroup]="formGroup().controls.current" />
+  }
+
+  <!-- ─────────── Case B: hasPayroll — pill + optional new form ─────────── -->
+  @if (showPill()) {
+  <app-assignment-pill
+    [assignment]="currentAssignment()!"
+    [endDateControl]="currentEndControl()"
+    [endRequired]="newAssignmentActive()"
+    [newAssignmentActive]="newAssignmentActive()"
+    [disabled]="disabled()"
+    (toggleNewAssignment)="onToggleNewAssignment()"
+  />
+  }
+
+  @if (showNextEditor()) {
+  <div
+    data-testid="new-assignment-block"
+    class="rounded-lg border border-dashed border-blue-300 bg-blue-50/30 p-4 flex flex-col gap-3"
+  >
+    <div class="flex items-center gap-2">
+      <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-600 text-white text-[10px] font-bold font-mono">✚</span>
+      <h3 class="text-xs font-bold uppercase tracking-wide text-blue-900 m-0">
+        New assignment
+      </h3>
+    </div>
+
+    <app-assignment-editor-form [formGroup]="formGroup().controls.next" />
+
+    <p class="text-[11px] text-slate-500 m-0">
+      The current assignment's End date above is required when creating a new assignment.
+    </p>
+  </div>
+  }
+</section>

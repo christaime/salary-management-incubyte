@@ -5,6 +5,7 @@ import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.repository.PayrollPeriodRepository;
 import com.salary.management.domain.repository.criteria.PayrollPeriodCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
+import com.salary.management.infrastructure.persistence.adapter.utils.DataIntegrityMessages;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEntity;
 import com.salary.management.infrastructure.persistence.mapper.PayrollPeriodPersistenceMapper;
 import com.salary.management.infrastructure.persistence.repository.PayrollPeriodJpaRepository;
@@ -65,8 +66,8 @@ public class PayrollPeriodRepositoryAdapter implements PayrollPeriodRepository {
             return;
         }
         if (jpaRepository.isReferenced(id)) {
-            throw new DataIntegrityViolationException(
-                    "PayrollPeriod is referenced and cannot be deleted: " + id);
+            throw DataIntegrityMessages.referenced("PayrollPeriod", id);
+
         }
         jpaRepository.deleteById(id);
     }

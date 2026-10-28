@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "cy:run": "cypress run",
+    "cy:run": "cypress run --browser chrome",
     "start:e2e": "ng serve --port 4400",
     "e2e": "CYPRESS_BASE_URL=http://localhost:4400 start-server-and-test start:e2e http-get://localhost:4400 cy:run",
     "e2e:open": "CYPRESS_BASE_URL=http://localhost:4400 start-server-and-test start:e2e http-get://localhost:4400 'cypress open'"

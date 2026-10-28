@@ -5,6 +5,7 @@ import com.salary.management.domain.model.EmployeePeriodicAssignment;
 import com.salary.management.domain.repository.EmployeePeriodicAssignmentRepository;
 import com.salary.management.domain.repository.criteria.EmployeePeriodicAssignmentCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
+import com.salary.management.infrastructure.persistence.adapter.utils.DataIntegrityMessages;
 import com.salary.management.infrastructure.persistence.entity.CountryEntity;
 import com.salary.management.infrastructure.persistence.entity.DepartmentEntity;
 import com.salary.management.infrastructure.persistence.entity.EmployeePeriodicAssignmentEntity;
@@ -22,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -63,6 +65,24 @@ public class EmployeePeriodicAssignmentRepositoryAdapter
         return jpaRepository.findById(id).map(this::toDomain);
     }
 
+    /**
+     * Returns the latest in-effect assignment of {@code employeeId} whose
+     * {@code startDate} falls inside {@code [startDate, endDate]} and whose
+     * {@code endDate} is {@code null} or {@code <= endDate}.
+     *
+     * <p>When several assignments qualify, the one with the latest
+     * {@code startDate} wins.</p>
+     */
+    @Override
+    public Optional<EmployeePeriodicAssignment> findByEmployeeIdAndDateRange(
+            UUID employeeId, LocalDate startDate, LocalDate endDate) {
+        return jpaRepository
+                .findOverlappingAssignments(employeeId, startDate, endDate)
+                .stream()
+                .findFirst()
+                .map(this::toDomain);
+    }
+
     @Override
     public List<EmployeePeriodicAssignment> findByEmployeeId(UUID employeeId) {
         return jpaRepository.findByEmployeeId(employeeId).stream()
@@ -94,8 +114,7 @@ public class EmployeePeriodicAssignmentRepositoryAdapter
             return;
         }
         if (jpaRepository.isReferenced(id)) {
-            throw new DataIntegrityViolationException(
-                    "EmployeePeriodicAssignment is referenced and cannot be deleted: " + id);
+            throw DataIntegrityMessages.referenced("EmployeePeriodicAssignment", id);
         }
         jpaRepository.deleteById(id);
     }

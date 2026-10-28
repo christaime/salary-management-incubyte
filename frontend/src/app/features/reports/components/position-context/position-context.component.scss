@@ -1,0 +1,11 @@
+:host {
+  display: block;
+}
+
+.marker {
+  transition: transform 0.15s ease;
+
+  &:hover {
+    transform: translateX(-50%) scale(1.1);
+  }
+}

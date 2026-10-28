@@ -99,4 +99,31 @@ public interface EmployeePeriodicAssignmentJpaRepository
             @Param("roleIds") Collection<UUID> roleIds,
             @Param("employmentTypes") Collection<EmploymentType> employmentTypes,
             Pageable pageable);
+
+    /**
+     * Returns the assignments of the given employee whose
+     * {@code start_date} falls inside {@code [startDate, endDate]} and whose
+     * {@code end_date} is either {@code null} or {@code <= endDate}, ordered
+     * by {@code start_date DESC}.
+     *
+     * <p>Returning a list (rather than {@code Optional}) avoids a
+     * {@code NonUniqueResultException} when more than one assignment
+     * satisfies the predicate; the adapter picks the latest one.</p>
+     *
+     * @param employeeId the employee id
+     * @param startDate  inclusive lower bound of the query range
+     * @param endDate    inclusive upper bound of the query range
+     * @return qualifying assignments, latest {@code start_date} first
+     */
+    @Query("""
+            SELECT a FROM EmployeePeriodicAssignmentEntity a
+            WHERE a.employeeId = :employeeId
+              AND a.startDate <= :startDate
+              AND (a.endDate IS NULL OR a.endDate >= :endDate)
+            ORDER BY a.startDate DESC
+            """)
+    List<EmployeePeriodicAssignmentEntity> findOverlappingAssignments(
+            @Param("employeeId") UUID employeeId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }

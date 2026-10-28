@@ -1,0 +1,30 @@
+{
+  "content": [
+    {
+      "id": "e-1",
+      "matricule": "EMP-000001",
+      "name": "Alexandre Vance",
+      "email": "a.vance@acme.test",
+      "birthDate": "1985-04-12",
+      "originCountry": { "id": "cm", "code": "CM", "name": "Cameroon" },
+      "assignmentInEffect": {
+        "id": "a-1",
+        "startDate": "2021-04-01",
+        "endDate": null,
+        "country": { "id": "fr", "code": "FR", "name": "France" },
+        "department": { "id": "eng", "code": "ENG", "name": "Engineering" },
+        "role": { "id": "dev", "code": "DEV", "name": "Developer" },
+        "employmentType": "FULL_TIME",
+        "payrollFrequency": "MONTHLY",
+        "hasPayroll": true
+      }
+    }
+  ],
+  "page": 0,
+  "size": 10,
+  "totalElements": 1,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "empty": false
+}

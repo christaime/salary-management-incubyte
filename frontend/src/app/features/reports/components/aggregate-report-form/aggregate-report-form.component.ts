@@ -12,7 +12,7 @@ import { PayrollPeriodPickerComponent } from '../../../payroll-period/components
 import { PayrollPeriodCriteria } from '../../../payroll-period/models/payroll-period-criteria.model';
 import { PayrollPeriodDto } from '../../../payroll-period/models/payroll-period.model';
 
-import { EMPLOYMENT_TYPES, EmploymentType } from '../../models';
+import { EMPLOYMENT_TYPES, EmploymentType } from '@features/employee/models';
 import { AggregateReportFilterDrawerComponent } from '../aggregate-report-filter-drawer/aggregate-report-filter-drawer.component';
 
 export interface AggregateReportFormValue {
@@ -105,10 +105,13 @@ export class AggregateReportFormComponent {
   ]);
 
   // Filter for the End picker: starts from the endDate of the selected start period
+  readonly periodFilter = signal<PayrollPeriodCriteria>({ frequency: "MONTHLY" });
+
+  // Filter for the End picker: starts from the endDate of the selected start period
   readonly endPeriodFilter = computed<PayrollPeriodCriteria>(() => {
     const start = this.startPeriod();
-    if (!start) return {};
-    return { startDate: start.endDate };
+    if (!start) return {frequency: "MONTHLY"};
+    return { startDate: start.endDate, frequency: "MONTHLY" };
   });
 
   constructor() {

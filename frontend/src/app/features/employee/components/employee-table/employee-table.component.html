@@ -1,0 +1,205 @@
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" data-testid="employee-table">
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse">
+      <thead>
+      <tr class="bg-slate-50 h-10 text-slate-500 font-mono uppercase tracking-wider text-xs">
+        <th class="w-10 px-4 text-center">
+          <input
+            data-testid="table-select-all"
+            type="checkbox"
+            class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+        </th>
+        <th class="px-3 py-2.5">Matricule</th>
+        <th class="px-3 py-2.5">Employee identity &amp; contact</th>
+        <th class="px-3 py-2.5">In-effect placement</th>
+        <th class="px-3 py-2.5">Type</th>
+        <th class="px-3 py-2.5">Since</th>
+        <th class="px-3 py-2.5">Status</th>
+        <th class="px-3 py-2.5 text-right">Actions</th>
+      </tr>
+      </thead>
+
+      <tbody class="divide-y divide-slate-100 text-sm">
+      @if (loading()) {
+      <tr data-testid="table-loading">
+        <td colspan="8" class="px-4 py-12 text-center text-slate-400 text-sm">
+          Loading…
+        </td>
+      </tr>
+      }
+
+      @if (!loading() && employees().length === 0) {
+      <tr data-testid="table-empty">
+        <td colspan="8" class="px-4 py-12 text-center text-slate-400 text-sm">
+          No employees match the current filters.
+        </td>
+      </tr>
+      }
+
+      @if (!loading()) {
+      @for (emp of employees(); track emp.id) {
+      <tr
+        data-testid="table-row"
+        [attr.data-employee-id]="emp.id"
+        class="hover:bg-slate-50/70 transition-colors h-16"
+      >
+        <!-- Checkbox -->
+        <td class="px-4 text-center">
+          <input
+            [attr.data-testid]="'row-checkbox-' + emp.id"
+            type="checkbox"
+            class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+        </td>
+
+        <!-- Matricule -->
+        <td class="px-3 whitespace-nowrap">
+                <span
+                  [attr.data-testid]="'row-matricule-' + emp.id"
+                  class="font-mono text-xs px-2 py-1 bg-slate-100 text-slate-700 font-semibold rounded"
+                >
+                  {{ emp.matricule }}
+                </span>
+        </td>
+
+        <!-- Identity + contact -->
+        <td class="px-3">
+          <div class="flex flex-col min-w-0 gap-0.5">
+                  <span
+                    [attr.data-testid]="'row-name-' + emp.id"
+                    class="text-base font-semibold text-slate-900 truncate leading-tight"
+                  >
+                    {{ emp.name }}
+                  </span>
+            <span
+              [attr.data-testid]="'row-email-' + emp.id"
+              class="text-xs text-slate-500 truncate"
+            >
+                    {{ emp.email }}
+                  </span>
+          </div>
+        </td>
+
+        <!-- Placement -->
+        <td class="px-3">
+          @if (emp.assignmentInEffect) {
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+                      <span class="text-lg leading-none" [title]="emp.assignmentInEffect.country.name">
+                        {{ countryFlag(emp.assignmentInEffect.country.code) }}
+                      </span>
+              <span
+                [attr.data-testid]="'row-department-' + emp.id"
+                class="text-sm font-semibold text-slate-900 truncate"
+              >
+                        {{ emp.assignmentInEffect.department.name }}
+                      </span>
+              <span class="font-mono text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                        {{ emp.assignmentInEffect.department.code }}
+                      </span>
+            </div>
+            <div class="text-sm text-slate-600 flex items-center gap-1.5">
+                      <span [attr.data-testid]="'row-role-' + emp.id" class="truncate">
+                        {{ emp.assignmentInEffect.role.name }}
+                      </span>
+              <span class="font-mono text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-semibold">
+                        {{ emp.assignmentInEffect.role.code }}
+                      </span>
+            </div>
+          </div>
+          } @else {
+          <span class="text-slate-400 text-sm italic">No active assignment</span>
+          }
+        </td>
+
+        <!-- Employment type -->
+        <td class="px-3 whitespace-nowrap">
+          @if (emp.assignmentInEffect) {
+          <span
+            [attr.data-testid]="'row-type-' + emp.id"
+            [attr.data-employment-type]="emp.assignmentInEffect.employmentType"
+            class="inline-flex items-center px-2.5 py-1 rounded font-mono text-xs bg-slate-100 text-slate-700 font-semibold"
+          >
+                    {{ employmentTypeLabel(emp.assignmentInEffect.employmentType) }}
+                  </span>
+          } @else {
+          <span class="text-slate-400 text-sm">—</span>
+          }
+        </td>
+
+        <!-- Since -->
+        <td class="px-3 whitespace-nowrap">
+                <span
+                  [attr.data-testid]="'row-since-' + emp.id"
+                  class="font-mono text-xs text-slate-600"
+                >
+                  {{ formatDate(emp.assignmentInEffect?.startDate ?? null) }}
+                </span>
+        </td>
+
+        <!-- Status -->
+        <td class="px-3 whitespace-nowrap">
+          @if (emp.assignmentInEffect) {
+          <span
+            [attr.data-testid]="'row-status-' + emp.id"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-mono text-xs font-semibold border border-emerald-200"
+          >
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    In-effect active
+                  </span>
+          } @else {
+          <span
+            [attr.data-testid]="'row-status-' + emp.id"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-mono text-xs font-semibold border border-slate-200"
+          >
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    Draft / Pending
+                  </span>
+          }
+        </td>
+
+        <!-- Actions -->
+        <!-- Actions -->
+        <td class="px-3 whitespace-nowrap text-right">
+          <div class="flex items-center justify-end gap-1">
+            <button
+              [attr.data-testid]="'row-edit-' + emp.id"
+              type="button"
+              class="p-2 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
+              title="Edit record"
+              (click)="editClick.emit(emp)"
+            >
+              <mat-icon class="!w-4 !h-4 !text-[16px]">edit</mat-icon>
+            </button>
+
+            <button
+              [attr.data-testid]="'row-delete-' + emp.id"
+              type="button"
+              class="p-2 rounded hover:bg-red-50 text-red-500 hover:text-red-700 transition-colors"
+              title="Delete employee"
+              (click)="deleteClick.emit(emp)"
+            >
+              <mat-icon class="!w-4 !h-4 !text-[16px]">delete</mat-icon>
+            </button>
+
+            @if (emp.assignmentInEffect) {
+            <button
+              [attr.data-testid]="'row-more-' + emp.id"
+              type="button"
+              class="p-2 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
+              title="More actions"
+              (click)="moreClick.emit(emp)"
+            >
+              <mat-icon class="!w-4 !h-4 !text-[16px]">more_vert</mat-icon>
+            </button>
+            }
+          </div>
+        </td>
+      </tr>
+      }
+      }
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -99,6 +99,19 @@ public interface CountryJpaRepository
     boolean isReferencedByRanking(@Param("countryId") UUID countryId);
 
     /**
+     * Returns whether any earner percentile entry is scoped to this country.
+     *
+     * @param countryId country identifier
+     * @return {@code true} when at least one percentile references it
+     */
+    @Query("""
+            SELECT COUNT(p) > 0
+            FROM PayrollPeriodEarnerPercentileEntity p
+            WHERE p.countryId = :countryId
+            """)
+    boolean isReferencedByPercentile(@Param("countryId") UUID countryId);
+
+    /**
      * Returns whether the country is referenced anywhere in the schema. Combines all
      * referrer checks so callers do not need to know the referrer set.
      *
@@ -110,6 +123,7 @@ public interface CountryJpaRepository
                 || isReferencedByAssignment(countryId)
                 || isReferencedByPayrollSummary(countryId)
                 || isReferencedByAggregate(countryId)
-                || isReferencedByRanking(countryId);
+                || isReferencedByRanking(countryId)
+                || isReferencedByPercentile(countryId);
     }
 }
