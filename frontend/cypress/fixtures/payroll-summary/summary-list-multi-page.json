@@ -1,0 +1,43 @@
+{
+  "content": [
+    {
+      "id": "s-1",
+      "status": "DRAFT",
+      "employee": { "id": "emp-1", "matricule": "EMP-0001", "name": "Ada Lovelace" },
+      "period": {
+        "id": "p-jan-2026", "name": "January 2026",
+        "startDate": "2026-01-01", "endDate": "2026-01-31",
+        "frequency": "MONTHLY", "closed": true
+      },
+      "country": { "id": "c-fr", "code": "FR", "name": "France" },
+      "department": { "id": "d-eng", "code": "ENG", "name": "Engineering" },
+      "role": { "id": "r-swe", "code": "SWE", "name": "Software Engineer" },
+      "employmentType": "FULL_TIME",
+      "amounts": { "base": 1000, "variable": 100, "allowances": 50,
+        "employerTaxes": 200, "total": 1350, "currency": "EUR" }
+    },
+    {
+      "id": "s-2",
+      "status": "VALIDATED",
+      "employee": { "id": "emp-2", "matricule": "EMP-0002", "name": "Elena Ruiz" },
+      "period": {
+        "id": "p-jan-2026", "name": "January 2026",
+        "startDate": "2026-01-01", "endDate": "2026-01-31",
+        "frequency": "MONTHLY", "closed": true
+      },
+      "country": { "id": "c-de", "code": "DE", "name": "Germany" },
+      "department": { "id": "d-eng", "code": "ENG", "name": "Engineering" },
+      "role": { "id": "r-swe", "code": "SWE", "name": "Software Engineer" },
+      "employmentType": "FULL_TIME",
+      "amounts": { "base": 1100, "variable": 0, "allowances": 0,
+        "employerTaxes": 0, "total": 1100, "currency": "EUR" }
+    }
+  ],
+  "totalElements": 42,
+  "totalPages": 3,
+  "page": 0,
+  "size": 20,
+  "first": true,
+  "last": false,
+  "empty": false
+}

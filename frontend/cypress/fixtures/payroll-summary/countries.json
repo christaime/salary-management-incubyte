@@ -1,0 +1,13 @@
+{
+  "content": [
+    { "id": "c-fr", "code": "FR", "name": "France", "currencyCode": "EUR" },
+    { "id": "c-de", "code": "DE", "name": "Germany", "currencyCode": "EUR" }
+  ],
+  "totalElements": 2,
+  "totalPages": 1,
+  "page": 0,
+  "size": 20,
+  "first": true,
+  "last": true,
+  "empty": false
+}

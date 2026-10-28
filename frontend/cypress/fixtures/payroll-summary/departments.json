@@ -1,0 +1,12 @@
+{
+  "content": [
+    { "id": "d-eng", "code": "ENG", "name": "Engineering" }
+  ],
+  "totalElements": 1,
+  "totalPages": 1,
+  "page": 0,
+  "size": 20,
+  "first": true,
+  "last": true,
+  "empty": false
+}

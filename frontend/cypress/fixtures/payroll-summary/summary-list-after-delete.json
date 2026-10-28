@@ -1,0 +1,22 @@
+{
+  "content": [
+    {
+      "id": "s-2",
+      "status": "VALIDATED",
+      "employee": { "id": "e-2", "matricule": "EMP-0002", "name": "Elena Rostova" },
+      "period": { "id": "p-jan-2026", "name": "January 2026", "startDate": "2026-01-01", "endDate": "2026-01-31", "frequency": "MONTHLY", "closed": true },
+      "country": { "id": "c-fr", "code": "FR", "name": "France" },
+      "department": { "id": "d-eng", "code": "ENG", "name": "Engineering" },
+      "role": { "id": "r-swe", "code": "SWE", "name": "Software Engineer" },
+      "employmentType": "PART_TIME",
+      "amounts": { "base": 500, "variable": 50, "allowances": 25, "employerTaxes": 100, "total": 675, "currency": "EUR" }
+    }
+  ],
+  "totalElements": 1,
+  "totalPages": 1,
+  "page": 0,
+  "size": 20,
+  "first": true,
+  "last": true,
+  "empty": false
+}

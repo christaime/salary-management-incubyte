@@ -1,0 +1,14 @@
+{
+  "content": [
+    { "id": "p-dec-2025", "name": "December 2025", "startDate": "2025-12-01", "endDate": "2025-12-31", "frequency": "MONTHLY", "closed": true },
+    { "id": "p-jan-2026", "name": "January 2026",  "startDate": "2026-01-01", "endDate": "2026-01-31", "frequency": "MONTHLY", "closed": true },
+    { "id": "p-mar-2026", "name": "March 2026",    "startDate": "2026-03-01", "endDate": "2026-03-31", "frequency": "MONTHLY", "closed": true }
+  ],
+  "totalElements": 3,
+  "totalPages": 1,
+  "page": 0,
+  "size": 100,
+  "first": true,
+  "last": true,
+  "empty": false
+}
