@@ -58,6 +58,10 @@ public final class PayrollSummary {
         return toBuilder().payrollPeriod(newPayrollPeriod).build();
     }
 
+    public PayrollSummary withEmployeePeriodicAssignmentId(UUID periodicAssignmentId) {
+        return toBuilder().employeePeriodicAssignmentId(periodicAssignmentId).build();
+    }
+
     private Builder toBuilder() {
         return new Builder()
                 .id(this.id)
@@ -67,6 +71,7 @@ public final class PayrollSummary {
                 .amounts(this.amounts)
                 .status(this.status);
     }
+
 
     /** Hand-written builder validating the composed {@code PayrollSummary}. */
     public static final class Builder {

@@ -30,6 +30,7 @@ public final class PayrollSummaryCriteria implements Criteria {
     private final Set<UUID> anyDepartmentIds;
     private final Set<UUID> anyRoleIds;
     private final Set<EmploymentType> anyEmploymentTypes;
+    private final Set<UUID> excludeIds;
     private final String sortBy;
     private final SortDirection sortDirection;
     private final int page;
@@ -71,6 +72,7 @@ public final class PayrollSummaryCriteria implements Criteria {
         this.anyDepartmentIds = builder.anyDepartmentIds;
         this.anyRoleIds = builder.anyRoleIds;
         this.anyEmploymentTypes = builder.anyEmploymentTypes;
+        this.excludeIds = builder.excludeIds;
         this.sortBy = builder.sortBy;
         this.sortDirection = builder.sortDirection;
         this.page = builder.page;
@@ -131,6 +133,7 @@ public final class PayrollSummaryCriteria implements Criteria {
         return anyEmploymentTypes;
     }
 
+    public Set<UUID> excludeIds() { return excludeIds; }
     @Override
     public String sortBy() {
         return sortBy;
@@ -180,6 +183,7 @@ public final class PayrollSummaryCriteria implements Criteria {
         private Set<UUID> anyDepartmentIds;
         private Set<UUID> anyRoleIds;
         private Set<EmploymentType> anyEmploymentTypes;
+        private Set<UUID> excludeIds;
         private String sortBy;
         private SortDirection sortDirection;
         private int page;
@@ -237,6 +241,11 @@ public final class PayrollSummaryCriteria implements Criteria {
 
         public Builder anyEmploymentTypes(Set<EmploymentType> anyEmploymentTypes) {
             this.anyEmploymentTypes = anyEmploymentTypes;
+            return this;
+        }
+
+        public Builder excludeIds(Set<UUID> excludeIds) {
+            this.excludeIds = excludeIds;
             return this;
         }
 
