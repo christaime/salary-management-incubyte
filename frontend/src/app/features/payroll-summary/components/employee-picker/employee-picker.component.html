@@ -1,0 +1,99 @@
+<div class="flex flex-col gap-2">
+  <label class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold">
+    Employee
+  </label>
+
+  <div class="relative">
+    <!-- Trigger bar: search input (no selection) OR selected bar (selection) -->
+    @if (selected(); as s) {
+    <div
+      data-testid="employee-selected-card"
+      class="flex items-center justify-between gap-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 shadow-xs"
+    >
+      <div class="flex items-center gap-2 min-w-0">
+        <span
+          data-testid="employee-selected-badge"
+          class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-900 text-white font-mono font-bold text-[10px] shrink-0"
+        >
+          {{ s.matricule }}
+        </span>
+        <span
+          data-testid="employee-selected-name"
+          class="text-sm font-semibold text-slate-900 truncate"
+        >
+          {{ s.name }}
+        </span>
+      </div>
+      <button
+        data-testid="employee-selected-clear"
+        type="button"
+        (click)="clearSelection()"
+        class="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
+        title="Clear selection"
+      >
+        <mat-icon class="!w-3.5 !h-3.5 !text-[14px]">close</mat-icon>
+      </button>
+    </div>
+    } @else {
+    <div class="relative">
+      <mat-icon class="!w-4 !h-4 !text-[16px] text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+        search
+      </mat-icon>
+      <input
+        data-testid="employee-search-input"
+        type="text"
+        [formControl]="keyword"
+        (keydown.enter)="onSearch()"
+        placeholder="Search by matricule or name (3+ chars)…"
+        class="w-full h-10 pl-9 pr-3 bg-white rounded-lg border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+      />
+      @if (searching()) {
+      <span
+        data-testid="employee-search-spinner"
+        class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400"
+      >
+        …
+      </span>
+      }
+    </div>
+    }
+
+    <!-- Search error -->
+    @if (searchError(); as msg) {
+    <div data-testid="employee-search-error" class="text-xs text-red-700 mt-1">
+      {{ msg }}
+    </div>
+    }
+
+    <!-- Results dropdown -->
+    @if (results().length > 0 && !selected()) {
+    <ul
+      data-testid="employee-search-results"
+      class="absolute left-0 right-0 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg z-50 divide-y divide-slate-50"
+    >
+      @for (e of results(); track e.id) {
+      <li>
+        <button
+          type="button"
+          [attr.data-testid]="'employee-result-' + e.id"
+          (click)="selectEmployee(e)"
+          class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50"
+        >
+          <div class="text-sm font-semibold text-slate-900">
+            {{ e.name }} · <span class="font-mono text-xs text-slate-500">{{ e.matricule }}</span>
+          </div>
+          @if (e.assignmentInEffect; as a) {
+          <div class="text-[11px] text-slate-500">
+            {{ a.country.name }} · {{ a.department.name }} ·
+            {{ a.role.name }} · {{ a.employmentType }}
+          </div>
+          } @else {
+          <div class="text-[11px] text-rose-600">No in-effect assignment</div>
+          }
+        </button>
+      </li>
+      }
+    </ul>
+    }
+  </div>
+</div>

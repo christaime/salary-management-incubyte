@@ -51,16 +51,16 @@ export const routes: Routes = [
         loadComponent: () => import('./features/payroll-summary/pages/payroll-summary-list/payroll-summary-list.page').then(m => m.PayrollSummaryListPage),
         title: 'Payroll Summaries',
       },
-      // {
-      //   path: 'new',
-      //   loadComponent: () => import('...editor').then(m => m.PayrollSummaryEditorPage),
-      //   title: 'New payroll summary',
-      // },
-      // {
-      //   path: ':id/edit',
-      //   loadComponent: () => import('...editor').then(m => m.PayrollSummaryEditorPage),
-      //   title: 'Edit payroll summary',
-      // },
+      {
+         path: 'new',
+         loadComponent: () => import('./features/payroll-summary/pages/payroll-summary-editor/payroll-summary-editor.page').then(m => m.PayrollSummaryEditorPage),
+         title: 'New payroll summary',
+      },
+      {
+         path: ':id/edit',
+         loadComponent: () => import('./features/payroll-summary/pages/payroll-summary-editor/payroll-summary-editor.page').then(m => m.PayrollSummaryEditorPage),
+         title: 'Edit payroll summary',
+      },
       {
         path: ':id',
         loadComponent: () => import('./features/payroll-summary/pages/payroll-summary-detail/payroll-summary-detail.page').then(m => m.PayrollSummaryDetailPage),

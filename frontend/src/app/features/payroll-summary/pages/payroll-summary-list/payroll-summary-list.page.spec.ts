@@ -19,6 +19,7 @@ import {
   PayrollSummaryDetailDto,
   PayrollSummaryDto,
 } from '../../models/payroll-summary.model';
+import { PayrollFilterValue } from '../../components/payroll-summary-filter-bar/payroll-summary-filter-bar.component';
 
 const emptyPage: DataPage<PayrollSummaryDto> = {
   content: [],
@@ -34,7 +35,7 @@ const emptyPage: DataPage<PayrollSummaryDto> = {
 function makeRow(
   id = 's-1',
   status: 'DRAFT' | 'VALIDATED' = 'DRAFT',
-): PayrollSummaryDetailDto {
+): PayrollSummaryDto {
   return {
     id,
     status,
@@ -59,12 +60,23 @@ function makeRow(
       total: 1350,
       currency: 'EUR',
     },
+    // PayrollSummaryDto requires an assignment (with frequency)
     assignment: {
       id: 'a-1',
       startDate: '2025-10-01',
       endDate: null,
-      hasPayroll: true,
+      frequency: 'MONTHLY',
     },
+  };
+}
+
+function makeDetail(
+           id = 's-1',
+           status: 'DRAFT' | 'VALIDATED' = 'DRAFT',
+         ): PayrollSummaryDetailDto {
+  return {
+    ...makeRow(id),
+    assignment: { id: 'a-1', startDate: '2025-10-01', endDate: null, hasPayroll: true },
   };
 }
 
@@ -92,13 +104,15 @@ describe('PayrollSummaryListPage', () => {
   let dialog: jasmine.SpyObj<MatDialog>;
   let router: Router;
 
-  function filterValue() {
+  function filterValue(): PayrollFilterValue {
     return {
       rangeStart: '2026-01-01',
       rangeEnd: '2026-03-31',
       status: null,
+      nonExistent: false, // NEW: required by the interface
       payrollFrequency: null,
-      employeeMatricule: null,
+      employeeId: null,   // NEW
+      employeeName: null, // NEW
       anyCountryIds: [],
       anyDepartmentIds: [],
       anyRoleIds: [],
@@ -111,9 +125,11 @@ describe('PayrollSummaryListPage', () => {
       'search',
       'validate',
       'delete',
+      'clearSelectedNonExistent',
+      'setSelectedNonExistent',
     ]);
     service.search.and.returnValue(of(makePage([])));
-    service.validate.and.returnValue(of(makeRow()));
+    service.validate.and.returnValue(of(makeDetail()));
     service.delete.and.returnValue(of(void 0));
 
     dialog = jasmine.createSpyObj('MatDialog', ['open']);
@@ -148,6 +164,8 @@ describe('PayrollSummaryListPage', () => {
     spyOn(router, 'navigate').and.returnValue(Promise.resolve(true));
     fixture.detectChanges();
   });
+
+  // ... (existing tests unchanged, they now type-check) ...
 
   it('starts idle and does not call search on construction', () => {
     expect(component.state()).toBe('idle');
@@ -245,23 +263,23 @@ describe('PayrollSummaryListPage', () => {
     expect(service.delete).not.toHaveBeenCalled();
   });
 
+  // ----- UPDATED: bulk-validate tests use the new API -----
+
   it('does not open the bulk dialog when no period is selected', () => {
     component.onBulkValidate();
     expect(dialog.open).not.toHaveBeenCalled();
   });
 
   it('opens the bulk dialog when a period is selected', () => {
-    component.availablePeriods.set([
-      {
-        id: 'p-1',
-        name: 'January 2026',
-        startDate: '2026-01-01',
-        endDate: '2026-01-31',
-        frequency: 'MONTHLY',
-        closed: false,
-      },
-    ]);
-    component.onPeriodSelect('p-1');
+    // NEW: use selectedPeriod signal directly (no availablePeriods / onPeriodSelect)
+    component.selectedPeriod.set({
+      id: 'p-1',
+      name: 'January 2026',
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      frequency: 'MONTHLY',
+      closed: false,
+    });
     dialog.open.and.returnValue({ afterClosed: () => of(true) } as any);
 
     component.onBulkValidate();
@@ -271,12 +289,138 @@ describe('PayrollSummaryListPage', () => {
     expect((config as any).data.periodId).toBe('p-1');
   });
 
+  // ----- NEW tests to backfill coverage -----
+
+  it('onPeriodSelected stores the period and enables bulk validate', () => {
+    component.selectedPeriod.set(null);
+    expect(component.canBulkValidate()).toBeFalse();
+
+    component.onPeriodSelected({
+      id: 'p-1',
+      name: 'January 2026',
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      frequency: 'MONTHLY',
+      closed: false,
+    });
+
+    expect(component.selectedPeriod()?.id).toBe('p-1');
+    expect(component.canBulkValidate()).toBeTrue();
+  });
+
+  it('onPeriodSelected(null) disables bulk validate', () => {
+    component.onPeriodSelected({
+      id: 'p-1',
+      name: 'January 2026',
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      frequency: 'MONTHLY',
+      closed: false,
+    });
+    component.onPeriodSelected(null);
+    expect(component.selectedPeriod()).toBeNull();
+    expect(component.canBulkValidate()).toBeFalse();
+  });
+
+  it('onFilterChange clears the non-existent selection and reloads', () => {
+    component.onFilterChange({ ...filterValue(), nonExistent: true });
+
+    expect(service.clearSelectedNonExistent).toHaveBeenCalled();
+    expect(component.nonExistentPayroll()).toBeTrue();
+    expect(service.search).toHaveBeenCalled();
+  });
+
+  it('onRowClick on a non-existent row routes to the create page and stashes the row', () => {
+    component.onFilterChange({ ...filterValue(), nonExistent: true });
+    service.search.calls.reset();
+
+    component.onRowClick(makeRow('s-1'));
+
+    expect(service.setSelectedNonExistent).toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(['/payroll-summaries/new']);
+  });
+
+  it('onEdit on a non-existent row routes to the create page and stashes the row', () => {
+    component.onFilterChange({ ...filterValue(), nonExistent: true });
+    service.search.calls.reset();
+
+    component.onEdit(makeRow('s-1'));
+
+    expect(service.setSelectedNonExistent).toHaveBeenCalled();
+    expect(router.navigate).toHaveBeenCalledWith(['/payroll-summaries/new']);
+  });
+
+  it('onFilterReset returns to idle and clears rows/totals/selection', () => {
+    // get into success state first
+    component.onFilterChange(filterValue());
+    expect(component.state()).toBe('success');
+
+    component.onFilterReset();
+
+    expect(component.state()).toBe('idle');
+    expect(component.rows()).toEqual([]);
+    expect(component.totalElements()).toBe(0);
+    expect(component.selectedPeriod()).toBeNull();
+    expect(component.nonExistentPayroll()).toBeFalse();
+  });
+
+  it('builds filter chips from the active filter value', () => {
+    component.onFilterChange({
+      ...filterValue(),
+      status: 'DRAFT',
+      payrollFrequency: 'MONTHLY',
+      employeeId: 'e-1',
+      employeeName: 'Ada Lovelace',
+      anyCountryIds: ['c-1'],
+      anyDepartmentIds: ['d-1', 'd-2'],
+      anyRoleIds: ['r-1'],
+      anyEmploymentTypes: ['FULL_TIME'],
+    });
+
+    const chips = component.filterChips();
+    expect(chips).toContain('Status: DRAFT');
+    expect(chips).toContain('Frequency: MONTHLY');
+    expect(chips).toContain('Employee: Ada Lovelace');
+    expect(chips).toContain('Countries: 1');
+    expect(chips).toContain('Departments: 2');
+    expect(chips).toContain('Roles: 1');
+    expect(chips).toContain('Types: 1');
+  });
+
+  it('filterChips falls back to "Employee: selected" when no name is provided', () => {
+    component.onFilterChange({
+      ...filterValue(),
+      employeeId: 'e-1',
+      employeeName: null,
+    });
+    expect(component.filterChips()).toContain('Employee: selected');
+  });
+
+  it('bulkValidateLabel shows the default when no period is selected', () => {
+    component.selectedPeriod.set(null);
+    expect(component.bulkValidateLabel()).toBe('Validate all drafts');
+  });
+
+  it('bulkValidateLabel includes the period name and criteria suffix', () => {
+    component.selectedPeriod.set({
+      id: 'p-1',
+      name: 'January 2026',
+      startDate: '2026-01-01',
+      endDate: '2026-01-31',
+      frequency: 'MONTHLY',
+      closed: false,
+    });
+    component.onFilterChange({ ...filterValue(), status: 'DRAFT' });
+
+    expect(component.bulkValidateLabel()).toContain('January 2026');
+    expect(component.bulkValidateLabel()).toContain('corresponding to the criteria');
+  });
+
   it('passes filters to the child filter bar via the output', () => {
     const formDE = fixture.debugElement.query(
       By.directive(PayrollSummaryFilterBarComponent),
     );
 
-    // Populate the start period so onApply() actually emits.
     formDE.componentInstance.form.patchValue({
       startPeriod: {
         id: 'p-jan',
@@ -294,5 +438,14 @@ describe('PayrollSummaryListPage', () => {
     formDE.componentInstance.onApply();
 
     expect(spy).toHaveBeenCalled();
+    const payload = spy.calls.mostRecent().args[0] as PayrollFilterValue;
+    // The new required fields should be present
+    expect(payload).toEqual(
+      jasmine.objectContaining({
+        nonExistent: false,
+        employeeId: null,
+        employeeName: null,
+      }),
+    );
   });
 });

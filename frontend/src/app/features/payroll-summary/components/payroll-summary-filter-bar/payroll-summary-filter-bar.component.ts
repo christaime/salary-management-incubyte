@@ -4,6 +4,7 @@ import {
   Component,
   DestroyRef,
   OnInit,
+  ViewChild,
   computed,
   inject,
   output,
@@ -14,7 +15,6 @@ import {
   FormControl,
   FormGroup,
   ReactiveFormsModule,
-  Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -22,6 +22,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 
+import { LookupOption } from '@core/models';
 import { CountryService } from '../../../country/services/country.service';
 import { DepartmentService } from '../../../department/services/department.service';
 import { RoleService } from '../../../role/services/role.service';
@@ -31,6 +32,7 @@ import {
   PayrollPeriodDto,
 } from '@features/payroll-period/models';
 import {
+  EmployeeWithInEffectAssignmentDto,
   EmploymentType,
   EMPLOYMENT_TYPES,
   EMPLOYMENT_TYPE_LABELS,
@@ -41,22 +43,24 @@ import {
   PAYROLL_PERIOD_FREQUENCY_LABELS,
 } from '@features/payroll-period/models';
 import { PayrollSummaryStatus } from '../../models/payroll-summary.model';
+import { EmployeePickerComponent } from '../employee-picker/employee-picker.component';
+
+/** UI-only sentinel for the "Non existent" pseudo-status. Never sent to the backend. */
+export const STATUS_NON_EXISTENT = '__NON_EXISTENT__' as const;
+export type StatusSelectValue = PayrollSummaryStatus | typeof STATUS_NON_EXISTENT | null;
 
 export interface PayrollFilterValue {
   rangeStart: string;
   rangeEnd: string;
   status: PayrollSummaryStatus | null;
+  nonExistent: boolean;
   payrollFrequency: PayrollPeriodFrequency | null;
-  employeeMatricule: string | null;
+  employeeId: string | null;
+  employeeName: string | null;
   anyCountryIds: string[];
   anyDepartmentIds: string[];
   anyRoleIds: string[];
   anyEmploymentTypes: EmploymentType[];
-}
-
-interface Option {
-  id: string;
-  name: string;
 }
 
 @Component({
@@ -71,6 +75,7 @@ interface Option {
     MatButtonModule,
     MatIconModule,
     PayrollPeriodPickerComponent,
+    EmployeePickerComponent,
   ],
   templateUrl: './payroll-summary-filter-bar.component.html',
   styleUrl: './payroll-summary-filter-bar.component.scss',
@@ -84,31 +89,34 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
 
   readonly filterReset = output<void>();
   readonly filterChange = output<PayrollFilterValue>();
+  readonly periodSelected = output<PayrollPeriodDto | null>();
 
   readonly currentYear = new Date().getFullYear();
+
+  @ViewChild(EmployeePickerComponent) employeePicker?: EmployeePickerComponent;
 
   readonly form = new FormGroup({
     startPeriod: new FormControl<PayrollPeriodDto | null>(null),
     endPeriod: new FormControl<PayrollPeriodDto | null>(null),
-    status: new FormControl<PayrollSummaryStatus | null>(null),
+    status: new FormControl<StatusSelectValue>(null),
     payrollFrequency: new FormControl<PayrollPeriodFrequency | null>(null),
-    employeeMatricule: new FormControl<string>('', { nonNullable: true }),
     anyCountryIds: new FormControl<string[]>([], { nonNullable: true }),
     anyDepartmentIds: new FormControl<string[]>([], { nonNullable: true }),
     anyRoleIds: new FormControl<string[]>([], { nonNullable: true }),
     anyEmploymentTypes: new FormControl<EmploymentType[]>([], { nonNullable: true }),
   });
 
-  // ---------- Picker state (year + period, tracked separately) ----------
+  // ---------- Employee picker state ----------
+  readonly selectedEmployee = signal<EmployeeWithInEffectAssignmentDto | null>(null);
 
+  // ---------- Picker state ----------
   readonly startPickerSelectedYear = signal<number | null>(null);
   readonly endPickerSelectedYear = signal<number | null>(null);
 
   readonly startPeriod = signal<PayrollPeriodDto | null>(null);
   readonly endPeriod = signal<PayrollPeriodDto | null>(null);
 
-  // ---------- Picker coordination (mirrors aggregate report) ----------
-
+  // ---------- Picker coordination ----------
   readonly startPickerYearRange = computed<[number, number]>(() => [
     this.currentYear - 5,
     this.currentYear,
@@ -133,36 +141,19 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
     return { startDate: start.endDate, frequency: 'MONTHLY' };
   });
 
-  // ---------- Derived date range (the 4 rules) ----------
-
-  /**
-   * True when the user has at least a year or a period in the start picker —
-   * i.e. the date range can be computed.
-   */
+  // ---------- Derived date range ----------
   readonly canComputeRange = computed(
     () => this.startPickerSelectedYear() !== null || this.startPeriod() !== null,
   );
 
-  /**
-   * Derives the summary criteria date range from the picker state.
-   *
-   *   Rule 1: start year only                  → [Y-01-01, Y-12-31]
-   *   Rule 2: start period only                → [P.startDate, P.endDate]
-   *   Rule 3: start period + end period        → [P.startDate, Q.endDate]
-   *   Rule 4: start period + end year only     → [P.startDate, Y'-12-31]
-   *   Rule 5: start year + end year only       → [Y-01-01, Y'-12-31]  (natural extension)
-   *   Rule 6: start year + end period          → [Y-01-01, Q.endDate] (natural extension)
-   */
   readonly derivedRange = computed<{ rangeStart: string; rangeEnd: string } | null>(() => {
     const startPeriod = this.startPeriod();
     const startYear = this.startPickerSelectedYear();
     const endPeriod = this.endPeriod();
     const endYear = this.endPickerSelectedYear();
 
-    // No start info → no range.
     if (!startPeriod && startYear === null) return null;
 
-    // ---- rangeStart ----
     let rangeStart: string;
     if (startPeriod) {
       rangeStart = startPeriod.startDate;
@@ -170,28 +161,24 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
       rangeStart = `${startYear}-01-01`;
     }
 
-    // ---- rangeEnd ----
     let rangeEnd: string;
     if (endPeriod) {
       rangeEnd = endPeriod.endDate;
     } else if (endYear !== null) {
       rangeEnd = `${endYear}-12-31`;
     } else if (startPeriod) {
-      // Rule 2: no end picker info → use the start period's endDate.
       rangeEnd = startPeriod.endDate;
     } else {
-      // Rule 1: no end info at all → use the start year's end.
       rangeEnd = `${startYear}-12-31`;
     }
 
     return { rangeStart, rangeEnd };
   });
 
-  // ---------- Multi-select trigger labels ----------
-
-  readonly countries = signal<Option[]>([]);
-  readonly departments = signal<Option[]>([]);
-  readonly roles = signal<Option[]>([]);
+  // ---------- Multi-select option lists (LookupOption) ----------
+  readonly countries = signal<LookupOption[]>([]);
+  readonly departments = signal<LookupOption[]>([]);
+  readonly roles = signal<LookupOption[]>([]);
 
   readonly employmentTypes = EMPLOYMENT_TYPES;
   readonly employmentTypeLabels = EMPLOYMENT_TYPE_LABELS;
@@ -199,10 +186,12 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
   readonly payrollFrequencies = PAYROLL_PERIOD_FREQUENCIES;
   readonly payrollFrequencyLabels = PAYROLL_PERIOD_FREQUENCY_LABELS;
 
-  readonly statusOptions: { value: PayrollSummaryStatus | null; label: string }[] = [
+  /** Status options including the pseudo-status. */
+  readonly statusOptions: { value: StatusSelectValue; label: string }[] = [
     { value: null, label: 'All statuses' },
     { value: 'DRAFT', label: 'Draft' },
     { value: 'VALIDATED', label: 'Validated' },
+    { value: STATUS_NON_EXISTENT, label: 'Non existent' },
   ];
 
   private readonly formValue = toSignal(this.form.valueChanges, {
@@ -238,7 +227,7 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
       this.formValue()?.anyEmploymentTypes ?? [],
       this.employmentTypes.map((t) => ({
         id: t,
-        name: this.employmentTypeLabels[t],
+        label: this.employmentTypeLabels[t],
       })),
       'All types',
     ),
@@ -252,12 +241,12 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
         if (p?.startDate) {
           this.startPickerSelectedYear.set(Number(p.startDate.slice(0, 4)));
         }
-        // If the previous end period no longer fits, clear it.
         const end = this.endPeriod();
         if (p && end && p.endDate > end.startDate) {
           this.form.controls.endPeriod.setValue(null, { emitEvent: false });
           this.endPeriod.set(null);
         }
+        this.periodSelected.emit(p);
       });
 
     this.form.controls.endPeriod.valueChanges
@@ -274,18 +263,14 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
     this.loadLookups();
   }
 
-  // ---------- Year-change handlers (from the pickers) ----------
-
+  // ---------- Year-change handlers ----------
   onStartYearChange(year: number): void {
     this.startPickerSelectedYear.set(year);
-
-    // Clear the end period if it now precedes the new start year.
     const end = this.endPeriod();
     if (end && Number(end.startDate.slice(0, 4)) < year) {
       this.form.controls.endPeriod.setValue(null, { emitEvent: false });
       this.endPeriod.set(null);
     }
-    // Also clear the end-year if it precedes the new start year.
     const endYear = this.endPickerSelectedYear();
     if (endYear !== null && endYear < year) {
       this.endPickerSelectedYear.set(null);
@@ -294,7 +279,6 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
 
   onEndYearChange(year: number): void {
     this.endPickerSelectedYear.set(year);
-    // If an end period was picked and its year differs from the new year, clear it.
     const end = this.endPeriod();
     if (end && Number(end.startDate.slice(0, 4)) !== year) {
       this.form.controls.endPeriod.setValue(null, { emitEvent: false });
@@ -302,8 +286,12 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
     }
   }
 
-  // ---------- Apply / Reset ----------
+  // ---------- Employee picker ----------
+  onEmployeeSelected(e: EmployeeWithInEffectAssignmentDto | null): void {
+    this.selectedEmployee.set(e);
+  }
 
+  // ---------- Apply / Reset ----------
   onApply(): void {
     const range = this.derivedRange();
     if (!range) {
@@ -311,12 +299,23 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
       return;
     }
     const v = this.form.getRawValue();
+    const emp = this.selectedEmployee();
+
+    const statusSelect = v.status;
+    const isNonExistent = statusSelect === STATUS_NON_EXISTENT;
+    const status: PayrollSummaryStatus | null =
+      statusSelect === 'DRAFT' || statusSelect === 'VALIDATED'
+        ? statusSelect
+        : null;
+
     this.filterChange.emit({
       rangeStart: range.rangeStart,
       rangeEnd: range.rangeEnd,
-      status: v.status,
+      status,
+      nonExistent: isNonExistent,
       payrollFrequency: v.payrollFrequency,
-      employeeMatricule: v.employeeMatricule.trim() || null,
+      employeeId: emp?.id ?? null,
+      employeeName: emp?.name ?? null,
       anyCountryIds: v.anyCountryIds,
       anyDepartmentIds: v.anyDepartmentIds,
       anyRoleIds: v.anyRoleIds,
@@ -330,12 +329,13 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
       endPeriod: null,
       status: null,
       payrollFrequency: null,
-      employeeMatricule: '',
       anyCountryIds: [],
       anyDepartmentIds: [],
       anyRoleIds: [],
       anyEmploymentTypes: [],
     });
+    this.selectedEmployee.set(null);
+    this.employeePicker?.clearSelection();
     this.startPickerSelectedYear.set(null);
     this.endPickerSelectedYear.set(null);
     this.startPeriod.set(null);
@@ -351,12 +351,16 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
     return this.payrollFrequencyLabels[value];
   }
 
-  private joinLabels(ids: string[], options: Option[], emptyLabel: string): string {
+  private joinLabels(
+    ids: string[],
+    options: LookupOption[],
+    emptyLabel: string,
+  ): string {
     if (ids.length === 0) return emptyLabel;
-    const names = ids
-      .map((id) => options.find((o) => o.id === id)?.name)
-      .filter((n): n is string => !!n);
-    return names.length > 0 ? names.join(', ') : emptyLabel;
+    const labels = ids
+      .map((id) => options.find((o) => o.id === id)?.label)
+      .filter((l): l is string => !!l);
+    return labels.length > 0 ? labels.join(', ') : emptyLabel;
   }
 
   private loadLookups(): void {
@@ -364,21 +368,21 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
       .search()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((res) =>
-        this.countries.set(res.content.map((c) => ({ id: c.id, name: c.name }))),
+        this.countries.set(res.content.map((c) => ({ id: c.id, label: c.name }))),
       );
 
     this.departmentService
       .search()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((res) =>
-        this.departments.set(res.content.map((d) => ({ id: d.id, name: d.name }))),
+        this.departments.set(res.content.map((d) => ({ id: d.id, label: d.name }))),
       );
 
     this.roleService
       .search()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((res) =>
-        this.roles.set(res.content.map((r) => ({ id: r.id, name: r.name }))),
+        this.roles.set(res.content.map((r) => ({ id: r.id, label: r.name }))),
       );
   }
 }

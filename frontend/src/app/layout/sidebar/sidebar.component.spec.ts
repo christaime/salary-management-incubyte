@@ -46,11 +46,15 @@ describe('SidebarComponent', () => {
   // ------------------------------------------------------------------
 
   it('renders 6 nav items', () => {
+    service.isOpen.set(true);
+    rerender();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelectorAll('.nav-item').length).toBe(6);
   });
 
   it('exposes the employee, aggregate, and earnings ranking nav items', () => {
+    service.isOpen.set(true);
+    rerender();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="nav-employees"]')).not.toBeNull();
     expect(el.querySelector('[data-testid="nav-aggregate"]')).not.toBeNull();
@@ -62,6 +66,7 @@ describe('SidebarComponent', () => {
   // ------------------------------------------------------------------
 
   it('renders nav labels and the sidebar title when not collapsed', () => {
+     service.isOpen.set(true);
     service.isCollapsed.set(false);
     rerender();
     const el = fixture.nativeElement as HTMLElement;
@@ -72,6 +77,7 @@ describe('SidebarComponent', () => {
   });
 
   it('hides nav labels and the sidebar title when collapsed', () => {
+     service.isOpen.set(false);
     service.isCollapsed.set(true);
     rerender();
     const el = fixture.nativeElement as HTMLElement;
@@ -81,6 +87,7 @@ describe('SidebarComponent', () => {
   });
 
   it('applies the "collapsed" class to the aside when collapsed', () => {
+     service.isOpen.set(true);
     service.isCollapsed.set(true);
     rerender();
     const aside = (fixture.nativeElement as HTMLElement)
@@ -89,6 +96,7 @@ describe('SidebarComponent', () => {
   });
 
   it('does not apply the "collapsed" class when expanded', () => {
+   service.isOpen.set(true);
     service.isCollapsed.set(false);
     rerender();
     const aside = (fixture.nativeElement as HTMLElement)
@@ -101,6 +109,8 @@ describe('SidebarComponent', () => {
   // ------------------------------------------------------------------
 
   it('calls toggleCollapse when the collapse button is clicked', () => {
+    service.isOpen.set(true);
+    rerender();
     spyOn(service, 'toggleCollapse').and.callThrough();
     const btn = (fixture.nativeElement as HTMLElement)
       .querySelector<HTMLButtonElement>('[data-testid="sidebar-collapse-button"]')!;

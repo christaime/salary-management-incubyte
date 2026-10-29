@@ -13,6 +13,7 @@ import { DepartmentService } from '../../../department/services/department.servi
 import { RoleService } from '../../../role/services/role.service';
 import { PayrollPeriodsService } from '@features/payroll-period/services/payroll-periods.service';
 import { PayrollPeriodDto } from '@features/payroll-period/models';
+import { EmployeeWithInEffectAssignmentDto } from '@features/employee/models';
 
 function period(
   id: string,
@@ -41,6 +42,22 @@ const emptyPage = {
 
 function mockPage(content: any[]) {
   return { ...emptyPage, content, totalElements: content.length };
+}
+
+function fakeEmployee(
+  id = 'emp-1',
+  matricule = 'EMP-0001',
+  name = 'Ada Lovelace',
+): EmployeeWithInEffectAssignmentDto {
+  return {
+    id,
+    matricule,
+    name,
+    email: 'ada@example.com',
+    birthDate: null,
+    originCountry: null,
+    assignmentInEffect: null,
+  };
 }
 
 describe('PayrollSummaryFilterBarComponent', () => {
@@ -100,6 +117,10 @@ describe('PayrollSummaryFilterBarComponent', () => {
       expect(component.canComputeRange()).toBeFalse();
     });
 
+    it('starts with no employee selected', () => {
+      expect(component.selectedEmployee()).toBeNull();
+    });
+
     it('loads country / department / role lookups', () => {
       expect(component.countries().length).toBe(2);
       expect(component.departments().length).toBe(1);
@@ -112,7 +133,7 @@ describe('PayrollSummaryFilterBarComponent', () => {
       expect(el.querySelector('[data-testid="filter-end-period"]')).not.toBeNull();
       expect(el.querySelector('[data-testid="filter-payroll-frequency"]')).not.toBeNull();
       expect(el.querySelector('[data-testid="filter-status"]')).not.toBeNull();
-      expect(el.querySelector('[data-testid="filter-matricule"]')).not.toBeNull();
+      expect(el.querySelector('[data-testid="filter-employee-picker"]')).not.toBeNull();
       expect(el.querySelector('[data-testid="filter-employment-type"]')).not.toBeNull();
       expect(el.querySelector('[data-testid="filter-department"]')).not.toBeNull();
       expect(el.querySelector('[data-testid="filter-role"]')).not.toBeNull();
@@ -129,7 +150,7 @@ describe('PayrollSummaryFilterBarComponent', () => {
   });
 
   // =========================================================================
-  // derivedRange — the four rules
+  // derivedRange
   // =========================================================================
 
   describe('derivedRange', () => {
@@ -266,7 +287,7 @@ describe('PayrollSummaryFilterBarComponent', () => {
   });
 
   // =========================================================================
-  // Picking a period updates the year signal
+  // Picker coordination
   // =========================================================================
 
   describe('picking a start period', () => {
@@ -291,115 +312,6 @@ describe('PayrollSummaryFilterBarComponent', () => {
     });
   });
 
-  // =========================================================================
-  // Apply
-  // =========================================================================
-
-  describe('Apply', () => {
-    it('emits a full filter value with the derived range (rule 2)', () => {
-      component.form.patchValue({
-        startPeriod: JAN_2026,
-        status: 'DRAFT',
-        payrollFrequency: 'MONTHLY',
-        employeeMatricule: 'EMP-0001',
-        anyCountryIds: ['c-fr', 'c-de'],
-        anyDepartmentIds: ['d-eng'],
-        anyRoleIds: ['r-swe'],
-        anyEmploymentTypes: ['FULL_TIME'],
-      });
-
-      component.onApply();
-
-      expect(emitted.length).toBe(1);
-      expect(emitted[0]).toEqual({
-        rangeStart: '2026-01-01',
-        rangeEnd: '2026-01-31',
-        status: 'DRAFT',
-        payrollFrequency: 'MONTHLY',
-        employeeMatricule: 'EMP-0001',
-        anyCountryIds: ['c-fr', 'c-de'],
-        anyDepartmentIds: ['d-eng'],
-        anyRoleIds: ['r-swe'],
-        anyEmploymentTypes: ['FULL_TIME'],
-      });
-    });
-
-    it('emits rule 3 range when both periods are picked', () => {
-      component.form.patchValue({ startPeriod: JAN_2026, endPeriod: MAR_2026 });
-      component.onApply();
-      expect(emitted[0].rangeStart).toBe('2026-01-01');
-      expect(emitted[0].rangeEnd).toBe('2026-03-31');
-    });
-
-    it('emits rule 4 range when only a start period + end year is set', () => {
-      component.form.patchValue({ startPeriod: JAN_2026 });
-      component.onEndYearChange(2027);
-      component.onApply();
-      expect(emitted[0].rangeStart).toBe('2026-01-01');
-      expect(emitted[0].rangeEnd).toBe('2027-12-31');
-    });
-
-    it('trims the matricule and sends null when empty', () => {
-      component.form.patchValue({ startPeriod: JAN_2026, employeeMatricule: '   ' });
-      component.onApply();
-      expect(emitted[0].employeeMatricule).toBeNull();
-    });
-
-    it('does not emit when there is no start info', () => {
-      component.onApply();
-      expect(emitted.length).toBe(0);
-    });
-  });
-
-  // =========================================================================
-  // Reset
-  // =========================================================================
-
-  describe('Reset', () => {
-    it('clears every field, both year signals, and both period signals', () => {
-      component.form.patchValue({
-        startPeriod: JAN_2026,
-        endPeriod: MAR_2026,
-        status: 'VALIDATED',
-        payrollFrequency: 'BI_WEEKLY',
-        employeeMatricule: 'X',
-        anyCountryIds: ['c-fr'],
-        anyDepartmentIds: ['d-eng'],
-        anyRoleIds: ['r-swe'],
-        anyEmploymentTypes: ['FULL_TIME'],
-      });
-      component.onStartYearChange(2026);
-      component.onEndYearChange(2026);
-
-      component.onReset();
-
-      const v = component.form.getRawValue();
-      expect(v.startPeriod).toBeNull();
-      expect(v.endPeriod).toBeNull();
-      expect(v.status).toBeNull();
-      expect(v.payrollFrequency).toBeNull();
-      expect(v.employeeMatricule).toBe('');
-      expect(v.anyCountryIds).toEqual([]);
-      expect(v.anyDepartmentIds).toEqual([]);
-      expect(v.anyRoleIds).toEqual([]);
-      expect(v.anyEmploymentTypes).toEqual([]);
-      expect(component.startPickerSelectedYear()).toBeNull();
-      expect(component.endPickerSelectedYear()).toBeNull();
-      expect(component.startPeriod()).toBeNull();
-      expect(component.endPeriod()).toBeNull();
-    });
-
-    it('does not emit a filter value', () => {
-      component.form.patchValue({ startPeriod: JAN_2026 });
-      component.onReset();
-      expect(emitted.length).toBe(0);
-    });
-  });
-
-  // =========================================================================
-  // Picker coordination
-  // =========================================================================
-
   describe('picker coordination', () => {
     it('end picker year range follows the start picker year', () => {
       const fallback = component.endPickerYearRange();
@@ -422,6 +334,123 @@ describe('PayrollSummaryFilterBarComponent', () => {
         startDate: '2026-01-31',
         frequency: 'MONTHLY',
       });
+    });
+  });
+
+  // =========================================================================
+  // Apply
+  // =========================================================================
+
+  describe('Apply', () => {
+    it('emits employeeId and employeeName when a picker selection exists', () => {
+      component.form.controls.startPeriod.setValue(JAN_2026);
+      component.onEmployeeSelected(fakeEmployee());
+      component.onApply();
+
+      expect(emitted.length).toBe(1);
+      expect(emitted[0].employeeId).toBe('emp-1');
+      expect(emitted[0].employeeName).toBe('Ada Lovelace');
+    });
+
+    it('emits null employeeId/employeeName when no picker selection exists', () => {
+      component.form.controls.startPeriod.setValue(JAN_2026);
+      component.onApply();
+      expect(emitted[0].employeeId).toBeNull();
+      expect(emitted[0].employeeName).toBeNull();
+    });
+
+   it('emits a full filter value with the derived range (rule 2)', () => {
+     component.form.patchValue({
+       startPeriod: JAN_2026,
+       status: 'DRAFT',
+       payrollFrequency: 'MONTHLY',
+       anyCountryIds: ['c-fr', 'c-de'],
+       anyDepartmentIds: ['d-eng'],
+       anyRoleIds: ['r-swe'],
+       anyEmploymentTypes: ['FULL_TIME'],
+     });
+     component.onEmployeeSelected(fakeEmployee());
+     component.onApply();
+
+     expect(emitted.length).toBe(1);
+     expect(emitted[0]).toEqual({
+       rangeStart: '2026-01-01',
+       rangeEnd: '2026-01-31',
+       status: 'DRAFT',
+       nonExistent: false,          // NEW
+       payrollFrequency: 'MONTHLY',
+       employeeId: 'emp-1',
+       employeeName: 'Ada Lovelace',
+       anyCountryIds: ['c-fr', 'c-de'],
+       anyDepartmentIds: ['d-eng'],
+       anyRoleIds: ['r-swe'],
+       anyEmploymentTypes: ['FULL_TIME'],
+     });
+   });
+
+    it('emits rule 3 range when both periods are picked', () => {
+      component.form.patchValue({ startPeriod: JAN_2026, endPeriod: MAR_2026 });
+      component.onApply();
+      expect(emitted[0].rangeStart).toBe('2026-01-01');
+      expect(emitted[0].rangeEnd).toBe('2026-03-31');
+    });
+
+    it('emits rule 4 range when only a start period + end year is set', () => {
+      component.form.patchValue({ startPeriod: JAN_2026 });
+      component.onEndYearChange(2027);
+      component.onApply();
+      expect(emitted[0].rangeStart).toBe('2026-01-01');
+      expect(emitted[0].rangeEnd).toBe('2027-12-31');
+    });
+
+    it('does not emit when there is no start info', () => {
+      component.onApply();
+      expect(emitted.length).toBe(0);
+    });
+  });
+
+  // =========================================================================
+  // Reset
+  // =========================================================================
+
+  describe('Reset', () => {
+    it('clears every field, both year signals, both period signals, and the employee', () => {
+      component.form.patchValue({
+        startPeriod: JAN_2026,
+        endPeriod: MAR_2026,
+        status: 'VALIDATED',
+        payrollFrequency: 'BI_WEEKLY',
+        anyCountryIds: ['c-fr'],
+        anyDepartmentIds: ['d-eng'],
+        anyRoleIds: ['r-swe'],
+        anyEmploymentTypes: ['FULL_TIME'],
+      });
+      component.onStartYearChange(2026);
+      component.onEndYearChange(2026);
+      component.onEmployeeSelected(fakeEmployee());
+
+      component.onReset();
+
+      const v = component.form.getRawValue();
+      expect(v.startPeriod).toBeNull();
+      expect(v.endPeriod).toBeNull();
+      expect(v.status).toBeNull();
+      expect(v.payrollFrequency).toBeNull();
+      expect(v.anyCountryIds).toEqual([]);
+      expect(v.anyDepartmentIds).toEqual([]);
+      expect(v.anyRoleIds).toEqual([]);
+      expect(v.anyEmploymentTypes).toEqual([]);
+      expect(component.selectedEmployee()).toBeNull();
+      expect(component.startPickerSelectedYear()).toBeNull();
+      expect(component.endPickerSelectedYear()).toBeNull();
+      expect(component.startPeriod()).toBeNull();
+      expect(component.endPeriod()).toBeNull();
+    });
+
+    it('does not emit a filter value', () => {
+      component.form.controls.startPeriod.setValue(JAN_2026);
+      component.onReset();
+      expect(emitted.length).toBe(0);
     });
   });
 

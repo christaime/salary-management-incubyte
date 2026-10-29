@@ -12,6 +12,7 @@ export interface PayrollSummaryCriteria {
   anyRoleIds?: string[] | null;
   anyEmploymentTypes?: EmploymentType[] | null;
   status?: PayrollSummaryStatus | null;
+  nonExistent?: boolean,
   payrollFrequency?: PayrollPeriodFrequency | null;
   page: number;
   size: number;

@@ -4,8 +4,8 @@ import { Injectable, signal } from '@angular/core';
   providedIn: 'root',
 })
 export class SidebarService {
-  readonly isOpen = signal<boolean>(true);
-  readonly isCollapsed = signal<boolean>(false);
+  readonly isOpen = signal<boolean>(false);
+  readonly isCollapsed = signal<boolean>(true);
 
   toggleOpen() {
     this.isOpen.update((v) => !v);

@@ -5,6 +5,8 @@ import { DataPage } from '@core/models/data-page.model';
 import { CountryData } from '../models/country.model';
 import { apiUrl } from '@core/config/api-base-url';
 
+const COUNTRIES_URL = apiUrl('/api/v1/countries');
+
 @Injectable({ providedIn: 'root' })
 export class CountryService {
   private readonly http = inject(HttpClient);
@@ -20,6 +22,11 @@ export class CountryService {
       params = params.set('keyword', keyword);
     }
 
-    return this.http.get<DataPage<CountryData>>(apiUrl('/api/v1/countries'), { params });
+    return this.http.get<DataPage<CountryData>>(COUNTRIES_URL, { params });
+  }
+
+  /** GET one employee with its in-effect assignment (for the editor). */
+  getById(id: string): Observable<CountryData> {
+    return this.http.get<CountryData>(`${COUNTRIES_URL}/${id}`);
   }
 }

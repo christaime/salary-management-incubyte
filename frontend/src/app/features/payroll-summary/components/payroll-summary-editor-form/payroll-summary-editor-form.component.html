@@ -1,0 +1,147 @@
+<div class="flex flex-col gap-6">
+  <!-- ═════════════ Top section: mode-dependent ═════════════ -->
+  @if (mode() === 'create' && !isPreloaded()) {
+  <!-- Empty create mode: pickers -->
+  <div class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3">
+    <app-employee-picker (selectedChange)="onEmployeeSelected($event)" />
+
+    @if (selectedEmployee(); as e) {
+    <app-employee-assignment-display [employee]="e" [onlyAssignment]="true" />
+    }
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2">
+    <app-payroll-period-picker
+      data-testid="payroll-period-picker"
+      [required]="'period'"
+      [yearRange]="[currentYear - 3, currentYear + 1]"
+      [initialFilter]="{ frequency: 'MONTHLY' }"
+      label="Payroll period"
+      (periodChange)="onPeriodSelected($event.period)"
+    />
+
+    @if (coverageError(); as msg) {
+    <div
+      data-testid="coverage-warning"
+      class="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900"
+    >
+      ⚠ {{ msg }}
+    </div>
+    }
+  </div>
+  } @else {
+  @if (summary(); as s) {
+  <!-- Update mode + pre-loaded create mode: read-only employee + assignment + period pill -->
+  <div class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3">
+    @if (assignedEmployeeForDisplay(); as e) {
+    <app-employee-assignment-display [employee]="e" [onlyAssignment]="false" />
+    }
+
+    <div
+      data-testid="editor-period-selected"
+      class="flex items-center justify-between w-full min-w-0 gap-1.5 h-10 px-3 rounded-lg border border-slate-200 bg-white shadow-xs"
+    >
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold leading-tight">
+          Period :
+        </span>
+        <span
+          data-testid="period-picker-selected-frequency"
+          class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-900 text-white font-mono font-bold text-[10px]"
+        >
+          {{ s.period.frequency }}
+        </span>
+        <span
+          data-testid="period-picker-selected-name"
+          class="text-xs font-semibold text-slate-900 truncate"
+        >
+          {{ s.period.name }}
+        </span>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        @if (s.period.closed) {
+        <span
+          data-testid="period-picker-selected-closed"
+          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-200"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Closed
+        </span>
+        }
+      </div>
+    </div>
+  </div>
+  }
+  }
+
+  <!-- ═════════════ Amounts form (all modes) ═════════════ -->
+  <form
+    [formGroup]="form"
+    class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-4"
+  >
+    <h3 class="text-sm font-semibold text-slate-900 m-0">Amounts</h3>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      @for (f of amountFields; track f.key) {
+      <mat-form-field appearance="outline" class="w-full mb-2" subscriptSizing="dynamic">
+        <mat-label>{{ f.label }}</mat-label>
+        <input
+          matInput
+          type="number"
+          step="0.01"
+          min="0"
+          [formControlName]="f.key"
+          [attr.data-testid]="f.testid"
+        />
+        @if (form.controls[f.key].hasError('server')) {
+        <mat-error [attr.data-testid]="'editor-error-' + f.key">
+          {{ form.controls[f.key].getError('server') }}
+        </mat-error>
+        }
+      </mat-form-field>
+      }
+    </div>
+
+    <div class="flex items-center justify-between border-t border-slate-200 pt-3">
+      <span class="text-sm font-semibold text-slate-700">Total</span>
+      <span
+        data-testid="editor-total"
+        [attr.data-value]="total()"
+        class="text-lg font-mono font-semibold text-slate-900"
+      >
+        {{ total() }} {{ currency() ?? '—' }}
+      </span>
+    </div>
+
+    @if (mode() === 'create' && !isPreloaded() && selectedEmployee() && !currency()) {
+    <div
+      data-testid="currency-warning"
+      class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2"
+    >
+      Could not resolve the assignment's country currency. The server may reject the request.
+    </div>
+    }
+
+    @if (errorFor('__general'); as general) {
+    <div
+      data-testid="editor-error-general"
+      class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+    >
+      {{ general }}
+    </div>
+    }
+
+    <div class="flex items-center justify-end gap-2 pt-1">
+      <button data-testid="editor-cancel" type="button" mat-stroked-button (click)="onCancel()">Cancel</button>
+      <button
+        data-testid="editor-save"
+        type="button"
+        mat-flat-button
+        color="primary"
+        [disabled]="saving() || !canSave()"
+        (click)="onSave()"
+      >
+        Save
+      </button>
+    </div>
+  </form>
+</div>

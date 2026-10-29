@@ -3,8 +3,10 @@
   class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col gap-3"
   [formGroup]="form"
 >
-  <!-- ─────────────── Line 1: start period, end period, frequency, status, matricule ─────────────── -->
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto_minmax(0,1fr)] gap-2 items-end">
+  <!-- ─────────────── Line 1 ─────────────── -->
+  <div
+    class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto_minmax(0,1fr)] gap-2 items-end"
+  >
     <!-- Start picker -->
     <app-payroll-period-picker
       formControlName="startPeriod"
@@ -29,9 +31,16 @@
     />
 
     <!-- Payroll frequency -->
-    <mat-form-field appearance="outline" class="w-full xl:w-40" subscriptSizing="dynamic">
+    <mat-form-field
+      appearance="outline"
+      class="w-full xl:w-40"
+      subscriptSizing="dynamic"
+    >
       <mat-label>Frequency</mat-label>
-      <mat-select data-testid="filter-payroll-frequency" formControlName="payrollFrequency">
+      <mat-select
+        data-testid="filter-payroll-frequency"
+        formControlName="payrollFrequency"
+      >
         <mat-option [value]="null">All</mat-option>
         @for (f of payrollFrequencies; track f) {
         <mat-option [value]="f">{{ payrollFrequencyLabel(f) }}</mat-option>
@@ -39,8 +48,12 @@
       </mat-select>
     </mat-form-field>
 
-    <!-- Status -->
-    <mat-form-field appearance="outline" class="w-full xl:w-40" subscriptSizing="dynamic">
+    <!-- Status (includes the "Non existent" pseudo-status) -->
+    <mat-form-field
+      appearance="outline"
+      class="w-full xl:w-40"
+      subscriptSizing="dynamic"
+    >
       <mat-label>Status</mat-label>
       <mat-select data-testid="filter-status" formControlName="status">
         @for (o of statusOptions; track o.label) {
@@ -49,32 +62,30 @@
       </mat-select>
     </mat-form-field>
 
-    <!-- Matricule -->
-    <div class="flex flex-col gap-1 min-w-0">
-      <label
-        for="filter-matricule"
-        class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold"
-      >
-        Employee matricule
-      </label>
-      <input
-        id="filter-matricule"
-        data-testid="filter-matricule"
-        type="text"
-        formControlName="employeeMatricule"
-        placeholder="Exact match, e.g. EMP-0001"
-        maxlength="100"
-        class="h-9 px-3 bg-slate-50 rounded-md border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
-      />
-    </div>
+    <!-- Employee picker (replaces the old matricule input) -->
+    <app-employee-picker
+      data-testid="filter-employee-picker"
+      class="w-full min-w-0"
+      (selectedChange)="onEmployeeSelected($event)"
+    />
   </div>
 
-  <!-- ─────────────── Line 2: employment type, department, role, jurisdiction, actions ─────────────── -->
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-end">
+  <!-- ─────────────── Line 2 ─────────────── -->
+  <div
+    class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-2 items-end"
+  >
     <!-- Employment type -->
-    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+    <mat-form-field
+      appearance="outline"
+      class="w-full"
+      subscriptSizing="dynamic"
+    >
       <mat-label>Employment type</mat-label>
-      <mat-select data-testid="filter-employment-type" multiple formControlName="anyEmploymentTypes">
+      <mat-select
+        data-testid="filter-employment-type"
+        multiple
+        formControlName="anyEmploymentTypes"
+      >
         <mat-select-trigger>
           <span
             data-testid="filter-employment-type-trigger"
@@ -91,9 +102,17 @@
     </mat-form-field>
 
     <!-- Department -->
-    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+    <mat-form-field
+      appearance="outline"
+      class="w-full"
+      subscriptSizing="dynamic"
+    >
       <mat-label>Department</mat-label>
-      <mat-select data-testid="filter-department" multiple formControlName="anyDepartmentIds">
+      <mat-select
+        data-testid="filter-department"
+        multiple
+        formControlName="anyDepartmentIds"
+      >
         <mat-select-trigger>
           <span
             data-testid="filter-department-trigger"
@@ -104,15 +123,23 @@
           </span>
         </mat-select-trigger>
         @for (d of departments(); track d.id) {
-        <mat-option [value]="d.id">{{ d.name }}</mat-option>
+        <mat-option [value]="d.id">{{ d.label }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
 
     <!-- Role -->
-    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+    <mat-form-field
+      appearance="outline"
+      class="w-full"
+      subscriptSizing="dynamic"
+    >
       <mat-label>Role</mat-label>
-      <mat-select data-testid="filter-role" multiple formControlName="anyRoleIds">
+      <mat-select
+        data-testid="filter-role"
+        multiple
+        formControlName="anyRoleIds"
+      >
         <mat-select-trigger>
           <span
             data-testid="filter-role-trigger"
@@ -123,15 +150,23 @@
           </span>
         </mat-select-trigger>
         @for (r of roles(); track r.id) {
-        <mat-option [value]="r.id">{{ r.name }}</mat-option>
+        <mat-option [value]="r.id">{{ r.label }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
 
     <!-- Jurisdiction -->
-    <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+    <mat-form-field
+      appearance="outline"
+      class="w-full"
+      subscriptSizing="dynamic"
+    >
       <mat-label>Jurisdiction</mat-label>
-      <mat-select data-testid="filter-country" multiple formControlName="anyCountryIds">
+      <mat-select
+        data-testid="filter-country"
+        multiple
+        formControlName="anyCountryIds"
+      >
         <mat-select-trigger>
           <span
             data-testid="filter-country-trigger"
@@ -142,7 +177,7 @@
           </span>
         </mat-select-trigger>
         @for (c of countries(); track c.id) {
-        <mat-option [value]="c.id">{{ c.name }}</mat-option>
+        <mat-option [value]="c.id">{{ c.label }}</mat-option>
         }
       </mat-select>
     </mat-form-field>

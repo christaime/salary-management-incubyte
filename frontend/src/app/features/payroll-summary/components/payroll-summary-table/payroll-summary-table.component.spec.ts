@@ -29,10 +29,17 @@ function makeRow(overrides: Partial<PayrollSummaryDto> = {}): PayrollSummaryDto 
       total: 1350,
       currency: 'EUR',
     },
+    // NEW: required by PayrollSummaryDto
+    assignment: {
+      id: 'a-1',
+      startDate: '2025-10-01',
+      endDate: null,
+      //hasPayroll: true,
+      frequency: 'MONTHLY',
+    },
     ...overrides,
   };
 }
-
 describe('PayrollSummaryTableComponent', () => {
   let fixture: ComponentFixture<PayrollSummaryTableComponent>;
   let component: PayrollSummaryTableComponent;

@@ -48,6 +48,7 @@ function makeSummaryRow(id = 's-1'): PayrollSummaryDto {
       total: 1350,
       currency: 'EUR',
     },
+    assignment: { id: 'a-1', startDate: '2025-10-01', endDate: null, frequency: 'MONTHLY' },
   };
 }
 

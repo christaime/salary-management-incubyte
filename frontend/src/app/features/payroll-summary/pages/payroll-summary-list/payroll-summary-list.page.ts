@@ -16,7 +16,10 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
 import { PaginatorComponent } from '@core/components/paginator/paginator.component';
-import { ConfirmDialogComponent, ConfirmDialogData } from '@core/components/confirm-dialog/confirm-dialog.component';
+import {
+  ConfirmDialogComponent,
+  ConfirmDialogData,
+} from '@core/components/confirm-dialog/confirm-dialog.component';
 
 import { PayrollSummaryService } from '../../services/payroll-summary.service';
 import {
@@ -29,8 +32,7 @@ import {
   BulkValidateDialogData,
 } from '../../components/bulk-validate-dialog/bulk-validate-dialog.component';
 import { PayrollSummaryCriteria } from '../../models/payroll-summary-criteria.model';
-import { PayrollSummaryDto } from '../../models/payroll-summary.model';
-import { PayrollPeriodsService } from '@features/payroll-period/services/payroll-periods.service';
+import { PayrollSummaryDto, PayrollSummaryDetailDto } from '../../models/payroll-summary.model';
 import { PayrollPeriodDto } from '@features/payroll-period/models';
 
 type PageState = 'idle' | 'loading' | 'success' | 'error';
@@ -55,7 +57,6 @@ export class PayrollSummaryListPage implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly destroyRef = inject(DestroyRef);
   private readonly service = inject(PayrollSummaryService);
-  private readonly periodService = inject(PayrollPeriodsService);
 
   // ---------- Routes ----------
   readonly newSummaryRoute = '/payroll-summaries/new';
@@ -68,45 +69,64 @@ export class PayrollSummaryListPage implements OnInit {
   readonly totalElements = signal(0);
   readonly rows = signal<PayrollSummaryDto[]>([]);
   readonly error = signal<string | null>(null);
+  readonly nonExistentPayroll = signal<boolean>(false);
 
   private filters: PayrollFilterValue | null = null;
 
-  // Bulk-validate period selector
-  readonly availablePeriods = signal<PayrollPeriodDto[]>([]);
-  readonly selectedPeriodId = signal<string | null>(null);
-  readonly selectedPeriod = computed<PayrollPeriodDto | null>(() => {
-    const id = this.selectedPeriodId();
-    if (!id) return null;
-    return this.availablePeriods().find((p) => p.id === id) ?? null;
+  // ---------- Bulk-validate scope (driven by the start period picker) ----------
+  readonly selectedPeriod = signal<PayrollPeriodDto | null>(null);
+  readonly canBulkValidate = computed(() => this.selectedPeriod() !== null);
+
+  readonly filterChips = computed<string[]>(() => {
+    const f = this.filters;
+    if (!f) return [];
+    const chips: string[] = [];
+    if (f.status) chips.push(`Status: ${f.status}`);
+    if (f.payrollFrequency) chips.push(`Frequency: ${f.payrollFrequency}`);
+    if (f.employeeId) {
+      chips.push(f.employeeName ? `Employee: ${f.employeeName}` : 'Employee: selected');
+    }
+    if (f.anyCountryIds.length) chips.push(`Countries: ${f.anyCountryIds.length}`);
+    if (f.anyDepartmentIds.length) chips.push(`Departments: ${f.anyDepartmentIds.length}`);
+    if (f.anyRoleIds.length) chips.push(`Roles: ${f.anyRoleIds.length}`);
+    if (f.anyEmploymentTypes.length) chips.push(`Types: ${f.anyEmploymentTypes.length}`);
+    return chips;
   });
-  readonly canBulkValidate = computed(() => this.selectedPeriodId() !== null);
+
+  readonly bulkValidateLabel = computed(() => {
+    const p = this.selectedPeriod();
+    if (!p) return 'Validate all drafts';
+    const hasChips = this.filterChips().length > 0;
+    const suffix = hasChips ? ' corresponding to the criteria' : '';
+    return `Validate payrolls on ${p.name}${suffix}`;
+  });
 
   readonly isLoading = computed(() => this.state() === 'loading');
 
   ngOnInit(): void {
-    this.loadPeriods();
     // No auto search — the user must click Apply on the filter bar.
   }
 
-  // ---------- Load ----------
-
-  private loadPeriods(): void {
-    this.periodService
-      .search({ size: 100 })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((res) => this.availablePeriods.set(res.content));
-  }
-
+  // ---------- Filter bar events ----------
   onFilterReset(): void {
     this.state.set('idle');
     this.rows.set([]);
     this.totalElements.set(0);
+    this.selectedPeriod.set(null);
+    this.nonExistentPayroll.set(false);
   }
 
   onFilterChange(next: PayrollFilterValue): void {
     this.filters = next;
     this.page.set(0);
+    this.nonExistentPayroll.set(next.nonExistent);
+    this.service.clearSelectedNonExistent();
+    console.log("onFilterChange ",{next});
     this.load();
+  }
+
+  onPeriodSelected(period: PayrollPeriodDto | null): void {
+    this.selectedPeriod.set(period);
   }
 
   onPageChange(event: { page: number; size: number }): void {
@@ -115,6 +135,7 @@ export class PayrollSummaryListPage implements OnInit {
     this.load();
   }
 
+  // ---------- Load ----------
   private load(): void {
     if (!this.filters) return;
 
@@ -125,8 +146,9 @@ export class PayrollSummaryListPage implements OnInit {
       rangeStart: this.filters.rangeStart,
       rangeEnd: this.filters.rangeEnd,
       status: this.filters.status,
+      nonExistent: this.filters.nonExistent,
       payrollFrequency: this.filters.payrollFrequency,
-      employeeMatricule: this.filters.employeeMatricule,
+      employeeId: this.filters.employeeId,
       anyCountryIds: this.filters.anyCountryIds,
       anyDepartmentIds: this.filters.anyDepartmentIds,
       anyRoleIds: this.filters.anyRoleIds,
@@ -154,12 +176,22 @@ export class PayrollSummaryListPage implements OnInit {
   }
 
   // ---------- Row navigation ----------
-
   onRowClick(row: PayrollSummaryDto): void {
+    if (this.filters?.nonExistent) {
+      // Non-existent row: there is no detail page to show; go create it.
+      this.service.setSelectedNonExistent(row as unknown as PayrollSummaryDetailDto);
+      this.router.navigate([this.newSummaryRoute]);
+      return;
+    }
     this.router.navigate([this.detailRoute, row.id]);
   }
 
   onEdit(row: PayrollSummaryDto): void {
+    if (this.filters?.nonExistent) {
+      this.service.setSelectedNonExistent(row as unknown as PayrollSummaryDetailDto);
+      this.router.navigate([this.newSummaryRoute]);
+      return;
+    }
     this.router.navigate([this.detailRoute, row.id, 'edit']);
   }
 
@@ -168,7 +200,6 @@ export class PayrollSummaryListPage implements OnInit {
   }
 
   // ---------- Row actions ----------
-
   onValidate(row: PayrollSummaryDto): void {
     const data: ConfirmDialogData = {
       title: 'Validate payroll summary',
@@ -226,31 +257,14 @@ export class PayrollSummaryListPage implements OnInit {
   }
 
   // ---------- Bulk validate ----------
-
-  onPeriodSelect(periodId: string): void {
-    this.selectedPeriodId.set(periodId || null);
-  }
-
   onBulkValidate(): void {
     const period = this.selectedPeriod();
     if (!period) return;
 
-    const chips: string[] = [];
-    const f = this.filters;
-    if (f) {
-      if (f.status) chips.push(`Status: ${f.status}`);
-      if (f.payrollFrequency) chips.push(`Frequency: ${f.payrollFrequency}`);
-      if (f.employeeMatricule) chips.push(`Matricule: ${f.employeeMatricule}`);
-      if (f.anyCountryIds.length) chips.push(`Countries: ${f.anyCountryIds.length}`);
-      if (f.anyDepartmentIds.length) chips.push(`Departments: ${f.anyDepartmentIds.length}`);
-      if (f.anyRoleIds.length) chips.push(`Roles: ${f.anyRoleIds.length}`);
-      if (f.anyEmploymentTypes.length) chips.push(`Types: ${f.anyEmploymentTypes.length}`);
-    }
-
     const dialogData: BulkValidateDialogData = {
       periodId: period.id,
       periodName: period.name,
-      filterChips: chips,
+      filterChips: this.filterChips(),
     };
 
     this.dialog

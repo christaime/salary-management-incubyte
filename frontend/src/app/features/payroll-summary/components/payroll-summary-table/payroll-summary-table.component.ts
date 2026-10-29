@@ -27,6 +27,7 @@ import {
 export class PayrollSummaryTableComponent {
   readonly rows = input.required<PayrollSummaryDto[]>();
   readonly loading = input<boolean>(false);
+  readonly nonExistent = input<boolean>(false);
 
   /** Emitted when the user clicks the Edit icon on a DRAFT row. */
   readonly editClick = output<PayrollSummaryDto>();
@@ -65,5 +66,9 @@ export class PayrollSummaryTableComponent {
   /** Compact date range for the period column. */
   formatPeriodRange(startDate: string, endDate: string): string {
     return `${startDate} → ${endDate}`;
+  }
+
+  rowKey(row: PayrollSummaryDto): string {
+    return row.id || `${row.employee.id}@${row.period.id}`;
   }
 }

@@ -1,6 +1,6 @@
 import { EmployeeRefDto } from '@features/employee/models';
 import { EmploymentType } from '@features/employee/models';
-import { PayrollPeriodDto } from '@features/payroll-period/models';
+import { PayrollPeriodDto, PayrollPeriodFrequency} from '@features/payroll-period/models';
 import { RefDto } from '@core/models';
 
 export type PayrollSummaryStatus = 'DRAFT' | 'VALIDATED';
@@ -33,6 +33,13 @@ export interface PayrollSummaryAssignmentDto {
   hasPayroll: boolean;
 }
 
+export interface PayrollAssignmentDto{
+    id: string;
+    startDate: string;
+    endDate: string | null;
+    frequency: PayrollPeriodFrequency;
+}
+
 /** One row of the payroll summary list. */
 export interface PayrollSummaryDto {
   id: string;
@@ -42,11 +49,21 @@ export interface PayrollSummaryDto {
   country: RefDto;
   department: RefDto;
   role: RefDto;
+  assignment: PayrollAssignmentDto;
   employmentType: EmploymentType;
   amounts: PayrollSummaryAmountsDto;
 }
 
 /** Full payload for GET /payroll-summaries/{id}. */
-export interface PayrollSummaryDetailDto extends PayrollSummaryDto {
-  assignment: PayrollSummaryAssignmentDto;
+export interface PayrollSummaryDetailDto {
+    id: string;
+    status: PayrollSummaryStatus;
+    employee: EmployeeRefDto;
+    period: PayrollPeriodDto;
+    country: RefDto;
+    department: RefDto;
+    role: RefDto;
+    assignment: PayrollSummaryAssignmentDto;
+    employmentType: EmploymentType;
+    amounts: PayrollSummaryAmountsDto;
 }
