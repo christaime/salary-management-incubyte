@@ -25,6 +25,7 @@ public record PayrollSummaryDto(
         RefDto country,
         RefDto department,
         RefDto role,
+        PayrollAssignmentDto assignment,
         EmploymentType employmentType,
         AmountsDto amounts
 ) {}

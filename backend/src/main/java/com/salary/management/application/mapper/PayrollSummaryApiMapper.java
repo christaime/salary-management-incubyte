@@ -3,10 +3,7 @@ package com.salary.management.application.mapper;
 import com.salary.management.application.dto.AmountsDto;
 import com.salary.management.application.dto.RefDto;
 import com.salary.management.application.dto.employee.EmployeeRefDto;
-import com.salary.management.application.dto.payroll.PayrollPeriodDto;
-import com.salary.management.application.dto.payroll.PayrollSummaryDetailDto;
-import com.salary.management.application.dto.payroll.PayrollSummaryDto;
-import com.salary.management.application.dto.payroll.PeriodicAssignmentDto;
+import com.salary.management.application.dto.payroll.*;
 import com.salary.management.domain.model.*;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.values.Amounts;
@@ -27,6 +24,7 @@ public interface PayrollSummaryApiMapper {
     @Mapping(target = "department", source = "department", qualifiedByName = "departmentToRef")
     @Mapping(target = "role", source = "role", qualifiedByName = "roleToRef")
     @Mapping(target = "employmentType", source = "employmentType")
+    @Mapping(target = "assignment", source = "assignment", qualifiedByName = "toPayrollAssignmentDto")
     @Mapping(target = "amounts", source = "summary.amounts", qualifiedByName = "toAmountsDto")
     PayrollSummaryDto toDto(
             PayrollSummary summary,
@@ -34,6 +32,7 @@ public interface PayrollSummaryApiMapper {
             Country country,
             Department department,
             Role role,
+            EmployeePeriodicAssignment assignment,
             EmploymentType employmentType);
 
     @Mapping(target = "id", source = "summary.id")
@@ -96,6 +95,17 @@ public interface PayrollSummaryApiMapper {
                 .startDate(a.getStartDate())
                 .endDate(a.getEndDate())
                 .hasPayroll(true)             // populated only on the detail path
+                .build();
+    }
+
+    @Named("toPayrollAssignmentDto")
+    default PayrollAssignmentDto assignmentToDto(EmployeePeriodicAssignment a) {
+        if (a == null) return null;
+        return PayrollAssignmentDto.builder()
+                .id(a.getId().toString())
+                .startDate(a.getStartDate())
+                .endDate(a.getEndDate())
+                .frequency(a.getPayrollFrequency())
                 .build();
     }
 

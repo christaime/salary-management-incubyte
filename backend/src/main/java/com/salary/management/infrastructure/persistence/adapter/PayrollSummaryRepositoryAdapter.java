@@ -12,6 +12,7 @@ import com.salary.management.domain.repository.PayrollPeriodRepository;
 import com.salary.management.domain.repository.PayrollSummaryRepository;
 import com.salary.management.domain.repository.criteria.PayrollSummaryCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
+import com.salary.management.infrastructure.persistence.embeddable.AmountsEmbeddable;
 import com.salary.management.infrastructure.persistence.entity.EmployeeEntity;
 import com.salary.management.infrastructure.persistence.entity.EmployeePeriodicAssignmentEntity;
 import com.salary.management.infrastructure.persistence.entity.PayrollSummaryEntity;
@@ -96,18 +97,23 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
 
     @Override
     public DataPage<PayrollSummary> pageNonExistent(PayrollSummaryCriteria criteria) {
-        if (!criteria.nonExistent()) {
+        if (!Boolean.TRUE.equals(criteria.nonExistent())) {
             throw new IllegalArgumentException(
                     "pageNonExistent requires criteria.nonExistent = true");
         }
-        if (criteria.payrollPeriodId() == null) {
+        if (criteria.payrollPeriodId() == null && (criteria.rangeStart() == null || criteria.rangeEnd() == null)) {
             throw new IllegalArgumentException(
-                    "pageNonExistent requires criteria.payrollPeriodId");
+                    "pageNonExistent requires criteria.payrollPeriodId or criteria.rangeStart and criteria.rangeEnd");
         }
-
-        PayrollPeriod period = payrollPeriodRepository.findById(criteria.payrollPeriodId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Payroll period not found: " + criteria.payrollPeriodId()));
+        LocalDate criteriaStartDate = criteria.rangeStart();
+        LocalDate criteriaEndDate = criteria.rangeEnd();
+        if(criteria.payrollPeriodId() != null) {// The period has precedence on the range date
+            PayrollPeriod period = payrollPeriodRepository.findById(criteria.payrollPeriodId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Payroll period not found: " + criteria.payrollPeriodId()));
+            criteriaStartDate = period.getStartDate();
+            criteriaEndDate = period.getEndDate();
+        }
 
         Pageable pageable = PageRequest.of(
                 criteria.page(),
@@ -115,12 +121,11 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
                 Sort.by(Sort.Direction.ASC, "startDate")
                         .and(Sort.by(Sort.Direction.ASC, "id")));
 
-        Page<EmployeePeriodicAssignmentEntity> page =
+        Page<PayrollSummaryEntity> page =
                 assignmentJpaRepository.findMissingSummaryPage(
-                        period.getId(),
-                        period.getStartDate(),
-                        period.getEndDate(),
-                        period.getFrequency(),
+                        criteriaStartDate,
+                        criteriaEndDate,
+                        criteria.payrollFrequency(),
                         criteria.employeeId(),
                         nullIfEmpty(criteria.anyCountryIds()),
                         nullIfEmpty(criteria.anyDepartmentIds()),
@@ -128,9 +133,7 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
                         nullIfEmpty(criteria.anyEmploymentTypes()),
                         pageable);
 
-        List<PayrollSummary> content = page.getContent().stream()
-                .map(entity -> toSyntheticPayrollSummary(entity, period))
-                .toList();
+        List<PayrollSummary> content = page.getContent().stream().map(this::toSyntheticPayrollSummary).toList();
 
         return new DataPage<>(
                 content,
@@ -170,25 +173,19 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
                 page.getTotalElements());
     }
 
-    private PayrollSummary toSyntheticPayrollSummary(
-            EmployeePeriodicAssignmentEntity assignment, PayrollPeriod period) {
-        Country country = countryRepository.findById(assignment.getCountryId())
+    private PayrollSummary toSyntheticPayrollSummary(PayrollSummaryEntity payrollSummaryEntity) {
+        Country country = countryRepository.findById(payrollSummaryEntity.getAssignmentCountryId())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Country not found: " + assignment.getCountryId()));
-        Amounts zero = Amounts.builder()
-                .base(BigDecimal.ZERO)
-                .variable(BigDecimal.ZERO)
-                .allowances(BigDecimal.ZERO)
-                .employerTaxes(BigDecimal.ZERO)
-                .currency(country.getCurrencyCode())
-                .build();
-        return PayrollSummary.builder()
-                .employeeId(assignment.getEmployeeId())
-                .payrollPeriod(period)
-                .employeePeriodicAssignmentId(assignment.getId())
-                .amounts(zero)
-                .status(PayrollSummaryStatus.DRAFT)
-                .build();
+                        "Country not found: " + payrollSummaryEntity.getAssignmentCountryId()));
+        String currency = country.getCurrencyCode();
+        if (currency == null || currency.isBlank()) {
+            throw new IllegalStateException(
+                    "Country " + country.getId() + " has no currency code; cannot build synthetic summary");
+        }
+        AmountsEmbeddable amountWithCurrency = payrollSummaryEntity.getAmounts();
+        amountWithCurrency.setCurrency(currency);
+        payrollSummaryEntity.setAmounts(amountWithCurrency);
+        return mapper.toDomain(payrollSummaryEntity);
     }
 
     private static <T> Collection<T> nullIfEmpty(Set<T> set) {

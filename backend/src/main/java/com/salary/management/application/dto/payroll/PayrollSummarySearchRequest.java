@@ -26,6 +26,7 @@ public record PayrollSummarySearchRequest(
         Set<EmploymentType> anyEmploymentTypes,
         PayrollSummaryStatus status,
         PayrollPeriodFrequency payrollFrequency,
+        Boolean nonExistent,
         @Min(0) int page,
         @Min(1) @Max(100) int size,
         @Size(max = 50) String sortBy,

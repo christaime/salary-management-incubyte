@@ -2,7 +2,10 @@ package com.salary.management.infrastructure.persistence.repository;
 
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
+import com.salary.management.domain.model.enums.PayrollSummaryStatus;
+import com.salary.management.infrastructure.persistence.embeddable.AmountsEmbeddable;
 import com.salary.management.infrastructure.persistence.entity.EmployeePeriodicAssignmentEntity;
+import com.salary.management.infrastructure.persistence.entity.PayrollSummaryEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -54,42 +57,51 @@ public interface EmployeePeriodicAssignmentJpaRepository
     }
 
     /**
-     * Page of in-effect assignments that should have a payroll summary for the given period
-     * but do not.
+     * One row per missing (assignment, period) pair in the range: an in-effect
+     * assignment whose cadence matches the period's, covering the period, with no
+     * existing payroll summary for (employee, period).
      *
-     * <p>Filters:</p>
-     * <ul>
-     *   <li>{@code in_effect = true}</li>
-     *   <li>{@code payroll_frequency = :frequency} (the period's cadence)</li>
-     *   <li>assignment covers the period: {@code start_date <= :periodEnd} and
-     *       ({@code end_date IS NULL} or {@code end_date >= :periodStart})</li>
-     *   <li>no {@code payroll_summaries} row exists for the same employee and period</li>
-     *   <li>optional filters: {@code employeeId}, {@code employeeMatricule}, and any of
-     *       country / department / role / employmentType</li>
-     * </ul>
+     * <p>Returns detached {@link PayrollSummaryEntity} stubs built via the all-args
+     * constructor. {@code id} is {@code null}, {@code amounts} is {@code null}, and
+     * {@code status} is {@link PayrollSummaryStatus#DRAFT} — supplied by the caller
+     * as the {@code :amounts} and {@code :status} parameters because JPQL cannot
+     * inline an embeddable or an enum constant in {@code SELECT NEW}. Not managed;
+     * do not persist as-is.</p>
      *
-     * <p>Sorting is fixed by the calling adapter (assignment {@code startDate ASC}).
-     * The caller supplies a {@link Pageable} with the page index and size.</p>
+     * <p>Overlap on both sides; no {@code closed} filter (an existing summary
+     * suppresses the stub regardless of period state). Optional collection filters
+     * must be {@code null} (not empty) when unused.</p>
      */
     @Query("""
-            SELECT a FROM EmployeePeriodicAssignmentEntity a
-            WHERE a.inEffect = true
-              AND a.payrollFrequency = :frequency
-              AND a.startDate <= :periodEnd
-              AND (a.endDate IS NULL OR a.endDate >= :periodStart)
-              AND NOT EXISTS (
-                  SELECT 1 FROM PayrollSummaryEntity s
-                  WHERE s.employee.id = a.employeeId
-                    AND s.payrollPeriod.id = :payrollPeriodId
-              )
-              AND (:employeeId IS NULL OR a.employeeId = :employeeId)
-              AND (:countryIds IS NULL OR a.countryId IN :countryIds)
-              AND (:departmentIds IS NULL OR a.departmentId IN :departmentIds)
-              AND (:roleIds IS NULL OR a.roleId IN :roleIds)
-              AND (:employmentTypes IS NULL OR a.employmentType IN :employmentTypes)
-            """)
-    Page<EmployeePeriodicAssignmentEntity> findMissingSummaryPage(
-            @Param("payrollPeriodId") UUID payrollPeriodId,
+        SELECT NEW com.salary.management.infrastructure.persistence.entity.PayrollSummaryEntity(
+            e,
+            p,
+            a.id,
+            a.countryId,
+            a.departmentId,
+            a.roleId,
+            a.employmentType)
+        FROM EmployeePeriodicAssignmentEntity a
+        JOIN EmployeeEntity e ON e.id = a.employeeId
+        JOIN PayrollPeriodEntity p
+          ON p.frequency = a.payrollFrequency
+         AND a.startDate <= p.endDate
+         AND (a.endDate IS NULL OR a.endDate >= p.startDate)
+        WHERE a.inEffect = true
+          AND p.startDate <= :periodEnd
+          AND p.endDate >= :periodStart
+          AND (:frequency IS NULL OR a.payrollFrequency = :frequency)
+          AND NOT EXISTS (
+              SELECT 1 FROM PayrollSummaryEntity s
+              WHERE s.employee.id = a.employeeId
+                AND s.payrollPeriod.id = p.id)
+          AND (:employeeId IS NULL OR a.employeeId = :employeeId)
+          AND (:countryIds IS NULL OR a.countryId IN :countryIds)
+          AND (:departmentIds IS NULL OR a.departmentId IN :departmentIds)
+          AND (:roleIds IS NULL OR a.roleId IN :roleIds)
+          AND (:employmentTypes IS NULL OR a.employmentType IN :employmentTypes)
+        """)
+    Page<PayrollSummaryEntity> findMissingSummaryPage(
             @Param("periodStart") LocalDate periodStart,
             @Param("periodEnd") LocalDate periodEnd,
             @Param("frequency") PayrollPeriodFrequency frequency,
@@ -99,7 +111,6 @@ public interface EmployeePeriodicAssignmentJpaRepository
             @Param("roleIds") Collection<UUID> roleIds,
             @Param("employmentTypes") Collection<EmploymentType> employmentTypes,
             Pageable pageable);
-
     /**
      * Returns the assignments of the given employee whose
      * {@code start_date} falls inside {@code [startDate, endDate]} and whose

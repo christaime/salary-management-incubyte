@@ -43,7 +43,8 @@ public class PayrollSummaryService {
     @Transactional(readOnly = true)
     public DataPage<PayrollSummaryDto> page(PayrollSummarySearchRequest request) {
         PayrollSummaryCriteria criteria = toCriteria(request);
-        DataPage<PayrollSummary> source = summaryRepository.page(criteria);
+        DataPage<PayrollSummary> source = Boolean.TRUE.equals(criteria.nonExistent()) ?
+                summaryRepository.pageNonExistent(criteria) : summaryRepository.page(criteria);
         List<PayrollSummaryDto> content = source.content().stream()
                 .map(this::toDto)
                 .toList();
@@ -73,8 +74,8 @@ public class PayrollSummaryService {
         if (Boolean.TRUE.equals(period.getClosed())) {
             throw new ConflictException(
                     "PERIOD_CLOSED",
-                    "Payroll period " + period.getId() + " is closed",
-                    Map.of("periodId", period.getId()));
+                    "Payroll period " + period.getName() + " is closed",
+                    Map.of("periodId", period.getId(),"periodName", period.getName()));
         }
         EmployeePeriodicAssignment assignment = assignmentRepository
                 .findById(request.assignmentId())
@@ -98,9 +99,9 @@ public class PayrollSummaryService {
             throw new ConflictException(
                     "ASSIGNMENT_DOES_NOT_COVER_PERIOD",
                     "Assignment " + assignment.getId()
-                            + " does not cover period " + period.getId(),
+                            + " does not cover period " + period.getName(),
                     Map.of("assignmentId", assignment.getId(),
-                            "periodId", period.getId()));
+                            "periodId", period.getId(), "periodName", period.getName()));
         }
         summaryRepository.findByEmployeeIdAndPayrollPeriodId(
                         employee.getId(), period.getId())
@@ -108,9 +109,11 @@ public class PayrollSummaryService {
                     throw new ConflictException(
                             "SUMMARY_ALREADY_EXISTS",
                             "A payroll summary already exists for employee "
-                                    + employee.getId() + " and period " + period.getId(),
+                                    + employee.getMatricule() + " and period " + period.getName(),
                             Map.of("employeeId", employee.getId(),
+                                    "employeeMatricule", employee.getMatricule(),
                                     "periodId", period.getId(),
+                                    "periodName", period.getName(),
                                     "summaryId", existing.getId()));
                 });
 
@@ -154,8 +157,8 @@ public class PayrollSummaryService {
         if (Boolean.TRUE.equals(period.getClosed())) {
             throw new ConflictException(
                     "PERIOD_CLOSED",
-                    "Payroll period " + period.getId() + " is closed",
-                    Map.of("periodId", period.getId()));
+                    "Payroll period " + period.getName() + " is closed",
+                    Map.of("periodId", period.getId(),"periodName", period.getName()));
         }
 
         PayrollSummary updated = existing;
@@ -184,9 +187,10 @@ public class PayrollSummaryService {
                 throw new ConflictException(
                         "ASSIGNMENT_DOES_NOT_COVER_PERIOD",
                         "Assignment " + newAssignment.getId()
-                                + " does not cover period " + period.getId(),
+                                + " does not cover period " + period.getName(),
                         Map.of("assignmentId", newAssignment.getId(),
-                                "periodId", period.getId()));
+                                "periodId", period.getId(),
+                                "periodName", period.getName()));
             }
             updated = updated.withEmployeePeriodicAssignmentId(newAssignment.getId());
         }
@@ -302,7 +306,10 @@ public class PayrollSummaryService {
                                 + summary.getEmployeePeriodicAssignmentId()));
         return mapper.toDto(summary, employee,
                 assignment.getCountry(), assignment.getDepartment(),
-                assignment.getRole(), assignment.getEmploymentType());
+                assignment.getRole(),
+                assignment ,
+                assignment.getEmploymentType()
+                );
     }
 
     private PayrollSummaryDetailDto toDetail(PayrollSummary summary) {
@@ -349,6 +356,7 @@ public class PayrollSummaryService {
                 .anyRoleIds(request.anyRoleIds())
                 .anyEmploymentTypes(request.anyEmploymentTypes())
                 .payrollFrequency(request.payrollFrequency())
+                .nonExistent(request.nonExistent())
                 .status(request.status())
                 .sortBy(request.sortBy())
                 .sortDirection(request.sortDirection())

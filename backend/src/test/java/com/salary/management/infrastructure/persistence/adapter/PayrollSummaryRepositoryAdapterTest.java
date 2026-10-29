@@ -313,13 +313,17 @@ class PayrollSummaryRepositoryAdapterTest {
         assertEquals(1, page.content().size());
         PayrollSummary synthetic = page.content().get(0);
 
-        // Employee and period: from the assignment and the requested period.
+        // Identity comes from the assignment + period.
         assertEquals(GRACE, synthetic.getEmployeeId());
         assertEquals(GRACE_ASSIGNMENT, synthetic.getEmployeePeriodicAssignmentId());
         assertEquals(JANUARY, synthetic.getPayrollPeriod().getId());
 
+        // All-zeros sentinel id — this is NOT a real row.
+        assertEquals(new UUID(0L, 0L), synthetic.getId());
+
         // Zero amounts, currency from the assignment's country (EUR).
         Amounts amounts = synthetic.getAmounts();
+        assertNotNull(amounts);
         assertEquals(0, amounts.getBase().compareTo(BigDecimal.ZERO));
         assertEquals(0, amounts.getVariable().compareTo(BigDecimal.ZERO));
         assertEquals(0, amounts.getAllowances().compareTo(BigDecimal.ZERO));
@@ -327,14 +331,16 @@ class PayrollSummaryRepositoryAdapterTest {
         assertEquals(0, amounts.getTotal().compareTo(BigDecimal.ZERO));
         assertEquals("EUR", amounts.getCurrency());
 
-        // DRAFT, since it has not been filled in.
+        // DRAFT, because the summary has not been filled in.
         assertEquals(PayrollSummaryStatus.DRAFT, synthetic.getStatus());
     }
 
     @Test
     @DisplayName("pageNonExistent excludes employees who already have a summary")
     void pageNonExistentExcludesEmployeesWithSummary() {
-        // Ada has an assignment for January and a summary for January.
+        // Ada has an assignment for January AND a summary for January, so the
+        // NOT EXISTS in findMissingSummaryPage suppresses the stub for (Ada, January).
+        // Grace has an assignment for January but no summary, so she is returned.
         PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
                 .payrollPeriodId(JANUARY)
                 .nonExistent(true)
@@ -344,12 +350,9 @@ class PayrollSummaryRepositoryAdapterTest {
 
         DataPage<PayrollSummary> page = adapter.pageNonExistent(criteria);
 
-        // Only Grace is returned; Ada is excluded because she has a summary.
         assertEquals(1, page.totalElements());
-        assertTrue(page.content().stream()
-                .noneMatch(s -> ADA.equals(s.getEmployeeId())));
-        assertTrue(page.content().stream()
-                .allMatch(s -> GRACE.equals(s.getEmployeeId())));
+        assertTrue(page.content().stream().noneMatch(s -> ADA.equals(s.getEmployeeId())));
+        assertTrue(page.content().stream().allMatch(s -> GRACE.equals(s.getEmployeeId())));
     }
 
     @Test
@@ -363,6 +366,60 @@ class PayrollSummaryRepositoryAdapterTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> adapter.pageNonExistent(criteria));
+    }
+
+    @Test
+    @DisplayName("pageNonExistent supports an explicit date range without a period id")
+    void pageNonExistentSupportsDateRange() {
+        PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .rangeStart(LocalDate.of(2026, 1, 1))
+                .rangeEnd(LocalDate.of(2026, 1, 31))
+                .nonExistent(true)
+                .page(0)
+                .size(10)
+                .build();
+
+        DataPage<PayrollSummary> page = adapter.pageNonExistent(criteria);
+
+        // Same result as the single-period variant: only Grace is missing January.
+        assertEquals(1, page.totalElements());
+        assertEquals(GRACE, page.content().get(0).getEmployeeId());
+    }
+
+    @Test
+    @DisplayName("pageNonExistent returns one stub per missing period in a multi-period range")
+    void pageNonExistentReturnsStubPerMissingPeriod() {
+        PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
+                .rangeStart(LocalDate.of(2026, 1, 1))
+                .rangeEnd(LocalDate.of(2026, 2, 28))
+                .nonExistent(true)
+                .page(0)
+                .size(10)
+                .build();
+
+        DataPage<PayrollSummary> page = adapter.pageNonExistent(criteria);
+
+        // Fixture shape:
+        //   Ada   : summary for Jan, none for Feb  -> 1 stub (Ada, Feb)
+        //   Grace : no summaries                   -> 2 stubs (Grace, Jan), (Grace, Feb)
+        assertEquals(3, page.totalElements());
+
+        assertTrue(page.content().stream().anyMatch(s ->
+                        ADA.equals(s.getEmployeeId()) && FEBRUARY.equals(s.getPayrollPeriod().getId())),
+                "Ada must have a stub for February");
+
+        assertTrue(page.content().stream().anyMatch(s ->
+                        GRACE.equals(s.getEmployeeId()) && JANUARY.equals(s.getPayrollPeriod().getId())),
+                "Grace must have a stub for January");
+
+        assertTrue(page.content().stream().anyMatch(s ->
+                        GRACE.equals(s.getEmployeeId()) && FEBRUARY.equals(s.getPayrollPeriod().getId())),
+                "Grace must have a stub for February");
+
+        // Ada is NOT missing January — the existing summary suppresses the stub.
+        assertTrue(page.content().stream().noneMatch(s ->
+                        ADA.equals(s.getEmployeeId()) && JANUARY.equals(s.getPayrollPeriod().getId())),
+                "Ada already has a January summary, so no stub");
     }
 
     @Test

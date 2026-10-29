@@ -1,11 +1,11 @@
 package com.salary.management.application.dto.payroll;
 
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 
-import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 
@@ -15,5 +15,7 @@ public record PayrollSummaryValidateRequest(
         Set<UUID> anyCountryIds,
         Set<UUID> anyDepartmentIds,
         Set<UUID> anyRoleIds,
-        Set<EmploymentType> anyEmploymentTypes
+        Set<EmploymentType> anyEmploymentTypes,
+        PayrollSummaryStatus status,
+        PayrollPeriodFrequency payrollFrequency
 ) {}

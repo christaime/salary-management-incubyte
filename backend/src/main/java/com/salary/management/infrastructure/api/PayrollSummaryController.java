@@ -42,6 +42,7 @@ public class PayrollSummaryController {
             @RequestParam(name = "anyCountryIds", required = false) Set<UUID> countryIds,
             @RequestParam(name = "anyDepartmentIds", required = false) Set<UUID> departmentIds,
             @RequestParam(name = "anyRoleIds", required = false) Set<UUID> roleIds,
+            @RequestParam(required = false) Boolean nonExistent,
             @RequestParam(required = false) Set<EmploymentType> anyEmploymentTypes,
             @RequestParam(required = false) PayrollSummaryStatus status,
             @RequestParam(required = false) PayrollPeriodFrequency payrollFrequency,
@@ -60,6 +61,7 @@ public class PayrollSummaryController {
                 .anyRoleIds(roleIds)
                 .anyEmploymentTypes(anyEmploymentTypes)
                 .status(status)
+                .nonExistent(nonExistent)
                 .payrollFrequency(payrollFrequency)
                 .page(page)
                 .size(size)

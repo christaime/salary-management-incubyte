@@ -27,7 +27,7 @@ public final class PayrollSummaryCriteria implements Criteria {
     private final LocalDate rangeEnd;
     private final PayrollSummaryStatus status;
     private final PayrollPeriodFrequency payrollFrequency;
-    private final boolean nonExistent;
+    private final Boolean nonExistent;
     private final Set<UUID> anyCountryIds;
     private final Set<UUID> anyDepartmentIds;
     private final Set<UUID> anyRoleIds;
@@ -39,14 +39,10 @@ public final class PayrollSummaryCriteria implements Criteria {
     private final int size;
 
     private PayrollSummaryCriteria(Builder builder) {
-        if (builder.nonExistent) {
-            if (builder.payrollPeriodId == null) {
+        if (Boolean.TRUE.equals(builder.nonExistent)) {
+            if (builder.payrollPeriodId == null && (builder.rangeStart == null || builder.rangeEnd == null)) {
                 throw new IllegalArgumentException(
-                        "nonExistent requires payrollPeriodId");
-            }
-            if (builder.rangeStart != null || builder.rangeEnd != null) {
-                throw new IllegalArgumentException(
-                        "nonExistent cannot be combined with rangeStart/rangeEnd");
+                        "nonExistent required a period or date range");
             }
         } else {
             if (builder.payrollPeriodId != null
@@ -124,7 +120,7 @@ public final class PayrollSummaryCriteria implements Criteria {
      * status. Only {@link #payrollPeriodId()} is used to anchor the period; {@code status} is
      * ignored in this mode.
      */
-    public boolean nonExistent() {
+    public Boolean nonExistent() {
         return nonExistent;
     }
 
@@ -191,7 +187,7 @@ public final class PayrollSummaryCriteria implements Criteria {
         private LocalDate rangeEnd;
         private PayrollSummaryStatus status;
         private PayrollPeriodFrequency payrollFrequency;
-        private boolean nonExistent;
+        private Boolean nonExistent;
         private Set<UUID> anyCountryIds;
         private Set<UUID> anyDepartmentIds;
         private Set<UUID> anyRoleIds;
@@ -237,7 +233,7 @@ public final class PayrollSummaryCriteria implements Criteria {
             return this;
         }
 
-        public Builder nonExistent(boolean nonExistent) {
+        public Builder nonExistent(Boolean nonExistent) {
             this.nonExistent = nonExistent;
             return this;
         }

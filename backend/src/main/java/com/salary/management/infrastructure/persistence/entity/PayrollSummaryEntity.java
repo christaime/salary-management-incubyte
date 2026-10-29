@@ -80,4 +80,19 @@ public class PayrollSummaryEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private PayrollSummaryStatus status;
+
+    public PayrollSummaryEntity(EmployeeEntity employee, PayrollPeriodEntity payrollPeriod,
+                                 UUID assignmentId, UUID countryId, UUID departmentId,
+                                 UUID roleId, EmploymentType employmentType) {
+        this.id = new UUID(0L, 0L);
+        this.employee = employee;
+        this.payrollPeriod = payrollPeriod;
+        this.employeePeriodicAssignmentId = assignmentId;
+        this.assignmentCountryId = countryId;
+        this.assignmentDepartmentId = departmentId;
+        this.assignmentRoleId = roleId;
+        this.assignmentEmploymentType = employmentType;
+        this.amounts = AmountsEmbeddable.builder().build();
+        this.status = PayrollSummaryStatus.DRAFT;
+    }
 }
