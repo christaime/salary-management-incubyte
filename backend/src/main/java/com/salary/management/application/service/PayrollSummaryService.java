@@ -10,7 +10,6 @@ import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.domain.model.values.Amounts;
 import com.salary.management.domain.repository.*;
 import com.salary.management.domain.repository.criteria.PayrollSummaryCriteria;
-import jakarta.validation.ValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -340,7 +339,7 @@ public class PayrollSummaryService {
 
     private PayrollSummaryCriteria toCriteria(PayrollSummarySearchRequest request) {
         return PayrollSummaryCriteria.builder()
-                .payrollPeriodId(null)                         // date range mode
+                .payrollPeriodId(null)
                 .rangeStart(request.rangeStart())
                 .rangeEnd(request.rangeEnd())
                 .employeeId(request.employeeId())
@@ -349,6 +348,7 @@ public class PayrollSummaryService {
                 .anyDepartmentIds(request.anyDepartmentIds())
                 .anyRoleIds(request.anyRoleIds())
                 .anyEmploymentTypes(request.anyEmploymentTypes())
+                .payrollFrequency(request.payrollFrequency())
                 .status(request.status())
                 .sortBy(request.sortBy())
                 .sortDirection(request.sortDirection())

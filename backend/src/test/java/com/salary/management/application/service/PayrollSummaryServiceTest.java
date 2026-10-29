@@ -381,4 +381,27 @@ class PayrollSummaryServiceTest {
                         PayrollSummaryValidateRequest.builder()
                                 .periodId(periodId).build()));
     }
+
+    @Test
+    @DisplayName("page passes the payroll frequency filter to the criteria")
+    void pagePassesPayrollFrequencyFilter() {
+        when(summaryRepository.page(any(PayrollSummaryCriteria.class)))
+                .thenReturn(new DataPage<>(List.of(), 0, 20, 0));
+
+        PayrollSummarySearchRequest request = PayrollSummarySearchRequest.builder()
+                .rangeStart(LocalDate.of(2026, 1, 1))
+                .rangeEnd(LocalDate.of(2026, 3, 31))
+                .payrollFrequency(PayrollPeriodFrequency.BI_WEEKLY)
+                .page(0)
+                .size(20)
+                .build();
+
+        service.page(request);
+
+        ArgumentCaptor<PayrollSummaryCriteria> captor =
+                ArgumentCaptor.forClass(PayrollSummaryCriteria.class);
+        verify(summaryRepository).page(captor.capture());
+        assertEquals(PayrollPeriodFrequency.BI_WEEKLY,
+                captor.getValue().payrollFrequency());
+    }
 }

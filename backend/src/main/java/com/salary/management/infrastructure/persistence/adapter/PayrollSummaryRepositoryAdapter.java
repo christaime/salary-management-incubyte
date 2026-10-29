@@ -154,6 +154,12 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
         return jpaRepository.hasAnySummaryForAssignment(assignmentId);
     }
 
+    @Override
+    public int updateStatus(UUID id, PayrollSummaryStatus expectedStatus,
+                            PayrollSummaryStatus newStatus) {
+        return jpaRepository.updateStatus(id, expectedStatus, newStatus);
+    }
+
     private DataPage<PayrollSummary> toDataPage(Page<PayrollSummaryEntity> page) {
         List<PayrollSummary> content =
                 page.getContent().stream().map(mapper::toDomain).toList();

@@ -82,8 +82,16 @@ public class PayrollSummaryValidator {
                             "periodId", period.getId()));
         }
 
-        PayrollSummary validated = summaryRepository.save(
-                summary.withStatus(PayrollSummaryStatus.VALIDATED));
+        int updated = summaryRepository.updateStatus(
+                summaryId, PayrollSummaryStatus.DRAFT, PayrollSummaryStatus.VALIDATED);
+        if (updated == 0) {
+            throw new ConflictException(
+                    "SUMMARY_NOT_DRAFT",
+                    "Payroll summary " + summaryId + " is no longer in DRAFT",
+                    Map.of("summaryId", summaryId));
+        }
+        // Reload to return the current row (with the new status).
+        PayrollSummary validated = summary.withStatus(PayrollSummaryStatus.VALIDATED);
         return toDetail(validated);
     }
 

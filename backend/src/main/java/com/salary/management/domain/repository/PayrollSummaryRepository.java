@@ -2,6 +2,7 @@ package com.salary.management.domain.repository;
 
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.domain.model.PayrollSummary;
+import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.domain.repository.criteria.PayrollSummaryCriteria;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -73,5 +74,15 @@ public interface PayrollSummaryRepository {
      * @return {@code true} when a summary exists
      */
     boolean hasAnySummaryForAssignment(UUID assignmentId);
+
+    /**
+     * Sets the summary's status to {@code newStatus} if its current status is
+     * {@code expectedStatus}. Returns the number of rows affected (0 or 1).
+     *
+     * <p>Only the status column is written; all other columns are left untouched.
+     * This is the correct way to transition a summary without re-validating or
+     * re-writing its amounts.</p>
+     */
+    int updateStatus(UUID id, PayrollSummaryStatus expectedStatus, PayrollSummaryStatus newStatus);
 }
 

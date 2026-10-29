@@ -2,6 +2,7 @@ package com.salary.management.application.dto.payroll;
 
 import com.salary.management.common.pagination.SortDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -24,6 +25,7 @@ public record PayrollSummarySearchRequest(
         Set<UUID> anyRoleIds,
         Set<EmploymentType> anyEmploymentTypes,
         PayrollSummaryStatus status,
+        PayrollPeriodFrequency payrollFrequency,
         @Min(0) int page,
         @Min(1) @Max(100) int size,
         @Size(max = 50) String sortBy,

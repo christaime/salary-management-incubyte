@@ -5,6 +5,7 @@ import com.salary.management.application.service.PayrollSummaryService;
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.common.pagination.SortDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -43,6 +44,7 @@ public class PayrollSummaryController {
             @RequestParam(name = "anyRoleIds", required = false) Set<UUID> roleIds,
             @RequestParam(required = false) Set<EmploymentType> anyEmploymentTypes,
             @RequestParam(required = false) PayrollSummaryStatus status,
+            @RequestParam(required = false) PayrollPeriodFrequency payrollFrequency,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "payrollPeriod.startDate") String sortBy,
@@ -58,6 +60,7 @@ public class PayrollSummaryController {
                 .anyRoleIds(roleIds)
                 .anyEmploymentTypes(anyEmploymentTypes)
                 .status(status)
+                .payrollFrequency(payrollFrequency)
                 .page(page)
                 .size(size)
                 .sortBy(sortBy)

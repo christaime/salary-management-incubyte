@@ -63,6 +63,11 @@ public final class PayrollSummarySpecification {
             if (criteria.status() != null) {
                 predicates.add(cb.equal(root.get("status"), criteria.status()));
             }
+            if (criteria.payrollFrequency() != null) {
+                predicates.add(cb.equal(
+                        root.get("payrollPeriod").get("frequency"),
+                        criteria.payrollFrequency()));
+            }
             if (criteria.excludeIds() != null && !criteria.excludeIds().isEmpty()) {
                 predicates.add(cb.not(root.get("id").in(criteria.excludeIds())));
             }

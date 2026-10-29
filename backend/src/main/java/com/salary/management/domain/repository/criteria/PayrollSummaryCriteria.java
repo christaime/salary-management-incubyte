@@ -3,6 +3,7 @@ package com.salary.management.domain.repository.criteria;
 import com.salary.management.common.pagination.Criteria;
 import com.salary.management.common.pagination.SortDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 
 import java.time.LocalDate;
@@ -25,6 +26,7 @@ public final class PayrollSummaryCriteria implements Criteria {
     private final LocalDate rangeStart;
     private final LocalDate rangeEnd;
     private final PayrollSummaryStatus status;
+    private final PayrollPeriodFrequency payrollFrequency;
     private final boolean nonExistent;
     private final Set<UUID> anyCountryIds;
     private final Set<UUID> anyDepartmentIds;
@@ -67,6 +69,7 @@ public final class PayrollSummaryCriteria implements Criteria {
         this.rangeStart = builder.rangeStart;
         this.rangeEnd = builder.rangeEnd;
         this.status = builder.status;
+        this.payrollFrequency = builder.payrollFrequency;
         this.nonExistent = builder.nonExistent;
         this.anyCountryIds = builder.anyCountryIds;
         this.anyDepartmentIds = builder.anyDepartmentIds;
@@ -108,6 +111,14 @@ public final class PayrollSummaryCriteria implements Criteria {
     }
 
     /**
+     * Payroll frequency filter — matches {@code payrollPeriod.frequency}.
+     * {@code null} means no filter.
+     */
+    public PayrollPeriodFrequency payrollFrequency() {
+        return payrollFrequency;
+    }
+
+    /**
      * When {@code true}, the query returns payroll summaries that <em>should</em> exist for
      * the period but do not, as synthetic summaries with zero amounts and {@code DRAFT}
      * status. Only {@link #payrollPeriodId()} is used to anchor the period; {@code status} is
@@ -134,6 +145,7 @@ public final class PayrollSummaryCriteria implements Criteria {
     }
 
     public Set<UUID> excludeIds() { return excludeIds; }
+
     @Override
     public String sortBy() {
         return sortBy;
@@ -178,6 +190,7 @@ public final class PayrollSummaryCriteria implements Criteria {
         private LocalDate rangeStart;
         private LocalDate rangeEnd;
         private PayrollSummaryStatus status;
+        private PayrollPeriodFrequency payrollFrequency;
         private boolean nonExistent;
         private Set<UUID> anyCountryIds;
         private Set<UUID> anyDepartmentIds;
@@ -216,6 +229,11 @@ public final class PayrollSummaryCriteria implements Criteria {
 
         public Builder status(PayrollSummaryStatus status) {
             this.status = status;
+            return this;
+        }
+
+        public Builder payrollFrequency(PayrollPeriodFrequency payrollFrequency) {
+            this.payrollFrequency = payrollFrequency;
             return this;
         }
 
