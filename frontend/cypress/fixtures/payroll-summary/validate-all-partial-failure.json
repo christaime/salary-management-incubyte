@@ -1,9 +1,17 @@
 {
-  "total": 15,
-  "validated": 13,
+  "total": 5,
+  "validated": 3,
   "failed": 2,
   "failures": [
-    { "summaryId": "s-a", "code": "ASSIGNMENT_NOT_IN_EFFECT", "message": "Assignment 5555 is not in effect" },
-    { "summaryId": "s-b", "code": "PERIOD_CLOSED", "message": "Period is closed" }
+    {
+      "summaryId": "s-a",
+      "code": "ASSIGNMENT_NOT_IN_EFFECT",
+      "message": "Assignment is not in effect"
+    },
+    {
+      "summaryId": "s-b",
+      "code": "PERIOD_CLOSED",
+      "message": "Period is closed"
+    }
   ]
 }

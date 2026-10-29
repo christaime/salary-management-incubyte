@@ -1,0 +1,39 @@
+{
+  "content": [
+    {
+      "id": "emp-1",
+      "matricule": "EMP-0001",
+      "name": "Ada Lovelace",
+      "email": "ada@example.com",
+      "birthDate": null,
+      "originCountry": null,
+      "assignmentInEffect": {
+        "id": "a-1",
+        "startDate": "2025-10-01",
+        "endDate": null,
+        "country": { "id": "c-fr", "code": "FR", "name": "France" },
+        "department": { "id": "d-eng", "code": "ENG", "name": "Engineering" },
+        "role": { "id": "r-swe", "code": "SWE", "name": "Software Engineer" },
+        "employmentType": "FULL_TIME",
+        "payrollFrequency": "MONTHLY",
+        "hasPayroll": true
+      }
+    },
+    {
+      "id": "emp-2",
+      "matricule": "EMP-0002",
+      "name": "No Assignment",
+      "email": "no.assignment@example.com",
+      "birthDate": null,
+      "originCountry": null,
+      "assignmentInEffect": null
+    }
+  ],
+  "totalElements": 2,
+  "totalPages": 1,
+  "page": 0,
+  "size": 5,
+  "first": true,
+  "last": true,
+  "empty": false
+}

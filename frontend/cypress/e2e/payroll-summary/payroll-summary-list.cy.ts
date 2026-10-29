@@ -1,9 +1,10 @@
 describe('Payroll summary list page', () => {
   beforeEach(() => {
-    cy.intercept('GET', '**/api/v1/countries*',       { fixture: 'payroll-summary/countries.json' }).as('getCountries');
+    cy.intercept('GET', '**/api/v1/countries?*',       { fixture: 'payroll-summary/countries.json' }).as('getCountries');
     cy.intercept('GET', '**/api/v1/departments*',     { fixture: 'payroll-summary/departments.json' }).as('getDepartments');
     cy.intercept('GET', '**/api/v1/roles*',           { fixture: 'payroll-summary/roles.json' }).as('getRoles');
     cy.intercept('GET', '**/api/v1/payroll-periods*', { fixture: 'payroll-summary/payroll-periods.json' }).as('getPeriods');
+    cy.intercept('GET', '**/api/v1/employees?*',      { fixture: 'payroll-summary/employees-search.json' }).as('searchEmployees');
   });
 
   // ------------------------------------------------------------------
@@ -32,29 +33,20 @@ describe('Payroll summary list page', () => {
   }
 
   function closeOpenPicker(picker: 'filter-start-period' | 'filter-end-period'): void {
-    // The dropdown panel is rendered via @if — it is removed from the DOM
-    // when closed, not merely hidden. Use `period-picker-results-count`
-    // (always inside the panel) as the presence marker.
-    const panel = cy
-      .get(`[data-testid="${picker}"]`)
-      .find('[data-testid="period-picker-results-count"]');
+    cy.get(`[data-testid="${picker}"]`)
+      .find('[data-testid="period-picker-results-count"]')
+      .then(($panel) => {
+        if ($panel.length === 0) return;
 
-    panel.then(($panel) => {
-      if ($panel.length === 0) {
-        // Already closed — nothing to do.
-        return;
-      }
+        cy.get(`[data-testid="${picker}"]`)
+          .find('[data-testid="period-picker-search-input"]')
+          .should('be.visible')
+          .click();
 
-      cy.get(`[data-testid="${picker}"]`)
-        .find('[data-testid="period-picker-search-input"]')
-        .should('be.visible')
-        .click();
-
-      // The panel is removed by the @if when isPeriodDropdownOpen() flips false.
-      cy.get(`[data-testid="${picker}"]`)
-        .find('[data-testid="period-picker-results-count"]')
-        .should('not.exist');
-    });
+        cy.get(`[data-testid="${picker}"]`)
+          .find('[data-testid="period-picker-results-count"]')
+          .should('not.exist');
+      });
   }
 
   function pickYearOnly(picker: 'filter-start-period' | 'filter-end-period', year: number): void {
@@ -68,8 +60,25 @@ describe('Payroll summary list page', () => {
     periodId: string,
   ): void {
     pickYear(picker, year);
-
     cy.get(`[data-testid="period-picker-result-${periodId}"]`).click();
+  }
+
+  /**
+   * Selects an employee. The picker is debounce-driven (no button) — typing
+   * 3+ chars fires the search ~300ms later. Then click the first result.
+   */
+  function pickEmployee(query = 'ada'): void {
+    cy.get('[data-testid="filter-employee-picker"]')
+      .find('[data-testid="employee-search-input"]')
+      .clear()
+      .type(query);
+
+    cy.wait('@searchEmployees');
+
+    cy.get('[data-testid="filter-employee-picker"]')
+      .find('[data-testid^="employee-result-"]')
+      .first()
+      .click();
   }
 
   // ------------------------------------------------------------------
@@ -88,15 +97,13 @@ describe('Payroll summary list page', () => {
     cy.get('@searchPayrollSummaries.all').should('have.length', 0);
   });
 
-  it('loads periods for the bulk-validate selector', () => {
-    cy.intercept('GET', '**/api/v1/payroll-summaries*', {
-      fixture: 'payroll-summary/summary-list-empty.json',
-    }).as('searchPayrollSummaries');
-
+  it('renders the employee picker inside the filter bar', () => {
     visitList();
-
-    cy.get('[data-testid="bulk-validate-period-select"] option')
-      .should('have.length.at.least', 1);
+    cy.get('[data-testid="filter-employee-picker"]').should('be.visible');
+    cy.get('[data-testid="filter-employee-picker"]')
+      .find('[data-testid="employee-search-input"]')
+      .should('be.visible');
+    cy.get('@searchEmployees.all').should('have.length', 0);
   });
 
   // ------------------------------------------------------------------
@@ -146,7 +153,7 @@ describe('Payroll summary list page', () => {
 
     visitList();
     pickPeriod('filter-start-period', 2026, 'p-jan-2026');
-    pickPeriod('filter-end-period', 2026, 'p-mar-2026');
+    pickPeriod('filter-end-period',   2026, 'p-mar-2026');
     cy.get('[data-testid="filter-apply"]').click();
 
     cy.wait('@searchPayrollSummaries').then(({ request }) => {
@@ -171,7 +178,23 @@ describe('Payroll summary list page', () => {
     });
   });
 
-  it('forwards the other filters (status, frequency, matricule, multi-selects)', () => {
+  it('forwards employeeId when an employee is selected', () => {
+    cy.intercept('GET', '**/api/v1/payroll-summaries*', {
+      fixture: 'payroll-summary/summary-list-page-1.json',
+    }).as('searchPayrollSummaries');
+
+    visitList();
+    pickYearOnly('filter-start-period', 2026);
+    pickEmployee('ada');
+    cy.get('[data-testid="filter-apply"]').click();
+
+    cy.wait('@searchPayrollSummaries').then(({ request }) => {
+      expect(request.query['employeeId']).to.eq('emp-1');
+      expect(request.query['employeeMatricule']).to.be.undefined;
+    });
+  });
+
+  it('forwards the other filters (status, frequency, multi-selects, employee)', () => {
     cy.intercept('GET', '**/api/v1/payroll-summaries*', {
       fixture: 'payroll-summary/summary-list-page-1.json',
     }).as('searchPayrollSummaries');
@@ -179,18 +202,12 @@ describe('Payroll summary list page', () => {
     visitList();
     pickYearOnly('filter-start-period', 2026);
 
-    // Status
     cy.get('[data-testid="filter-status"]').click();
     cy.get('mat-option').contains('Draft').click();
 
-    // Frequency
     cy.get('[data-testid="filter-payroll-frequency"]').click();
     cy.get('mat-option').contains('Monthly').click();
 
-    // Matricule
-    cy.get('[data-testid="filter-matricule"]').type('EMP-0001');
-
-    // Multi-selects — ESC to the trigger, not <body>.
     cy.get('[data-testid="filter-employment-type"]').click();
     cy.get('mat-option').contains('Full time').click();
     cy.get('mat-option').contains('Part time').click();
@@ -209,12 +226,14 @@ describe('Payroll summary list page', () => {
     cy.get('mat-option').contains('Software Engineer').click();
     cy.get('[data-testid="filter-role"]').type('{esc}');
 
+    pickEmployee('ada');
+
     cy.get('[data-testid="filter-apply"]').click();
 
     cy.wait('@searchPayrollSummaries').then(({ request }) => {
       expect(request.query['status']).to.eq('DRAFT');
       expect(request.query['payrollFrequency']).to.eq('MONTHLY');
-      expect(request.query['employeeMatricule']).to.eq('EMP-0001');
+      expect(request.query['employeeId']).to.eq('emp-1');
       expect(request.query['anyEmploymentTypes']).to.eq('FULL_TIME,PART_TIME');
       expect(request.query['anyCountryIds']).to.eq('c-fr,c-de');
       expect(request.query['anyDepartmentIds']).to.eq('d-eng');
@@ -236,6 +255,10 @@ describe('Payroll summary list page', () => {
 
     cy.get('[data-testid="payroll-summary-list-idle"]').should('be.visible');
     cy.get('@searchPayrollSummaries.all').should('have.length', 1);
+
+    cy.get('[data-testid="filter-employee-picker"]')
+      .find('[data-testid="employee-search-input"]')
+      .should('exist');
   });
 
   // ------------------------------------------------------------------
@@ -311,8 +334,7 @@ describe('Payroll summary list page', () => {
       .find('[data-testid="row-edit-s-2"]')
       .should('not.exist');
 
-    cy.get('[data-testid="payroll-row-s-2"]')
-      .should('contain', 'Final');
+    cy.get('[data-testid="payroll-row-s-2"]').should('contain', 'Final');
   });
 
   // ------------------------------------------------------------------
@@ -455,16 +477,22 @@ describe('Payroll summary list page', () => {
   // 6. Bulk validate
   // ------------------------------------------------------------------
 
-  it('disables the bulk-validate button until a period is selected', () => {
+  it('disables the bulk-validate button until a start period is selected', () => {
     cy.intercept('GET', '**/api/v1/payroll-summaries*', {
       fixture: 'payroll-summary/summary-list-empty.json',
     }).as('searchPayrollSummaries');
 
     visitList();
-    cy.get('[data-testid="payroll-summary-bulk-validate"]').should('be.disabled');
 
-    cy.get('[data-testid="bulk-validate-period-select"]').select('p-jan-2026');
-    cy.get('[data-testid="payroll-summary-bulk-validate"]').should('be.enabled');
+    cy.get('[data-testid="payroll-summary-bulk-validate"]')
+      .should('be.disabled')
+      .and('contain', 'Validate all drafts');
+
+    pickPeriod('filter-start-period', 2026, 'p-jan-2026');
+
+    cy.get('[data-testid="payroll-summary-bulk-validate"]')
+      .should('be.enabled')
+      .and('contain', 'Validate payrolls on January 2026');
   });
 
   it('runs a successful bulk validate and shows the result counts', () => {
@@ -477,7 +505,7 @@ describe('Payroll summary list page', () => {
     }).as('validateAll');
 
     visitList();
-    cy.get('[data-testid="bulk-validate-period-select"]').select('p-jan-2026');
+    pickPeriod('filter-start-period', 2026, 'p-jan-2026');
     cy.get('[data-testid="payroll-summary-bulk-validate"]').click();
 
     cy.get('[data-testid="bulk-validate-dialog"]').should('be.visible');
@@ -490,7 +518,8 @@ describe('Payroll summary list page', () => {
     cy.get('[data-testid="bulk-result-total"]').should('have.attr', 'data-value', '5');
     cy.get('[data-testid="bulk-result-validated"]').should('have.attr', 'data-value', '5');
     cy.get('[data-testid="bulk-result-failed"]').should('have.attr', 'data-value', '0');
-    cy.get('[data-testid="bulk-validate-dialog"]').should('contain', 'All drafts were validated successfully');
+    cy.get('[data-testid="bulk-validate-dialog"]')
+      .should('contain', 'All drafts were validated successfully');
   });
 
   it('shows the failure table on a partial-failure bulk validate', () => {
@@ -503,7 +532,7 @@ describe('Payroll summary list page', () => {
     }).as('validateAll');
 
     visitList();
-    cy.get('[data-testid="bulk-validate-period-select"]').select('p-jan-2026');
+    pickPeriod('filter-start-period', 2026, 'p-jan-2026');
     cy.get('[data-testid="payroll-summary-bulk-validate"]').click();
     cy.get('[data-testid="bulk-validate-confirm"]').click();
     cy.wait('@validateAll');
@@ -523,7 +552,7 @@ describe('Payroll summary list page', () => {
     }).as('validateAll');
 
     visitList();
-    cy.get('[data-testid="bulk-validate-period-select"]').select('p-jan-2026');
+    pickPeriod('filter-start-period', 2026, 'p-jan-2026');
     cy.get('[data-testid="payroll-summary-bulk-validate"]').click();
     cy.get('[data-testid="bulk-validate-confirm"]').click();
     cy.wait('@validateAll');
@@ -542,7 +571,7 @@ describe('Payroll summary list page', () => {
     }).as('validateAll');
 
     visitList();
-    cy.get('[data-testid="bulk-validate-period-select"]').select('p-jan-2026');
+    pickPeriod('filter-start-period', 2026, 'p-jan-2026');
     cy.get('[data-testid="payroll-summary-bulk-validate"]').click();
     cy.get('[data-testid="bulk-validate-dialog"]').should('be.visible');
     cy.get('[data-testid="bulk-validate-cancel"]').click();
@@ -556,7 +585,7 @@ describe('Payroll summary list page', () => {
 
   it('re-fetches with page=1 when the paginator advances', () => {
     cy.intercept('GET', '**/api/v1/payroll-summaries*', {
-       fixture: 'payroll-summary/summary-list-multi-page.json',
+      fixture: 'payroll-summary/summary-list-multi-page.json',
     }).as('searchPayrollSummaries');
 
     visitList();
@@ -570,6 +599,135 @@ describe('Payroll summary list page', () => {
 
     cy.wait('@searchPayrollSummaries').then(({ request }) => {
       expect(request.query['page']).to.eq('1');
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 8. Non-existent payroll summaries
+  // ------------------------------------------------------------------
+
+  describe('non-existent payroll summaries', () => {
+    function selectNonExistentStatus(): void {
+      cy.get('[data-testid="filter-status"]').click();
+      cy.get('mat-option').contains('Non existent').click();
+    }
+
+    it('sends nonExistent=true and no status param', () => {
+      cy.intercept('GET', '**/api/v1/payroll-summaries*', {
+        fixture: 'payroll-summary/summary-list-nonexistent.json',
+      }).as('searchPayrollSummaries');
+
+      visitList();
+      pickYearOnly('filter-start-period', 2026);
+      selectNonExistentStatus();
+      cy.get('[data-testid="filter-apply"]').click();
+
+      cy.wait('@searchPayrollSummaries').then(({ request }) => {
+        expect(request.query['nonExistent']).to.eq('true');
+        expect(request.query['status']).to.be.undefined;
+        expect(request.query['rangeStart']).to.eq('2026-01-01');
+        expect(request.query['rangeEnd']).to.eq('2026-12-31');
+      });
+    });
+
+    it('renders the "Non existent" label instead of the status badge', () => {
+      cy.intercept('GET', '**/api/v1/payroll-summaries*', {
+        fixture: 'payroll-summary/summary-list-nonexistent.json',
+      }).as('searchPayrollSummaries');
+
+      visitList();
+      pickYearOnly('filter-start-period', 2026);
+      selectNonExistentStatus();
+      cy.get('[data-testid="filter-apply"]').click();
+      cy.wait('@searchPayrollSummaries');
+
+      cy.get('[data-testid^="payroll-row-"]').should('have.length', 2);
+      cy.get('[data-testid="status-badge-draft"]').should('not.exist');
+      cy.get('[data-testid="status-badge-validated"]').should('not.exist');
+      cy.get('[data-testid^="payroll-row-"]').each(($row) => {
+        expect($row.text()).to.contain('Non existent');
+      });
+    });
+
+    it('hides Validate and Delete but keeps Edit', () => {
+      cy.intercept('GET', '**/api/v1/payroll-summaries*', {
+        fixture: 'payroll-summary/summary-list-nonexistent.json',
+      }).as('searchPayrollSummaries');
+
+      visitList();
+      pickYearOnly('filter-start-period', 2026);
+      selectNonExistentStatus();
+      cy.get('[data-testid="filter-apply"]').click();
+      cy.wait('@searchPayrollSummaries');
+
+      cy.get('[data-testid^="payroll-row-"]').should('have.length', 2);
+
+      cy.get('[data-testid^="payroll-row-"]').each(($row) => {
+        const key = $row.attr('data-key')!;   // "emp-1@p-jan-2026" etc.
+        cy.wrap($row).find(`[data-testid="row-edit-${key}"]`).should('exist');
+        cy.wrap($row).find(`[data-testid="row-validate-${key}"]`).should('not.exist');
+        cy.wrap($row).find(`[data-testid="row-delete-${key}"]`).should('not.exist');
+      });
+    });
+
+    it('navigates to the create page (not detail) when a non-existent row is clicked', () => {
+      cy.intercept('GET', '**/api/v1/payroll-summaries*', {
+        fixture: 'payroll-summary/summary-list-nonexistent.json',
+      }).as('searchPayrollSummaries');
+
+      visitList();
+      pickYearOnly('filter-start-period', 2026);
+      selectNonExistentStatus();
+      cy.get('[data-testid="filter-apply"]').click();
+      cy.wait('@searchPayrollSummaries');
+
+      cy.get('[data-testid^="payroll-row-"]').first().click();
+      cy.url().should('match', /\/payroll-summaries\/new$/);
+    });
+
+    it('navigates to the create page when Edit is clicked on a non-existent row', () => {
+      cy.intercept('GET', '**/api/v1/payroll-summaries*', {
+        fixture: 'payroll-summary/summary-list-nonexistent.json',
+      }).as('searchPayrollSummaries');
+
+      visitList();
+      pickYearOnly('filter-start-period', 2026);
+      selectNonExistentStatus();
+      cy.get('[data-testid="filter-apply"]').click();
+      cy.wait('@searchPayrollSummaries');
+
+      cy.get('[data-testid^="payroll-row-"]')
+        .first()
+        .find('[data-testid^="row-edit-"]')
+        .click();
+      cy.url().should('match', /\/payroll-summaries\/new$/);
+    });
+
+    it('leaves non-existent mode when the filter is reset', () => {
+      cy.intercept('GET', '**/api/v1/payroll-summaries*', {
+        fixture: 'payroll-summary/summary-list-nonexistent.json',
+      }).as('searchPayrollSummaries');
+
+      visitList();
+      pickYearOnly('filter-start-period', 2026);
+      selectNonExistentStatus();
+      cy.get('[data-testid="filter-apply"]').click();
+      cy.wait('@searchPayrollSummaries');
+
+      cy.get('[data-testid="filter-reset"]').click();
+      cy.get('[data-testid="payroll-summary-list-idle"]').should('be.visible');
+
+      // Apply again with a normal status — nonExistent should be gone
+      cy.intercept('GET', '**/api/v1/payroll-summaries*', {
+        fixture: 'payroll-summary/summary-list-empty.json',
+      }).as('searchNormal');
+
+      pickYearOnly('filter-start-period', 2026);
+      cy.get('[data-testid="filter-apply"]').click();
+      cy.wait('@searchNormal').then(({ request }) => {
+        expect(request.query['nonExistent']).to.be.undefined;
+        expect(request.query['status']).to.be.undefined;
+      });
     });
   });
 });

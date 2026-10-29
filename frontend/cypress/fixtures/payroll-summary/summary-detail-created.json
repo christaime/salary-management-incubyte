@@ -1,0 +1,32 @@
+{
+  "id": "s-new",
+  "status": "DRAFT",
+  "employee": { "id": "emp-1", "matricule": "EMP-0001", "name": "Ada Lovelace" },
+  "period": {
+    "id": "p-jan-2026",
+    "name": "January 2026",
+    "startDate": "2026-01-01",
+    "endDate": "2026-01-31",
+    "frequency": "MONTHLY",
+    "closed": false
+  },
+  "country": { "id": "c-fr", "code": "FR", "name": "France" },
+  "department": { "id": "d-eng", "code": "ENG", "name": "Engineering" },
+  "role": { "id": "r-swe", "code": "SWE", "name": "Software Engineer" },
+  "employmentType": "FULL_TIME",
+  "amounts": {
+    "base": 1000,
+    "variable": 100,
+    "allowances": 50,
+    "employerTaxes": 200,
+    "total": 1350,
+    "currency": "EUR"
+  },
+  "assignment": {
+    "id": "a-1",
+    "startDate": "2025-10-01",
+    "endDate": null,
+    "hasPayroll": true,
+    "frequency": "MONTHLY"
+  }
+}

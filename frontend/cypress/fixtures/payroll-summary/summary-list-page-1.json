@@ -3,24 +3,66 @@
     {
       "id": "s-1",
       "status": "DRAFT",
-      "employee": { "id": "e-1", "matricule": "EMP-0001", "name": "Ada Lovelace" },
-      "period": { "id": "p-jan-2026", "name": "January 2026", "startDate": "2026-01-01", "endDate": "2026-01-31", "frequency": "MONTHLY", "closed": true },
+      "employee": { "id": "emp-1", "matricule": "EMP-0001", "name": "Ada Lovelace" },
+      "period": {
+        "id": "p-jan-2026",
+        "name": "January 2026",
+        "startDate": "2026-01-01",
+        "endDate": "2026-01-31",
+        "frequency": "MONTHLY",
+        "closed": false
+      },
       "country": { "id": "c-fr", "code": "FR", "name": "France" },
       "department": { "id": "d-eng", "code": "ENG", "name": "Engineering" },
       "role": { "id": "r-swe", "code": "SWE", "name": "Software Engineer" },
       "employmentType": "FULL_TIME",
-      "amounts": { "base": 1000, "variable": 100, "allowances": 50, "employerTaxes": 200, "total": 1350, "currency": "EUR" }
+      "amounts": {
+        "base": 1000,
+        "variable": 100,
+        "allowances": 50,
+        "employerTaxes": 200,
+        "total": 1350,
+        "currency": "EUR"
+      },
+      "assignment": {
+        "id": "a-1",
+        "startDate": "2025-10-01",
+        "endDate": null,
+        "hasPayroll": true,
+        "frequency": "MONTHLY"
+      }
     },
     {
       "id": "s-2",
       "status": "VALIDATED",
-      "employee": { "id": "e-2", "matricule": "EMP-0002", "name": "Elena Rostova" },
-      "period": { "id": "p-jan-2026", "name": "January 2026", "startDate": "2026-01-01", "endDate": "2026-01-31", "frequency": "MONTHLY", "closed": true },
-      "country": { "id": "c-fr", "code": "FR", "name": "France" },
-      "department": { "id": "d-eng", "code": "ENG", "name": "Engineering" },
-      "role": { "id": "r-swe", "code": "SWE", "name": "Software Engineer" },
-      "employmentType": "PART_TIME",
-      "amounts": { "base": 500, "variable": 50, "allowances": 25, "employerTaxes": 100, "total": 675, "currency": "EUR" }
+      "employee": { "id": "emp-3", "matricule": "EMP-0003", "name": "Grace Hopper" },
+      "period": {
+        "id": "p-jan-2026",
+        "name": "January 2026",
+        "startDate": "2026-01-01",
+        "endDate": "2026-01-31",
+        "frequency": "MONTHLY",
+        "closed": false
+      },
+      "country": { "id": "c-de", "code": "DE", "name": "Germany" },
+      "department": { "id": "d-ops", "code": "OPS", "name": "Operations" },
+      "role": { "id": "r-pm", "code": "PM", "name": "Product Manager" },
+      "employmentType": "FULL_TIME",
+      "amounts": {
+        "base": 2500,
+        "variable": 300,
+        "allowances": 100,
+        "employerTaxes": 500,
+        "total": 3400,
+        "currency": "EUR"
+      },
+      "assignment": {
+        "id": "a-2",
+        "startDate": "2024-03-01",
+        "endDate": null,
+        "hasPayroll": true,
+        "frequency": "MONTHLY"
+      }
     }
   ],
   "totalElements": 2,

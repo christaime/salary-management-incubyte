@@ -1,8 +1,10 @@
 {
   "content": [
-    { "id": "r-swe", "code": "SWE", "name": "Software Engineer" }
+    { "id": "r-swe", "code": "SWE", "name": "Software Engineer" },
+    { "id": "r-pm",  "code": "PM",  "name": "Product Manager" },
+    { "id": "r-acc", "code": "ACC", "name": "Accountant" }
   ],
-  "totalElements": 1,
+  "totalElements": 3,
   "totalPages": 1,
   "page": 0,
   "size": 20,
