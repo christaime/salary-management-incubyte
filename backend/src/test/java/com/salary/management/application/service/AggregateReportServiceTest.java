@@ -24,6 +24,7 @@ import com.salary.management.domain.repository.ReportDataRepository;
 import com.salary.management.domain.repository.criteria.PayrollPeriodCriteria;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -77,7 +78,12 @@ class AggregateReportServiceTest {
     @Mock
     private CurrencyRateRepository currencyRateRepository;
 
+    @Mock
+    private EntityManager entityManager;
+
     @InjectMocks
+    private ReportService baseService;
+
     private AggregateReportService service;
 
     private UUID FR_UUID;
@@ -85,6 +91,8 @@ class AggregateReportServiceTest {
     @BeforeEach
     void setup() {
         FR_UUID = UUID.randomUUID();
+        baseService = new ReportService(payrollPeriodAggregateRepository,payrollPeriodEarnerRankingRepository,snapshotBuilder, entityManager);
+        service = new AggregateReportService(reportDataRepository, currencyRateRepository, payrollPeriodRepository, baseService);
     }
 
     // ------------------------------------------------------------------

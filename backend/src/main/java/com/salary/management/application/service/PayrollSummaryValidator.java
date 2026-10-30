@@ -16,6 +16,7 @@ import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.domain.repository.*;
 import com.salary.management.infrastructure.persistence.projection.SummaryValidationRow;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ import java.util.UUID;
  * {@link Propagation#REQUIRES_NEW}: successful rows commit, failed rows roll
  * back without poisoning the loop.
  */
+@Slf4j                                                                                       // NEW
 @Component
 @RequiredArgsConstructor
 public class PayrollSummaryValidator {
@@ -45,11 +47,16 @@ public class PayrollSummaryValidator {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PayrollSummaryDetailDto validate(UUID summaryId) {
+        log.debug("Validating payroll summary: summaryId={}", summaryId);                      // NEW
+
         PayrollSummary summary = summaryRepository.findById(summaryId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "PayrollSummary not found: " + summaryId));
+                .orElseThrow(() -> {
+                    log.warn("Validation rejected: summaryId={} not found", summaryId);        // NEW
+                    return new ResourceNotFoundException("PayrollSummary not found: " + summaryId);
+                });
 
         if (summary.getStatus() == PayrollSummaryStatus.VALIDATED) {
+            log.debug("Summary {} already VALIDATED; returning as-is", summaryId);             // NEW
             return toDetail(summary);
         }
 
@@ -58,6 +65,8 @@ public class PayrollSummaryValidator {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "PayrollPeriod not found: " + summary.getPayrollPeriod().getId()));
         if (Boolean.TRUE.equals(period.getClosed())) {
+            log.warn("Validation rejected (PERIOD_CLOSED): summaryId={}, periodId={}",         // NEW
+                    summaryId, period.getId());
             throw new ConflictException(
                     "PERIOD_CLOSED",
                     "Payroll period " + period.getId() + " is closed",
@@ -71,12 +80,18 @@ public class PayrollSummaryValidator {
                                 + summary.getEmployeePeriodicAssignmentId()));
 
         if (!Boolean.TRUE.equals(assignment.getInEffect())) {
+            log.warn("Validation rejected (ASSIGNMENT_NOT_IN_EFFECT): summaryId={}, "
+                            + "assignmentId={}",                                               // NEW
+                    summaryId, assignment.getId());
             throw new ConflictException(
                     "ASSIGNMENT_NOT_IN_EFFECT",
                     "Assignment " + assignment.getId() + " is not in effect",
                     Map.of("assignmentId", assignment.getId()));
         }
         if (!covers(assignment, period)) {
+            log.warn("Validation rejected (ASSIGNMENT_DOES_NOT_COVER_PERIOD): "
+                            + "summaryId={}, assignmentId={}, periodId={}",                     // NEW
+                    summaryId, assignment.getId(), period.getId());
             throw new ConflictException(
                     "ASSIGNMENT_DOES_NOT_COVER_PERIOD",
                     "Assignment " + assignment.getId()
@@ -88,11 +103,15 @@ public class PayrollSummaryValidator {
         int updated = summaryRepository.updateStatus(
                 summaryId, PayrollSummaryStatus.DRAFT, PayrollSummaryStatus.VALIDATED);
         if (updated == 0) {
+            log.warn("Validation lost race (SUMMARY_NOT_DRAFT): summaryId={}",                 // NEW
+                    summaryId);
             throw new ConflictException(
                     "SUMMARY_NOT_DRAFT",
                     "Payroll summary " + summaryId + " is no longer in DRAFT",
                     Map.of("summaryId", summaryId));
         }
+        log.info("Payroll summary validated: summaryId={}", summaryId);                        // NEW
+
         // Reload to return the current row (with the new status).
         PayrollSummary validated = summary.withStatus(PayrollSummaryStatus.VALIDATED);
         return toDetail(validated);

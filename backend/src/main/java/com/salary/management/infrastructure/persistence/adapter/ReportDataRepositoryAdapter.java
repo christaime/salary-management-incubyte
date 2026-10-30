@@ -24,6 +24,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Selection;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -35,6 +36,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /** Persistence adapter implementing {@link ReportDataRepository}. */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ReportDataRepositoryAdapter implements ReportDataRepository {
@@ -47,6 +49,10 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
             List<UUID> periodIds,
             List<GroupKey> groupKeys,
             ReportEffectiveFilters filters) {
+        log.debug("queryAggregates periods={} groupKeys={} filters={}",
+                periodIds == null ? 0 : periodIds.size(),
+                groupKeys, describe(filters));
+
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> cq = cb.createTupleQuery();
         Root<PayrollPeriodAggregateEntity> root =
@@ -114,7 +120,10 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                     groupBy.add(path);
                     orders.add(cb.asc(path));
                 }
-                default -> throw new IllegalStateException("Unsupported group key: " + key);
+                default -> {
+                    log.error("queryAggregates: unsupported group key {}", key);
+                    throw new IllegalStateException("Unsupported group key: " + key);
+                }
             }
         }
 
@@ -175,7 +184,17 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         cq.groupBy(groupBy);
         cq.orderBy(orders);
 
-        List<Tuple> tuples = entityManager.createQuery(cq).getResultList();
+        List<Tuple> tuples;
+        try {
+            tuples = entityManager.createQuery(cq).getResultList();
+        } catch (RuntimeException ex) {
+            log.error("queryAggregates failed: periods={} groupKeys={} filters={}",
+                    periodIds, groupKeys, describe(filters), ex);
+            throw ex;
+        }
+
+        log.debug("queryAggregates returned {} tuple(s)", tuples.size());
+
         List<AggregateRowProjection> rows = new ArrayList<>(tuples.size());
         for (Tuple t : tuples) {
             rows.add(toAggregateProjection(t, groupKeys));
@@ -195,14 +214,24 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         if (groupKeys.size() == 1) {
             key = groupKeys.get(0);
         } else if (groupKeys.size() > 1) {
+            log.debug("queryStatistics skipped: {} group keys requested (only 1 supported)",
+                    groupKeys.size());
             return List.of();
         }
-        return dynamicStatisticsBuilder.minMax(
+
+        log.debug("queryStatistics periods={} group={} frequency={} referenceCurrency={} filters={}",
+                periodIds == null ? 0 : periodIds.size(), key, frequency,
+                referenceCurrencyCode, describe(filters));
+
+        List<AggregateRowProjection> result = dynamicStatisticsBuilder.minMax(
                 periodIds, key, frequency, referenceCurrencyCode,
                 nullIfEmpty(filters.countryIds()),
                 nullIfEmpty(filters.departmentIds()),
                 nullIfEmpty(filters.roleIds()),
                 nullIfEmpty(filters.employmentTypes()));
+
+        log.debug("queryStatistics returned {} row(s)", result == null ? 0 : result.size());
+        return result;
     }
 
     private AggregateRowProjection toAggregateProjection(Tuple t, List<GroupKey> groupKeys) {
@@ -215,7 +244,10 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
                 case EMPLOYMENT_TYPE -> p.employmentType =
                         t.get("employmentType", EmploymentType.class);
                 case CURRENCY -> p.currency = t.get("currency", String.class);
-                default -> throw new IllegalStateException("Unsupported group key: " + key);
+                default -> {
+                    log.error("toAggregateProjection: unsupported group key {}", key);
+                    throw new IllegalStateException("Unsupported group key: " + key);
+                }
             }
         }
         p.sumBase = t.get("sumBase", BigDecimal.class);
@@ -282,5 +314,18 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
         if (values != null && !values.isEmpty()) {
             predicates.add(root.get(field).in(values));
         }
+    }
+
+    /** Compact, log-safe description of the filters. */
+    private static String describe(ReportEffectiveFilters filters) {
+        if (filters == null) return "none";
+        return "countryIds=" + size(filters.countryIds())
+                + " departmentIds=" + size(filters.departmentIds())
+                + " roleIds=" + size(filters.roleIds())
+                + " employmentTypes=" + size(filters.employmentTypes());
+    }
+
+    private static int size(Collection<?> c) {
+        return c == null ? 0 : c.size();
     }
 }

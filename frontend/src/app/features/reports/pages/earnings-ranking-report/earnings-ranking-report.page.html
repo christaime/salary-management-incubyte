@@ -33,8 +33,9 @@
 
   <!-- Zone 1 — loading -->
   @if (isLoading()) {
-  <div class="text-sm text-slate-500" role="status">
-    Generating ranking report…
+  <div class="flex items-center gap-3 text-sm text-on-surface-variant" role="status">
+    <mat-spinner diameter="24" />
+    <span data-testid="aggregate-report-loading-text">Generating report…</span>
   </div>
   }
 

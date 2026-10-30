@@ -47,7 +47,7 @@ export class EarnerSpectrumComponent {
   }
 
   cadenceLabel(freq: 'MONTHLY' | 'BI_WEEKLY'): string {
-    return freq === 'MONTHLY' ? '/ mo' : '/ bi-wk';
+    return freq === 'MONTHLY' ? '/ mo [mo]' : '/ mo [bi-wk]';
   }
 
   countryFlag(code: string | null | undefined): string {

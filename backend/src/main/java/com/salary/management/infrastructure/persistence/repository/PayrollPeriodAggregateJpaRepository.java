@@ -40,7 +40,7 @@ public interface PayrollPeriodAggregateJpaRepository
             WHERE a.payrollPeriodId = :payrollPeriodId
               AND a.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.DRAFT
             """)
-    void deleteDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
+    int deleteDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
 
     /**
      * Groups VALIDATED payroll summaries across all periods whose {@code startDate}

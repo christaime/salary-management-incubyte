@@ -15,6 +15,8 @@ import com.salary.management.domain.model.*;
 import com.salary.management.domain.model.enums.*;
 import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.repository.*;
+import jakarta.persistence.EntityManager;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,33 +33,20 @@ import java.util.UUID;
 /** Generates the earner ranking report for a single payroll period. */
 @Slf4j
 @Service
-public class RankingReportService extends ReportService {
+@AllArgsConstructor
+public class RankingReportService {
 
     private static final int BASIS_POINTS = 10000;
     private static final int PERCENTILE_STEP = 100;
     private static final int[] PERCENTILE_LABELS = {0, 10, 25, 50, 75, 90, 100};
 
+    protected final PayrollPeriodRepository payrollPeriodRepository;
+    protected final PayrollPeriodEarnerRankingRepository payrollPeriodEarnerRankingRepository;
     private final PayrollPeriodAggregateRepository aggregateRepository;
     private final CurrencyRateRepository currencyRateRepository;
     private final EmployeePeriodicAssignmentRepository periodicAssignmentRepository;
+    private final ReportService baseService;
 
-    public RankingReportService(
-            PayrollPeriodRepository payrollPeriodRepository,
-            PayrollPeriodAggregateRepository payrollPeriodAggregateRepository,
-            PayrollPeriodEarnerRankingRepository payrollPeriodEarnerRankingRepository,
-            SnapshotBuilder snapshotBuilder,
-            PayrollPeriodAggregateRepository aggregateRepository,
-            CurrencyRateRepository currencyRateRepository, EmployeePeriodicAssignmentRepository periodicAssignmentRepository) {
-        super(payrollPeriodRepository,
-                payrollPeriodAggregateRepository,
-                payrollPeriodEarnerRankingRepository,
-                snapshotBuilder);
-        this.aggregateRepository = aggregateRepository;
-        this.currencyRateRepository = currencyRateRepository;
-        this.periodicAssignmentRepository = periodicAssignmentRepository;
-    }
-
-    @Override
     protected String referenceCurrency() {
         return currencyRateRepository.getReferenceCurrencyCode();
     }
@@ -89,9 +78,14 @@ public class RankingReportService extends ReportService {
             log.debug("Period {} is closed; skipping snapshot rebuild", period.getId());
             warnings = List.of();
         } else {
-            warnings = buildAndPersistSnapshots(List.of(period));
-            log.info("Snapshot rebuilt for period {}: {} warning(s)",
-                    period.getId(), warnings.size());
+            warnings = baseService.buildAndPersistSnapshots(List.of(period));
+            // NEW — distinguish "rebuild was clean" from "rebuild emitted warnings"
+            if (warnings.isEmpty()) {
+                log.debug("Snapshot rebuilt for period {} (no warnings)", period.getId());
+            } else {
+                log.info("Snapshot rebuilt for period {}: {} warning(s): {}",
+                        period.getId(), warnings.size(), warnings);
+            }
         }
 
         // Fetch only the rows that belong to the requested dimension.
@@ -110,8 +104,25 @@ public class RankingReportService extends ReportService {
                 inScopeRankings.size(), inScopePercentiles.size(),
                 period.getId(), request.groupKey());
 
+        // NEW — an empty ranking set produces a "successful" but useless report.
+        // Surface it as a warn so a missing snapshot doesn't hide behind a 200.
+        if (inScopeRankings.isEmpty()) {
+            log.warn("No earner ranking rows for period {} (group={}, dimension={}) — "
+                            + "report will be empty; check snapshot persistence or filters",
+                    period.getId(), request.groupKey(), describeDimension(request));
+        }
+
         PositionContextDto positionContext = buildPositionContext(inScopePercentiles);
         int totalEmployees = positionContext == null ? 0 : positionContext.employeeCount();
+
+        // NEW — percentile context is optional, but its absence changes the
+        // semantics of every per-employee `percentile` field (null vs badge).
+        // Log it so the difference is visible in ops.
+        if (positionContext == null) {
+            log.warn("No percentile distribution for period {} (group={}); "
+                            + "per-employee percentile badges will be null",
+                    period.getId(), request.groupKey());
+        }
 
         List<EarnerRankingDto> tops = inScopeRankings.stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
@@ -155,6 +166,7 @@ public class RankingReportService extends ReportService {
 
         return response;
     }
+
     // ------------------------------------------------------------------
     // Validation
     // ------------------------------------------------------------------
@@ -169,6 +181,10 @@ public class RankingReportService extends ReportService {
                 request.countryId(), request.departmentId(),
                 request.roleId(), request.employmentType());
         if (!errors.isEmpty()) {
+            // NEW — surface rejected requests server-side. Without this, a bad
+            // request produces a 400 for the client but no trace on the server.
+            log.warn("Ranking report rejected: {} validation error(s): {}",
+                    errors.size(), errors);
             throw new DomainValidationException(errors);
         }
     }
@@ -235,7 +251,6 @@ public class RankingReportService extends ReportService {
                 "when groupKey = " + key + ", the following fields must be null: "
                         + String.join(", ", fields), Map.of());
     }
-
 
     /**
      * Tests whether a row's dimension columns belong to the requested group.
@@ -416,9 +431,10 @@ public class RankingReportService extends ReportService {
                 .closed(p.getClosed())
                 .build();
     }
+
     /** Compact description of the requested dimension, for logging. */
     private String describeDimension(EarningRankingReportRequest request) {
-        if(request.groupKey() == null) return "GLOBAL";
+        if (request.groupKey() == null) return "GLOBAL";
         return switch (request.groupKey()) {
             case COUNTRY -> "COUNTRY:" + request.countryId();
             case DEPARTMENT -> "DEPARTMENT:" + request.departmentId();

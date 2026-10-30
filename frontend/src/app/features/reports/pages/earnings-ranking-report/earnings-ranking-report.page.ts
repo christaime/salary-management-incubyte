@@ -18,7 +18,7 @@ import { EarnerSpectrumComponent } from '../../components/earner-spectrum/earner
 import { EarningsRankingReportFormComponent } from '../../components/earnings-ranking-report-form/earnings-ranking-report-form.component';
 import { BlockerBannerComponent } from '../../components/blocker-banner/blocker-banner.component';
 import { WarningBannerComponent } from '../../components/warning-banner/warning-banner.component';
-
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { PageState } from '@core/models';
 
 @Component({
@@ -30,6 +30,7 @@ import { PageState } from '@core/models';
     EarnerSpectrumComponent,
     BlockerBannerComponent,
     WarningBannerComponent,
+    MatProgressSpinnerModule
   ],
   templateUrl: './earnings-ranking-report.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,

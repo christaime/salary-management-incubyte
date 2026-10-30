@@ -16,6 +16,7 @@ import com.salary.management.infrastructure.persistence.repository.*;
 import com.salary.management.infrastructure.persistence.specification.PayrollPeriodAggregateSpecification;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 /** Persistence adapter implementing {@link PayrollPeriodAggregateRepository}. */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PayrollPeriodAggregateRepositoryAdapter
@@ -39,17 +41,27 @@ public class PayrollPeriodAggregateRepositoryAdapter
 
     @Override
     public void saveAll(List<PayrollPeriodAggregate> aggregates) {
+        if (aggregates == null || aggregates.isEmpty()) {
+            log.debug("saveAll(aggregates) called with no entries; skipping");
+            return;
+        }
+        log.debug("Saving {} payroll period aggregate(s)", aggregates.size());
         List<PayrollPeriodAggregateEntity> entities = aggregates.stream()
                 .map(this::toValidatedEntity)
                 .toList();
         jpaRepository.saveAll(entities);
+        log.debug("Saved {} payroll period aggregate(s)", entities.size());
     }
 
     @Override
     public List<PayrollPeriodAggregate> findByPayrollPeriodId(UUID payrollPeriodId) {
-        return jpaRepository.findByPayrollPeriodId(payrollPeriodId).stream()
+        List<PayrollPeriodAggregate> result = jpaRepository
+                .findByPayrollPeriodId(payrollPeriodId).stream()
                 .map(this::toDomain)
                 .toList();
+        log.debug("findByPayrollPeriodId({}) returned {} aggregate(s)",
+                payrollPeriodId, result.size());
+        return result;
     }
 
     @Override
@@ -57,17 +69,25 @@ public class PayrollPeriodAggregateRepositoryAdapter
         Sort sort = CriteriaUtils.toSpringSort(criteria);
         List<PayrollPeriodAggregateEntity> entities = jpaRepository.findAll(
                 PayrollPeriodAggregateSpecification.build(criteria), sort);
+        log.debug("list(aggregateCriteria) returned {} aggregate(s)", entities.size());
         return entities.stream().map(this::toDomain).toList();
     }
 
     @Override
-    public void deleteDraftsByPayrollPeriodId(UUID payrollPeriodId) {
-        jpaRepository.deleteDraftsByPayrollPeriodId(payrollPeriodId);
+    public int deleteDraftsByPayrollPeriodId(UUID payrollPeriodId) {
+        log.debug("Deleting DRAFT payroll period aggregates for period {}", payrollPeriodId);
+        return jpaRepository.deleteDraftsByPayrollPeriodId(payrollPeriodId);
     }
 
     @Override
-    public List<GroupedSummary> aggregateByGroup(UUID payrollPeriodId, LocalDate startDate, LocalDate endDate) {
-        return jpaRepository.aggregateByGroup(startDate, endDate).stream()
+    public List<GroupedSummary> aggregateByGroup(UUID payrollPeriodId,
+                                                 LocalDate startDate,
+                                                 LocalDate endDate) {
+        log.debug("aggregateByGroup period={} range=[{}, {}]",
+                payrollPeriodId, startDate, endDate);
+
+        List<GroupedSummary> result = jpaRepository.aggregateByGroup(startDate, endDate)
+                .stream()
                 .map(row -> new GroupedSummary(
                         payrollPeriodId,
                         row.getCountryId(),
@@ -82,16 +102,29 @@ public class PayrollPeriodAggregateRepositoryAdapter
                         row.getEmployerTaxes(),
                         row.getTotal()))
                 .toList();
+
+        log.debug("aggregateByGroup period={} returned {} group(s)",
+                payrollPeriodId, result.size());
+        return result;
     }
 
     @Override
     public BigDecimal sumReferenceTotalByPeriodId(UUID payrollPeriodId) {
-        return jpaRepository.sumReferenceTotalByPeriodId(payrollPeriodId);
+        BigDecimal total = jpaRepository.sumReferenceTotalByPeriodId(payrollPeriodId);
+        log.trace("sumReferenceTotalByPeriodId({}) = {}", payrollPeriodId, total);
+        return total;
     }
 
     @Override
-    public BigDecimal sumReferenceTotalByPeriodAndDimension(UUID payrollPeriodId, UUID countryId, UUID departmentId, UUID roleId, EmploymentType employmentType) {
-        return jpaRepository.sumReferenceTotalByPeriodAndDimension(payrollPeriodId,countryId,departmentId,roleId,employmentType);
+    public BigDecimal sumReferenceTotalByPeriodAndDimension(
+            UUID payrollPeriodId, UUID countryId, UUID departmentId,
+            UUID roleId, EmploymentType employmentType) {
+        BigDecimal total = jpaRepository.sumReferenceTotalByPeriodAndDimension(
+                payrollPeriodId, countryId, departmentId, roleId, employmentType);
+        log.trace("sumReferenceTotalByPeriodAndDimension(period={}, country={}, "
+                        + "department={}, role={}, employmentType={}) = {}",
+                payrollPeriodId, countryId, departmentId, roleId, employmentType, total);
+        return total;
     }
 
     /**
@@ -101,19 +134,23 @@ public class PayrollPeriodAggregateRepositoryAdapter
     private PayrollPeriodAggregateEntity toValidatedEntity(PayrollPeriodAggregate aggregate) {
         UUID payrollPeriodId = aggregate.getPayrollPeriod().getId();
         if (!payrollPeriodJpaRepository.existsById(payrollPeriodId)) {
+            log.warn("Aggregate rejected: payroll period {} not found", payrollPeriodId);
             throw new EntityNotFoundException(
                     "PayrollPeriod not found: " + payrollPeriodId);
         }
         UUID countryId = aggregate.getCountry().getId();
         if (!countryJpaRepository.existsById(countryId)) {
+            log.warn("Aggregate rejected: country {} not found", countryId);
             throw new EntityNotFoundException("Country not found: " + countryId);
         }
         UUID departmentId = aggregate.getDepartment().getId();
         if (!departmentJpaRepository.existsById(departmentId)) {
+            log.warn("Aggregate rejected: department {} not found", departmentId);
             throw new EntityNotFoundException("Department not found: " + departmentId);
         }
         UUID roleId = aggregate.getRole().getId();
         if (!roleJpaRepository.existsById(roleId)) {
+            log.warn("Aggregate rejected: role {} not found", roleId);
             throw new EntityNotFoundException("Role not found: " + roleId);
         }
         return mapper.toEntity(aggregate);

@@ -40,7 +40,7 @@ public interface PayrollPeriodEarnerRankingJpaRepository
             WHERE r.payrollPeriodId = :payrollPeriodId
               AND r.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.DRAFT
             """)
-    void deleteDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
+    int deleteDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
 
     /**
      * Top {@code limit} employees per group by reference amount DESC, over VALIDATED

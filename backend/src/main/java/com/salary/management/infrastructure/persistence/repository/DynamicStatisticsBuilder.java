@@ -13,6 +13,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
 import jakarta.persistence.TypedQuery;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -23,6 +24,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Component
+@Slf4j
 @RequiredArgsConstructor
 public class DynamicStatisticsBuilder {
 
@@ -61,6 +63,19 @@ public class DynamicStatisticsBuilder {
             Collection<UUID> roleIds,
             Collection<EmploymentType> employmentTypes) {
 
+        if (log.isDebugEnabled()) {
+            log.debug("minMax: start — periods={} key={} frequency={} referenceCurrency={} "
+                            + "countries={} departments={} roles={} employmentTypes={}",
+                    countOf(periodIds),
+                    key,
+                    frequency,
+                    referenceCurrencyCode,
+                    countOf(countryIds),
+                    countOf(departmentIds),
+                    countOf(roleIds),
+                    countOf(employmentTypes));
+        }
+
         String selectGroupColumn = selectGroupColumn(key);
         String groupByClause = groupByClause(key);
         String partitionFilter = partitionFilter(key);
@@ -97,6 +112,8 @@ public class DynamicStatisticsBuilder {
                 %s
                 """.formatted(selectGroupColumn, partitionFilter, filter, groupByClause);
 
+        log.trace("minMax: JPQL:\n{}", jpql);
+
         TypedQuery<Tuple> query = entityManager.createQuery(jpql, Tuple.class)
                 .setParameter("periodIds", periodIds)
                 .setParameter("frequency", frequency)
@@ -114,10 +131,33 @@ public class DynamicStatisticsBuilder {
             query.setParameter("employmentTypes", employmentTypes);
         }
 
-        return query.getResultList().stream()
+        List<Tuple> tuples;
+        try {
+            tuples = query.getResultList();
+        } catch (RuntimeException ex) {
+            log.error("minMax: query failed — key={} frequency={} referenceCurrency={} "
+                            + "periods={} countries={} departments={} roles={} employmentTypes={}",
+                    key, frequency, referenceCurrencyCode,
+                    countOf(periodIds), countOf(countryIds), countOf(departmentIds),
+                    countOf(roleIds), countOf(employmentTypes),
+                    ex);
+            throw ex;
+        }
+
+        int rawCount = tuples.size();
+        List<AggregateRowProjection> projections = tuples.stream()
                 .map(t -> toProjection(t, key))
                 .filter(Objects::nonNull)
                 .toList();
+
+        if (rawCount != projections.size()) {
+            log.debug("minMax: dropped {} of {} tuples (null min & max) — key={} frequency={}",
+                    rawCount - projections.size(), rawCount, key, frequency);
+        }
+        log.debug("minMax: done — key={} frequency={} partitions={}",
+                key, frequency, projections.size());
+
+        return projections;
     }
 
     private String selectGroupColumn(GroupKey key) {
@@ -215,17 +255,29 @@ public class DynamicStatisticsBuilder {
         AggregateRowProjection p = new AggregateRowProjection();
         if (key == GroupKey.COUNTRY) {
             UUID countryId = t.get("countryId", UUID.class);
-            CountryEntity c = countryJpaRepository.findById(countryId).orElseThrow();
+            CountryEntity c = countryJpaRepository.findById(countryId).orElse(null);
+            if (c == null) {
+                log.warn("minMax toProjection: country {} referenced by ranking row not found", countryId);
+                throw new IllegalStateException("Country not found: " + countryId);
+            }
             p.country = new RefDto(c.getId(), c.getIsoCode(), c.getName());
         }
         if (key == GroupKey.DEPARTMENT) {
             UUID departmentId = t.get("departmentId", UUID.class);
-            DepartmentEntity d = departmentJpaRepository.findById(departmentId).orElseThrow();
+            DepartmentEntity d = departmentJpaRepository.findById(departmentId).orElse(null);
+            if (d == null) {
+                log.warn("minMax toProjection: department {} referenced by ranking row not found", departmentId);
+                throw new IllegalStateException("Department not found: " + departmentId);
+            }
             p.department = new RefDto(d.getId(), d.getCode(), d.getName());
         }
         if (key == GroupKey.ROLE) {
             UUID roleId = t.get("roleId", UUID.class);
-            RoleEntity r = roleJpaRepository.findById(roleId).orElseThrow();
+            RoleEntity r = roleJpaRepository.findById(roleId).orElse(null);
+            if (r == null) {
+                log.warn("minMax toProjection: role {} referenced by ranking row not found", roleId);
+                throw new IllegalStateException("Role not found: " + roleId);
+            }
             p.role = new RefDto(r.getId(), r.getCode(), r.getName());
         }
         if (key == GroupKey.EMPLOYMENT_TYPE) {
@@ -241,5 +293,9 @@ public class DynamicStatisticsBuilder {
         p.maxReferenceAmount = max == null ? null
                 : max.setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP);
         return p;
+    }
+
+    private static int countOf(Collection<?> c) {
+        return c == null ? 0 : c.size();
     }
 }

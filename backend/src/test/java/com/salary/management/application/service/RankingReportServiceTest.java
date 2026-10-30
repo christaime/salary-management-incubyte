@@ -33,10 +33,12 @@ import com.salary.management.domain.repository.EmployeePeriodicAssignmentReposit
 import com.salary.management.domain.repository.PayrollPeriodAggregateRepository;
 import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
 import com.salary.management.domain.repository.PayrollPeriodRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -86,6 +88,11 @@ class RankingReportServiceTest {
 
     private RankingReportService service;
 
+    private ReportService baseService;
+
+    @Mock
+    private EntityManager entityManager;
+
     private UUID PERIOD_ID;
     private UUID FR;
     private UUID DE;
@@ -104,14 +111,14 @@ class RankingReportServiceTest {
         EMPLOYEE_1 = UUID.randomUUID();
         EMPLOYEE_2 = UUID.randomUUID();
 
+        baseService = new ReportService(payrollPeriodAggregateRepository,payrollPeriodEarnerRankingRepository,snapshotBuilder, entityManager);
         service = new RankingReportService(
                 payrollPeriodRepository,
-                payrollPeriodAggregateRepository,
                 payrollPeriodEarnerRankingRepository,
-                snapshotBuilder,
                 payrollPeriodAggregateRepository,
                 currencyRateRepository,
-                periodicAssignmentRepository);
+                periodicAssignmentRepository,
+                baseService);
 
         // Default: no assignment matches the period range, so DTO dimension
         // fields fall back to the ranking row's captured values.

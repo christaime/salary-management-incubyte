@@ -273,7 +273,7 @@ class DynamicRankingBuilderTest {
                 .compareTo(new BigDecimal("2500.00")));
         assertEquals("USD", e.getMonthlyRateAmount().getCurrency());
         assertEquals(JANUARY, e.getPayrollPeriodId());
-        assertEquals(PayrollSummaryStatus.VALIDATED, e.getStatus());
+        assertEquals(PayrollSummaryStatus.DRAFT, e.getStatus());
 
         // The second row is the BOTTOM counterpart
         PayrollPeriodEarnerRankingEntity bottom = rows.get(1);

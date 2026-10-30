@@ -45,19 +45,30 @@ public class PayrollSummaryService {
     @Transactional(readOnly = true)
     public DataPage<PayrollSummaryDto> page(PayrollSummarySearchRequest request) {
         PayrollSummaryCriteria criteria = toCriteria(request);
+        // NEW — one info-free line per page call; debug so list pagination isn't noisy.
+        log.debug("Listing payroll summaries: range={}..{}, status={}, nonExistent={}, "
+                        + "employeeId={}, freq={}, page={}, size={}",
+                criteria.rangeStart(), criteria.rangeEnd(),
+                criteria.status(), criteria.nonExistent(),
+                criteria.employeeId(), criteria.payrollFrequency(),
+                criteria.page(), criteria.size());
         DataPage<PayrollSummary> source = Boolean.TRUE.equals(criteria.nonExistent()) ?
                 summaryRepository.pageNonExistent(criteria) : summaryRepository.page(criteria);
         List<PayrollSummaryDto> content = source.content().stream()
                 .map(this::toDto)
                 .toList();
+        log.debug("Listed {} payroll summaries ({} of {} total)",
+                content.size(), source.page(), source.totalElements());                       // NEW
         return new DataPage<>(content, source.page(), source.size(), source.totalElements());
     }
 
     @Transactional(readOnly = true)
     public PayrollSummaryDetailDto findById(UUID id) {
         PayrollSummary summary = summaryRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "PayrollSummary not found: " + id));
+                .orElseThrow(() -> {
+                    log.warn("PayrollSummary not found: id={}", id);                           // NEW
+                    return new ResourceNotFoundException("PayrollSummary not found: " + id);
+                });
         return toDetail(summary);
     }
 
@@ -67,6 +78,9 @@ public class PayrollSummaryService {
 
     @Transactional
     public PayrollSummaryDetailDto create(PayrollSummaryCreateRequest request) {
+        log.info("Creating payroll summary: employeeId={}, periodId={}, assignmentId={}",     // NEW
+                request.employeeId(), request.periodId(), request.assignmentId());
+
         Employee employee = employeeRepository.findById(request.employeeId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Employee not found: " + request.employeeId()));
@@ -74,6 +88,8 @@ public class PayrollSummaryService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "PayrollPeriod not found: " + request.periodId()));
         if (Boolean.TRUE.equals(period.getClosed())) {
+            log.warn("Create rejected (PERIOD_CLOSED): periodId={}, periodName={}",            // NEW
+                    period.getId(), period.getName());
             throw new ConflictException(
                     "PERIOD_CLOSED",
                     "Payroll period " + period.getName() + " is closed",
@@ -84,6 +100,9 @@ public class PayrollSummaryService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "EmployeePeriodicAssignment not found: " + request.assignmentId()));
         if (!assignment.getEmployeeId().equals(employee.getId())) {
+            log.warn("Create rejected (ASSIGNMENT_NOT_FOR_EMPLOYEE): assignmentId={}, "
+                            + "expectedEmployeeId={}, actualEmployeeId={}",                     // NEW
+                    assignment.getId(), employee.getId(), assignment.getEmployeeId());
             throw new ConflictException(
                     "ASSIGNMENT_NOT_FOR_EMPLOYEE",
                     "Assignment " + assignment.getId()
@@ -92,12 +111,17 @@ public class PayrollSummaryService {
                             "employeeId", employee.getId()));
         }
         if (!Boolean.TRUE.equals(assignment.getInEffect())) {
+            log.warn("Create rejected (ASSIGNMENT_NOT_IN_EFFECT): assignmentId={}",            // NEW
+                    assignment.getId());
             throw new ConflictException(
                     "ASSIGNMENT_NOT_IN_EFFECT",
                     "Assignment " + assignment.getId() + " is not in effect",
                     Map.of("assignmentId", assignment.getId()));
         }
         if (!covers(assignment, period)) {
+            log.warn("Create rejected (ASSIGNMENT_DOES_NOT_COVER_PERIOD): "
+                            + "assignmentId={}, periodId={}",                                   // NEW
+                    assignment.getId(), period.getId());
             throw new ConflictException(
                     "ASSIGNMENT_DOES_NOT_COVER_PERIOD",
                     "Assignment " + assignment.getId()
@@ -108,6 +132,9 @@ public class PayrollSummaryService {
         summaryRepository.findByEmployeeIdAndPayrollPeriodId(
                         employee.getId(), period.getId())
                 .ifPresent(existing -> {
+                    log.warn("Create rejected (SUMMARY_ALREADY_EXISTS): employeeId={}, "
+                                    + "periodId={}, existingSummaryId={}",                     // NEW
+                            employee.getId(), period.getId(), existing.getId());
                     throw new ConflictException(
                             "SUMMARY_ALREADY_EXISTS",
                             "A payroll summary already exists for employee "
@@ -131,6 +158,9 @@ public class PayrollSummaryService {
                 .status(PayrollSummaryStatus.DRAFT)
                 .build());
 
+        log.info("Payroll summary created: summaryId={}, employeeId={}, periodId={}",          // NEW
+                created.getId(), employee.getId(), period.getId());
+
         return mapper.toDetail(created, employee,
                 assignment.getCountry(), assignment.getDepartment(),
                 assignment.getRole(), assignment);
@@ -142,10 +172,14 @@ public class PayrollSummaryService {
 
     @Transactional
     public PayrollSummaryDetailDto update(UUID id, PayrollSummaryUpdateRequest request) {
+        log.info("Updating payroll summary: id={}, assignmentId={}", id, request.assignmentId()); // NEW
+
         PayrollSummary existing = summaryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "PayrollSummary not found: " + id));
         if (existing.getStatus() != PayrollSummaryStatus.DRAFT) {
+            log.warn("Update rejected (SUMMARY_NOT_DRAFT): summaryId={}, status={}",           // NEW
+                    id, existing.getStatus());
             throw new ConflictException(
                     "SUMMARY_NOT_DRAFT",
                     "Only DRAFT payroll summaries can be edited",
@@ -157,6 +191,8 @@ public class PayrollSummaryService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "PayrollPeriod not found: " + existing.getPayrollPeriod().getId()));
         if (Boolean.TRUE.equals(period.getClosed())) {
+            log.warn("Update rejected (PERIOD_CLOSED): summaryId={}, periodId={}",             // NEW
+                    id, period.getId());
             throw new ConflictException(
                     "PERIOD_CLOSED",
                     "Payroll period " + period.getName() + " is closed",
@@ -164,14 +200,22 @@ public class PayrollSummaryService {
         }
 
         PayrollSummary updated = existing;
+        boolean assignmentChanged = false;                                                    // NEW
 
         // Assignment change?
         if (!request.assignmentId().equals(existing.getEmployeePeriodicAssignmentId())) {
+            assignmentChanged = true;                                                          // NEW
+            log.debug("Assignment changing on summary {}: {} -> {}",                           // NEW
+                    id, existing.getEmployeePeriodicAssignmentId(), request.assignmentId());
             EmployeePeriodicAssignment newAssignment = assignmentRepository
                     .findById(request.assignmentId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "EmployeePeriodicAssignment not found: " + request.assignmentId()));
             if (!newAssignment.getEmployeeId().equals(existing.getEmployeeId())) {
+                log.warn("Update rejected (ASSIGNMENT_NOT_FOR_EMPLOYEE): summaryId={}, "
+                                + "assignmentId={}, expectedEmployeeId={}, actualEmployeeId={}", // NEW
+                        id, newAssignment.getId(),
+                        existing.getEmployeeId(), newAssignment.getEmployeeId());
                 throw new ConflictException(
                         "ASSIGNMENT_NOT_FOR_EMPLOYEE",
                         "Assignment " + newAssignment.getId()
@@ -180,12 +224,18 @@ public class PayrollSummaryService {
                                 "employeeId", existing.getEmployeeId()));
             }
             if (!Boolean.TRUE.equals(newAssignment.getInEffect())) {
+                log.warn("Update rejected (ASSIGNMENT_NOT_IN_EFFECT): summaryId={}, "
+                                + "assignmentId={}",                                                // NEW
+                        id, newAssignment.getId());
                 throw new ConflictException(
                         "ASSIGNMENT_NOT_IN_EFFECT",
                         "Assignment " + newAssignment.getId() + " is not in effect",
                         Map.of("assignmentId", newAssignment.getId()));
             }
             if (!covers(newAssignment, period)) {
+                log.warn("Update rejected (ASSIGNMENT_DOES_NOT_COVER_PERIOD): "
+                                + "summaryId={}, assignmentId={}, periodId={}",                 // NEW
+                        id, newAssignment.getId(), period.getId());
                 throw new ConflictException(
                         "ASSIGNMENT_DOES_NOT_COVER_PERIOD",
                         "Assignment " + newAssignment.getId()
@@ -203,6 +253,8 @@ public class PayrollSummaryService {
         updated = updated.withAmounts(amounts);
 
         PayrollSummary saved = summaryRepository.save(updated);
+        log.info("Payroll summary updated: summaryId={}, assignmentChanged={}",                 // NEW
+                saved.getId(), assignmentChanged);
         return toDetail(saved);
     }
 
@@ -212,16 +264,20 @@ public class PayrollSummaryService {
 
     @Transactional
     public void delete(UUID id) {
+        log.info("Deleting payroll summary: id={}", id);                                        // NEW
         PayrollSummary existing = summaryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "PayrollSummary not found: " + id));
         if (existing.getStatus() != PayrollSummaryStatus.DRAFT) {
+            log.warn("Delete rejected (SUMMARY_NOT_DRAFT): summaryId={}, status={}",           // NEW
+                    id, existing.getStatus());
             throw new ConflictException(
                     "SUMMARY_NOT_DRAFT",
                     "Only DRAFT payroll summaries can be deleted",
                     Map.of("summaryId", id, "status", existing.getStatus()));
         }
         summaryRepository.deleteById(id);
+        log.info("Payroll summary deleted: id={}", id);                                        // NEW
     }
 
     // ------------------------------------------------------------------
@@ -229,6 +285,7 @@ public class PayrollSummaryService {
     // ------------------------------------------------------------------
 
     public PayrollSummaryDetailDto validate(UUID id) {
+        log.debug("Delegating single validation to validator: summaryId={}", id);              // NEW
         return validator.validate(id);
     }
 
@@ -254,7 +311,9 @@ public class PayrollSummaryService {
      */
     @Transactional
     public ValidateAllResult validateAll(PayrollSummaryValidateRequest request) {
-        if(request.rangeStart() == null || request.rangeEnd() == null){
+        if (request.rangeStart() == null || request.rangeEnd() == null) {
+            log.warn("Bulk validation rejected: missing range (start={}, end={})",              // NEW
+                    request.rangeStart(), request.rangeEnd());
             throw new IllegalArgumentException("A date range must be selected to validate bulk summaries");
         }
 
@@ -263,10 +322,18 @@ public class PayrollSummaryService {
         Set<UUID> roleIds            = request.anyRoleIds();
         Set<EmploymentType> empTypes = request.anyEmploymentTypes();
 
+        log.info("Bulk validation started: range={}..{}, employeeId={}, freq={}, "
+                        + "filters={countries={}, departments={}, roles={}, employmentTypes={}}", // NEW
+                request.rangeStart(), request.rangeEnd(), request.employeeId(),
+                request.payrollFrequency(),
+                sizeOf(countryIds), sizeOf(departmentIds),
+                sizeOf(roleIds), sizeOf(empTypes));
+
         int total = 0;
         int validated = 0;
         List<ValidateAllResult.Failure> failures = new ArrayList<>();
         UUID cursor = null;
+        int batchIndex = 0;                                                                    // NEW
 
         while (true) {
             DataPage<SummaryValidationRow> page = summaryRepository.findValidationRows(
@@ -283,6 +350,7 @@ public class PayrollSummaryService {
                 break;
             }
 
+            batchIndex++;                                                                      // NEW
             List<UUID> ok = new ArrayList<>(page.content().size());
             for (SummaryValidationRow row : page.content()) {
                 total++;
@@ -294,6 +362,10 @@ public class PayrollSummaryService {
                 }
             }
 
+            log.debug("Bulk validation batch {}: {} row(s), {} ok, {} failed",                // NEW
+                    batchIndex, page.content().size(),
+                    ok.size(), page.content().size() - ok.size());
+
             if (!ok.isEmpty()) {
                 int updated = summaryRepository.bulkUpdateStatus(
                         ok, PayrollSummaryStatus.DRAFT, PayrollSummaryStatus.VALIDATED);
@@ -302,6 +374,9 @@ public class PayrollSummaryService {
                 } else {
                     // Some rows lost the race between the projection and the
                     // update: re-query their current status once.
+                    log.info("Bulk validation race detected in batch {}: {} of {} rows "
+                                    + "were not updated; reconciling",                     // NEW
+                            batchIndex, ok.size() - updated, ok.size());
                     Set<UUID> confirmed = summaryRepository.findIdsWithStatus(
                             ok, PayrollSummaryStatus.VALIDATED);
                     validated += confirmed.size();
@@ -320,6 +395,9 @@ public class PayrollSummaryService {
             // excluded set and there is no skip-a-row risk under shrinking sets.
             cursor = page.content().get(page.content().size() - 1).summaryId();
         }
+
+        log.info("Bulk validation finished: total={}, validated={}, failed={}, batches={}",   // NEW
+                total, validated, failures.size(), batchIndex);
 
         return new ValidateAllResult(total, validated, failures.size(), failures);
     }
@@ -395,5 +473,10 @@ public class PayrollSummaryService {
                 .page(request.page())
                 .size(request.size())
                 .build();
+    }
+
+    /** NEW — null-safe size helper for the bulk-validation entry log. */
+    private static int sizeOf(Collection<?> c) {
+        return c == null ? 0 : c.size();
     }
 }
