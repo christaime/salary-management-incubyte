@@ -64,8 +64,8 @@ describe('Payroll summary list page', () => {
   }
 
   /**
-   * Selects an employee. The picker is debounce-driven (no button) — typing
-   * 3+ chars fires the search ~300ms later. Then click the first result.
+   * Debounce-driven employee picker (no button). Typing 3+ chars fires the
+   * search ~300 ms later. Then click the first result.
    */
   function pickEmployee(query = 'ada'): void {
     cy.get('[data-testid="filter-employee-picker"]')
@@ -477,7 +477,7 @@ describe('Payroll summary list page', () => {
   // 6. Bulk validate
   // ------------------------------------------------------------------
 
-  it('disables the bulk-validate button until a start period is selected', () => {
+  it('disables the bulk-validate button until the filter is applied', () => {
     cy.intercept('GET', '**/api/v1/payroll-summaries*', {
       fixture: 'payroll-summary/summary-list-empty.json',
     }).as('searchPayrollSummaries');
@@ -489,10 +489,12 @@ describe('Payroll summary list page', () => {
       .and('contain', 'Validate all drafts');
 
     pickPeriod('filter-start-period', 2026, 'p-jan-2026');
+    cy.get('[data-testid="filter-apply"]').click();
+    cy.wait('@searchPayrollSummaries');
 
     cy.get('[data-testid="payroll-summary-bulk-validate"]')
       .should('be.enabled')
-      .and('contain', 'Validate payrolls on January 2026');
+      .and('contain', 'January 2026');
   });
 
   it('runs a successful bulk validate and shows the result counts', () => {
@@ -506,13 +508,18 @@ describe('Payroll summary list page', () => {
 
     visitList();
     pickPeriod('filter-start-period', 2026, 'p-jan-2026');
+    cy.get('[data-testid="filter-apply"]').click();
+    cy.wait('@searchPayrollSummaries');
+
     cy.get('[data-testid="payroll-summary-bulk-validate"]').click();
 
     cy.get('[data-testid="bulk-validate-dialog"]').should('be.visible');
     cy.get('[data-testid="bulk-validate-confirm"]').click();
 
     cy.wait('@validateAll').then(({ request }) => {
-      expect(request.body.periodId).to.eq('p-jan-2026');
+      expect(request.body.rangeStart).to.eq('2026-01-01');
+      expect(request.body.rangeEnd).to.eq('2026-01-31');
+      expect(request.body.periodId).to.be.undefined;
     });
 
     cy.get('[data-testid="bulk-result-total"]').should('have.attr', 'data-value', '5');
@@ -533,6 +540,9 @@ describe('Payroll summary list page', () => {
 
     visitList();
     pickPeriod('filter-start-period', 2026, 'p-jan-2026');
+    cy.get('[data-testid="filter-apply"]').click();
+    cy.wait('@searchPayrollSummaries');
+
     cy.get('[data-testid="payroll-summary-bulk-validate"]').click();
     cy.get('[data-testid="bulk-validate-confirm"]').click();
     cy.wait('@validateAll');
@@ -553,6 +563,9 @@ describe('Payroll summary list page', () => {
 
     visitList();
     pickPeriod('filter-start-period', 2026, 'p-jan-2026');
+    cy.get('[data-testid="filter-apply"]').click();
+    cy.wait('@searchPayrollSummaries');
+
     cy.get('[data-testid="payroll-summary-bulk-validate"]').click();
     cy.get('[data-testid="bulk-validate-confirm"]').click();
     cy.wait('@validateAll');
@@ -572,6 +585,9 @@ describe('Payroll summary list page', () => {
 
     visitList();
     pickPeriod('filter-start-period', 2026, 'p-jan-2026');
+    cy.get('[data-testid="filter-apply"]').click();
+    cy.wait('@searchPayrollSummaries');
+
     cy.get('[data-testid="payroll-summary-bulk-validate"]').click();
     cy.get('[data-testid="bulk-validate-dialog"]').should('be.visible');
     cy.get('[data-testid="bulk-validate-cancel"]').click();

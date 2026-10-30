@@ -31,14 +31,30 @@ describe('Payroll summary detail page', () => {
   it('renders the placement card with all fields', () => {
     visitDetail();
 
+    // Placement card now hosts the shared assignment-display component
+    // (same as the editor in update mode): employee bar + 7 assignment pills
+    // + read-only period pill.
     cy.get('[data-testid="payroll-detail-placement"]')
+      // Jurisdiction pill (country code + name)
       .should('contain', 'France')
       .and('contain', 'FR')
+      // Department pill (department code + name)
       .and('contain', 'Engineering')
+      // Title pill (role code + name)
       .and('contain', 'Software Engineer')
+      // Type pill (EMPLOYMENT_TYPE_LABELS → short label)
       .and('contain', 'Full time')
+      // Cadence pill (frequency label)
+      .and('contain', 'Monthly')
+      // Assignment date pills
       .and('contain', '2025-10-01')
       .and('contain', 'Open-ended');
+
+    // The read-only period pill still lives here, reusing the editor's testids.
+    cy.get('[data-testid="editor-period-selected"]')
+      .should('be.visible')
+      .and('contain', 'January 2026');
+    cy.get('[data-testid="period-picker-selected-frequency"]').should('contain', 'MONTHLY');
   });
 
   it('renders the amounts card with all five rows', () => {
@@ -59,11 +75,6 @@ describe('Payroll summary detail page', () => {
     cy.get('[data-testid="amount-total"]')
       .should('have.attr', 'data-value', '1350')
       .and('contain', '€1,350.00');
-  });
-
-  it('shows the has-payroll flag', () => {
-    visitDetail();
-    cy.get('[data-testid="payroll-detail-has-payroll"]').should('contain', 'Yes');
   });
 
   it('shows the mismatch warning when total does not equal the sum', () => {

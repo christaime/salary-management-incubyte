@@ -1,5 +1,12 @@
 describe('Payroll summary editor page (create mode)', () => {
   beforeEach(() => {
+    // Specific country-by-id must be registered for the create-save test:
+    // the wildcard `countries*` below does NOT match `/countries/{id}`
+    // (extra path segment), so without this the real request 404s and
+    // `resolvedCurrency` stays null → payload currency is ''.
+    cy.intercept('GET', '**/api/v1/countries/*', {
+      body: { id: 'c-fr', code: 'FR', name: 'France', currencyCode: 'EUR' },
+    }).as('getCountryById');
     cy.intercept('GET', '**/api/v1/countries*',       { fixture: 'payroll-summary/countries.json' }).as('getCountries');
     cy.intercept('GET', '**/api/v1/departments*',     { fixture: 'payroll-summary/departments.json' }).as('getDepartments');
     cy.intercept('GET', '**/api/v1/roles*',           { fixture: 'payroll-summary/roles.json' }).as('getRoles');
@@ -15,6 +22,10 @@ describe('Payroll summary editor page (create mode)', () => {
    * The picker no longer has a Search button. Typing 3+ characters fires the
    * debounced fetch (~300ms). We wait on the intercept, then click the first
    * result if one was requested.
+   *
+   * IMPORTANT: queries must be >= 3 chars — the component filters shorter
+   * values out before the debounced fetch, so no request would fire and
+   * `cy.wait('@searchEmployees')` would time out.
    */
   function searchEmployee(query = 'ada'): void {
     cy.get('[data-testid="employee-search-input"]').clear().type(query);
@@ -101,7 +112,8 @@ describe('Payroll summary editor page (create mode)', () => {
     cy.get('[data-testid="employee-selected-clear"]').click();
     cy.get('[data-testid="employee-search-input"]').should('be.visible');
 
-    searchEmployee('no');
+    // 'non' (>= MIN_CHARS=3) — 'no' would be filtered out before the fetch.
+    searchEmployee('non');
     selectEmployeeById('emp-2');
     cy.get('[data-testid="employee-selected-card"]').should('contain', 'No Assignment');
   });
@@ -124,7 +136,8 @@ describe('Payroll summary editor page (create mode)', () => {
 
   it('warns when the employee has no in-effect assignment', () => {
     visitCreate();
-    searchEmployee('no');
+    // 'non' (>= MIN_CHARS=3) — 'no' would be filtered out before the fetch.
+    searchEmployee('non');
     selectEmployeeById('emp-2');
 
     cy.get('[data-testid="employee-selected-none-assignment"]').should('be.visible');
@@ -154,6 +167,9 @@ describe('Payroll summary editor page (create mode)', () => {
     visitCreate();
     searchEmployee();
     selectFirstResult();
+    // Selecting a result fires GET /countries/{id} → resolvedCurrency.
+    // Wait so `currency` is populated in the assembled payload.
+    cy.wait('@getCountryById');
     pickPeriod(2026, 'p-jan-2026');
 
     cy.get('[data-testid="editor-input-base"]').clear().type('1000');
@@ -180,6 +196,9 @@ describe('Payroll summary editor page (create mode)', () => {
   });
 
   it('maps 409 SUMMARY_ALREADY_EXISTS to a field error and stays on the page', () => {
+    // Note: this test does not assert payload contents, so it does not need
+    // to wait for @getCountryById — `canSave()` in empty-create mode gates on
+    // employee + period + coverage (not currency).
     cy.intercept('POST', '**/api/v1/payroll-summaries', {
       statusCode: 409,
       body: { code: 'SUMMARY_ALREADY_EXISTS', message: 'Duplicate summary', severity: 'ERROR' },
@@ -211,10 +230,6 @@ describe('Payroll summary editor page (create mode)', () => {
       // reproduce that by intercepting the flow — see note below the tests.
       cy.visit('/payroll-summaries');
     });
-
-    // (See "How to seed the stash" below — Cypress can't easily reproduce
-    // the navigation-with-in-memory-state without a helper. The two options
-    // are laid out after this block.)
 
     it('renders the read-only employee/period and the amounts form', () => {
       cy.intercept('GET', '**/api/v1/payroll-summaries*', {

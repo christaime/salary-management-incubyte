@@ -15,8 +15,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import {
-  EMPLOYMENT_TYPES,
   EMPLOYMENT_TYPE_LABELS,
+  EmployeeWithInEffectAssignmentDto,
   EmploymentType,
 } from '@features/employee/models';
 import {
@@ -27,6 +27,7 @@ import { FormEditorError } from '@core/models/form-editor-error.model';
 
 import { PayrollSummaryService } from '../../services/payroll-summary.service';
 import { PayrollSummaryStatusBadgeComponent } from '../../components/payroll-summary-status-badge/payroll-summary-status-badge.component';
+import { EmployeeAssignmentDisplayComponent } from '../../components/employee-assignment-display/employee-assignment-display.component';
 import { PayrollSummaryDetailDto } from '../../models/payroll-summary.model';
 
 type PageState = 'loading' | 'success' | 'error';
@@ -39,6 +40,7 @@ type PageState = 'loading' | 'success' | 'error';
     MatButtonModule,
     MatIconModule,
     PayrollSummaryStatusBadgeComponent,
+    EmployeeAssignmentDisplayComponent,
   ],
   templateUrl: './payroll-summary-detail.page.html',
   styleUrl: './payroll-summary-detail.page.scss',
@@ -51,11 +53,9 @@ export class PayrollSummaryDetailPage implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly service = inject(PayrollSummaryService);
 
-  // Route constants
   readonly listRoute = '/payroll-summaries';
   readonly editorRoute = '/payroll-summaries';
 
-  // State
   readonly id = signal<string | null>(null);
   readonly state = signal<PageState>('loading');
   readonly summary = signal<PayrollSummaryDetailDto | null>(null);
@@ -63,6 +63,36 @@ export class PayrollSummaryDetailPage implements OnInit {
 
   readonly isDraft = computed(() => this.summary()?.status === 'DRAFT');
   readonly isLoading = computed(() => this.state() === 'loading');
+
+  /**
+   * Shape consumed by `app-employee-assignment-display`. Mirrors
+   * `PayrollSummaryEditorFormComponent.assignedEmployeeForDisplay` so the
+   * detail page renders the exact same employee bar + 7-pill assignment
+   * summary as the editor's update/pre-loaded mode.
+   */
+  readonly assignedEmployeeForDisplay = computed<EmployeeWithInEffectAssignmentDto | null>(() => {
+    const s = this.summary();
+    if (!s) return null;
+    return {
+      id: s.employee.id,
+      matricule: s.employee.matricule,
+      name: s.employee.name,
+      email: '',
+      birthDate: null,
+      originCountry: null,
+      assignmentInEffect: {
+        id: s.assignment.id,
+        startDate: s.assignment.startDate,
+        endDate: s.assignment.endDate,
+        country: s.country,
+        department: s.department,
+        role: s.role,
+        employmentType: s.employmentType,
+        payrollFrequency: s.period.frequency,
+        hasPayroll: s.assignment.hasPayroll,
+      },
+    };
+  });
 
   ngOnInit(): void {
     this.route.paramMap
@@ -73,8 +103,6 @@ export class PayrollSummaryDetailPage implements OnInit {
         if (id) this.load(id);
       });
   }
-
-  // ---------- Load ----------
 
   private load(id: string): void {
     this.state.set('loading');
@@ -100,8 +128,6 @@ export class PayrollSummaryDetailPage implements OnInit {
       });
   }
 
-  // ---------- Navigation ----------
-
   onBack(): void {
     this.router.navigate([this.listRoute]);
   }
@@ -111,8 +137,6 @@ export class PayrollSummaryDetailPage implements OnInit {
     if (!s || s.status !== 'DRAFT') return;
     this.router.navigate([this.editorRoute, s.id, 'edit']);
   }
-
-  // ---------- Actions ----------
 
   onValidate(): void {
     const s = this.summary();
@@ -182,16 +206,7 @@ export class PayrollSummaryDetailPage implements OnInit {
       });
   }
 
-  // ---------- Helpers ----------
-
-  countryFlag(code: string | null | undefined): string {
-    if (!code || code.length !== 2) return '';
-    const base = 0x1f1e6;
-    return String.fromCodePoint(
-      base + (code.charCodeAt(0) - 65),
-      base + (code.charCodeAt(1) - 65),
-    );
-  }
+  // ---------- Helpers (amounts card only) ----------
 
   employmentTypeLabel(type: EmploymentType): string {
     return EMPLOYMENT_TYPE_LABELS[type];
@@ -211,12 +226,10 @@ export class PayrollSummaryDetailPage implements OnInit {
     return value;
   }
 
-  /** Recompute the sum of components to compare with `amounts.total`. */
   computedSum(s: PayrollSummaryDetailDto): number {
     return s.amounts.base + s.amounts.variable + s.amounts.allowances + s.amounts.employerTaxes;
   }
 
-  /** True when `amounts.total` doesn't match the sum of components. */
   totalMismatch(s: PayrollSummaryDetailDto): boolean {
     return Math.abs(this.computedSum(s) - s.amounts.total) > 0.01;
   }

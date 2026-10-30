@@ -28,7 +28,12 @@ describe('BulkValidateDialogComponent', () => {
         { provide: MatDialogRef, useValue: dialogRef },
         {
           provide: MAT_DIALOG_DATA,
-          useValue: { periodId: 'p-1', periodName: 'January 2026', ...data } as BulkValidateDialogData,
+          useValue: {
+            rangeStart: '2026-01-01',
+            rangeEnd: '2026-01-31',
+            periodName: 'January 2026',
+            ...data,
+          } as BulkValidateDialogData,
         },
       ],
     });
@@ -77,20 +82,47 @@ describe('BulkValidateDialogComponent', () => {
   // Running phase
   // ------------------------------------------------------------------
 
-  it('goes into running phase when Confirm is clicked', () => {
+  it('calls the service with the dialog data range on Confirm', () => {
     setup();
-    let resolveFn: (r: ValidateAllResult) => void = () => {};
-    service.validateAll.and.returnValue(new Promise((r) => { resolveFn = r as any; }) as any);
-    // Simpler: return an observable that never emits yet
     service.validateAll.and.returnValue(
-      of({ total: 0, validated: 0, failed: 0, failures: [] }) as any,
+      of({ total: 0, validated: 0, failed: 0, failures: [] }),
     );
 
     component.onConfirm();
-    // The service is called synchronously, but the phase is set before the call.
-    // We can assert the service was called; the phase may already be 'done'
-    // because `of()` emits synchronously.
-    expect(service.validateAll).toHaveBeenCalledWith({ periodId: 'p-1' });
+
+    expect(service.validateAll).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        rangeStart: '2026-01-01',
+        rangeEnd: '2026-01-31',
+      }),
+    );
+  });
+
+  it('forwards every filter from the dialog data to validateAll', () => {
+    setup({
+      rangeStart: '2026-03-01',
+      rangeEnd: '2026-03-31',
+      anyCountryIds: ['c-fr', 'c-de'],
+      anyDepartmentIds: ['d-eng'],
+      anyRoleIds: ['r-swe'],
+      anyEmploymentTypes: ['FULL_TIME'],
+      payrollFrequency: 'MONTHLY',
+    });
+    service.validateAll.and.returnValue(
+      of({ total: 0, validated: 0, failed: 0, failures: [] }),
+    );
+
+    component.onConfirm();
+
+    expect(service.validateAll).toHaveBeenCalledWith({
+      rangeStart: '2026-03-01',
+      rangeEnd: '2026-03-31',
+      anyCountryIds: ['c-fr', 'c-de'],
+      anyDepartmentIds: ['d-eng'],
+      anyRoleIds: ['r-swe'],
+      anyEmploymentTypes: ['FULL_TIME'],
+      payrollFrequency: 'MONTHLY',
+    });
   });
 
   // ------------------------------------------------------------------
@@ -150,7 +182,6 @@ describe('BulkValidateDialogComponent', () => {
     expect(el.querySelector('[data-testid="bulk-failure-s-b"]')?.textContent)
       .toContain('PERIOD_CLOSED');
 
-    // Close + Validate again are available
     expect(el.querySelector('[data-testid="bulk-validate-close"]')).not.toBeNull();
     expect(el.querySelector('[data-testid="bulk-validate-again"]')).not.toBeNull();
   });

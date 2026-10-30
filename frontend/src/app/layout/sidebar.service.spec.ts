@@ -18,7 +18,7 @@ describe('SidebarService', () => {
   });
 
   it('should default isCollapsed to false', () => {
-    expect(service.isCollapsed()).toBeTrue();
+    expect(service.isCollapsed()).toBeFalse();
   });
 
   it('toggleOpen should flip isOpen', () => {
@@ -30,8 +30,8 @@ describe('SidebarService', () => {
 
   it('toggleCollapse should flip isCollapsed', () => {
     service.toggleCollapse();
-    expect(service.isCollapsed()).toBeFalse();
-    service.toggleCollapse();
     expect(service.isCollapsed()).toBeTrue();
+    service.toggleCollapse();
+    expect(service.isCollapsed()).toBeFalse();
   });
 });

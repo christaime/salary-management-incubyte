@@ -34,7 +34,7 @@ function makeSummaryRow(id = 's-1'): PayrollSummaryDto {
       startDate: '2026-01-01',
       endDate: '2026-01-31',
       frequency: 'MONTHLY',
-      closed: false
+      closed: false,
     },
     country: { id: 'c-fr', code: 'FR', name: 'France' },
     department: { id: 'd-eng', code: 'ENG', name: 'Engineering' },
@@ -452,7 +452,8 @@ describe('PayrollSummaryService', () => {
   describe('validateAll', () => {
     it('POSTs /api/v1/payroll-summaries/validate-all with filters', () => {
       const body: PayrollSummaryValidateRequest = {
-        periodId: 'p-1',
+        rangeStart: '2026-01-01',
+        rangeEnd: '2026-01-31',
         anyCountryIds: ['c-fr'],
         anyEmploymentTypes: ['FULL_TIME'],
       };
@@ -479,7 +480,10 @@ describe('PayrollSummaryService', () => {
     });
 
     it('does not throw when every row validates (failed = 0)', () => {
-      service.validateAll({ periodId: 'p-1' }).subscribe((res) => {
+      service.validateAll({
+        rangeStart: '2026-01-01',
+        rangeEnd: '2026-01-31',
+      }).subscribe((res) => {
         expect(res.failed).toBe(0);
         expect(res.failures).toEqual([]);
       });
@@ -490,7 +494,10 @@ describe('PayrollSummaryService', () => {
     });
 
     it('returns the result even when some rows fail (best-effort)', () => {
-      service.validateAll({ periodId: 'p-1' }).subscribe((res) => {
+      service.validateAll({
+        rangeStart: '2026-01-01',
+        rangeEnd: '2026-01-31',
+      }).subscribe((res) => {
         expect(res.failed).toBeGreaterThan(0);
         expect(res.failures.length).toBe(res.failed);
         res.failures.forEach((f) => {

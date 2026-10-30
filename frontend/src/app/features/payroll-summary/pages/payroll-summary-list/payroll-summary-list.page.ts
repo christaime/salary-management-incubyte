@@ -86,15 +86,10 @@ export class PayrollSummaryListPage implements OnInit {
 
   readonly bulkValidateBlockReason = computed<string | null>(() => {
     const f = this.filters();
-    // No applied filter → status / employeeId / nonExistent are all
-    // trivially fine (the user hasn't narrowed the view).
-    if (!f) return 'Bulk validate is only available for specific period range';
-
-    if (!f.rangeStart) {
-          return 'Bulk validate is not available for open range period';
-    }
-    if (!f.rangeEnd) {
-      return 'Bulk validate is not available for open range period';
+    // No applied range yet → nothing for bulk-validate to run against.
+    if (!f) return 'Apply a filter with a date range to bulk-validate';
+    if (!f.rangeStart || !f.rangeEnd) {
+      return 'Bulk validate is not available for an open-ended range';
     }
     if (f.nonExistent) {
       return 'Bulk validate is not available for non-existent payrolls';
@@ -126,10 +121,16 @@ export class PayrollSummaryListPage implements OnInit {
   });
 
   readonly bulkValidateLabel = computed(() => {
+    const f = this.filters();
+    if (!f || !f.rangeStart || !f.rangeEnd) {
+      return 'Validate all drafts';
+    }
+
     const p = this.selectedPeriod();
-    if(!p && !this.filters()?.rangeStart && !this.filters()?.rangeEnd)
-     { return "Validate all payroll";}
-    const dateRange = p? `on ${p.name}` : `from ${this.filters()?.rangeStart} to ${this.filters()?.rangeEnd}`;
+    const dateRange = p
+      ? `on ${p.name}`
+      : `from ${f.rangeStart} to ${f.rangeEnd}`;
+
     const hasChips = this.filterChips().length > 0;
     const suffix = hasChips ? ' corresponding to the criteria' : '';
     return `Validate payrolls ${dateRange}${suffix}`;
@@ -293,21 +294,21 @@ export class PayrollSummaryListPage implements OnInit {
 
   // ---------- Bulk validate ----------
   onBulkValidate(): void {
-    const filters = this.filters();
-    if(!filters || !filters.rangeStart || !filters.rangeEnd) return ;
+    const f = this.filters();
+    if (!f || !f.rangeStart || !f.rangeEnd) return;
 
     const p = this.selectedPeriod();
-    const dateRange = p? `${p.name}` : `${this.filters()?.rangeStart}  ${this.filters()?.rangeEnd}`;
+    const periodName = p?.name ?? `${f.rangeStart} – ${f.rangeEnd}`;
 
     const dialogData: BulkValidateDialogData = {
-      rangeStart: filters.rangeStart,
-      rangeEnd: filters.rangeEnd,
-      anyCountryIds: filters.anyCountryIds,
-      anyDepartmentIds: filters.anyDepartmentIds,
-      anyRoleIds: filters.anyRoleIds,
-      anyEmploymentTypes: filters.anyEmploymentTypes,
-      payrollFrequency: filters.payrollFrequency,
-      periodName: dateRange,
+      rangeStart: f.rangeStart,
+      rangeEnd: f.rangeEnd,
+      anyCountryIds: f.anyCountryIds,
+      anyDepartmentIds: f.anyDepartmentIds,
+      anyRoleIds: f.anyRoleIds,
+      anyEmploymentTypes: f.anyEmploymentTypes,
+      payrollFrequency: f.payrollFrequency,
+      periodName,
       filterChips: this.filterChips(),
     };
 

@@ -1,6 +1,6 @@
 <div
   class="max-w-4xl mx-auto flex flex-col gap-4 p-4 md:px-8"
-  data-testid="payroll-summary-detail-page"
+  data-testid="payroll-detail-page"
 >
   <!-- Header with back button -->
   <div class="flex items-start gap-3">
@@ -29,6 +29,7 @@
             {{ s.employee.matricule }}
           </span>
         <app-payroll-summary-status-badge [status]="s.status" />
+
       </div>
       <p class="text-sm text-slate-500 m-0">
         {{ s.period.name }} ·
@@ -71,96 +72,50 @@
   @if (state() === 'success' && summary()) {
   @let s = summary()!;
 
-  <!-- Placement card -->
+  <!-- Read-only placement — verbatim from payroll-summary-editor-form (update mode) -->
   <section
     data-testid="payroll-detail-placement"
-    class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col gap-4"
+    class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3"
   >
-    <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
-      <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-900 text-white text-[10px] font-bold font-mono">📍</span>
-      <h2 class="text-sm font-bold uppercase tracking-wide text-slate-900 m-0">
-        Placement
-      </h2>
-    </div>
+    @if (assignedEmployeeForDisplay(); as e) {
+    <app-employee-assignment-display [employee]="e" [onlyAssignment]="false" />
+    }
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div class="flex flex-col gap-0.5">
-          <span class="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
-            Jurisdiction
-          </span>
-        <div class="flex items-center gap-1.5">
-            <span class="text-lg leading-none" [title]="s.country.name">
-              {{ countryFlag(s.country.code) }}
-            </span>
-          <span class="font-semibold text-slate-900">{{ s.country.name }}</span>
-          <span class="font-mono text-[10px] text-blue-700 bg-blue-50 px-1 py-0.5 rounded">
-              {{ s.country.code }}
-            </span>
-        </div>
+    <div
+      data-testid="editor-period-selected"
+      class="flex items-center justify-between w-full min-w-0 gap-1.5 h-10 px-3 rounded-lg border border-slate-200 bg-white shadow-xs"
+    >
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold leading-tight">
+          Period :
+        </span>
+        <span
+          data-testid="period-picker-selected-frequency"
+          class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-900 text-white font-mono font-bold text-[10px]"
+        >
+          {{ s.period.frequency }}
+        </span>
+        <span
+          data-testid="period-picker-selected-name"
+          class="text-xs font-semibold text-slate-900 truncate"
+        >
+          {{ s.period.name }}
+        </span>
       </div>
-
-      <div class="flex flex-col gap-0.5">
-          <span class="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
-            Department
-          </span>
-        <div class="flex items-center gap-1.5">
-          <span class="font-semibold text-slate-900">{{ s.department.name }}</span>
-          <span class="font-mono text-[10px] text-blue-700 bg-blue-50 px-1 py-0.5 rounded">
-              {{ s.department.code }}
-            </span>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-0.5">
-          <span class="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
-            Role
-          </span>
-        <div class="flex items-center gap-1.5">
-          <span class="text-slate-900">{{ s.role.name }}</span>
-          <span class="font-mono text-[10px] text-slate-500 bg-slate-100 px-1 py-0.5 rounded font-semibold">
-              {{ s.role.code }}
-            </span>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-0.5">
-          <span class="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
-            Employment type
-          </span>
-        <span class="text-slate-900">{{ employmentTypeLabel(s.employmentType) }}</span>
-      </div>
-
-      <div class="flex flex-col gap-0.5">
-          <span class="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
-            Assignment period
-          </span>
-        <span class="font-mono text-xs text-slate-900">
-            {{ s.assignment.startDate }} → {{ formatDate(s.assignment.endDate) }}
-          </span>
-      </div>
-
-      <div class="flex flex-col gap-0.5">
-          <span class="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
-            Payroll attached
-          </span>
-        @if (s.assignment.hasPayroll) {
-        <span data-testid="payroll-detail-has-payroll"
-              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-mono text-[10px] font-semibold border border-emerald-200 w-fit">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              Yes
-            </span>
-        } @else {
-        <span data-testid="payroll-detail-has-payroll"
-              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-mono text-[10px] font-semibold border border-slate-200 w-fit">
-              <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-              No
-            </span>
+      <div class="flex items-center gap-1.5 shrink-0">
+        @if (s.period.closed) {
+        <span
+          data-testid="period-picker-selected-closed"
+          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-200"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Closed
+        </span>
         }
       </div>
     </div>
   </section>
 
-  <!-- Amounts card -->
+  <!-- Amounts card (unchanged) -->
   <section
     data-testid="payroll-detail-amounts"
     class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col gap-3"
@@ -244,7 +199,7 @@
     </div>
   </section>
 
-  <!-- Actions row — DRAFT only -->
+  <!-- Actions row — DRAFT only (unchanged) -->
   @if (isDraft()) {
   <div class="flex items-center justify-end gap-2 pt-2">
     <button

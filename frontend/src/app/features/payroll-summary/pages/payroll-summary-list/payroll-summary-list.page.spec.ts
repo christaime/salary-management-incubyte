@@ -60,7 +60,6 @@ function makeRow(
       total: 1350,
       currency: 'EUR',
     },
-    // PayrollSummaryDto requires an assignment (with frequency)
     assignment: {
       id: 'a-1',
       startDate: '2025-10-01',
@@ -71,11 +70,11 @@ function makeRow(
 }
 
 function makeDetail(
-           id = 's-1',
-           status: 'DRAFT' | 'VALIDATED' = 'DRAFT',
-         ): PayrollSummaryDetailDto {
+  id = 's-1',
+  status: 'DRAFT' | 'VALIDATED' = 'DRAFT',
+): PayrollSummaryDetailDto {
   return {
-    ...makeRow(id),
+    ...makeRow(id, status),
     assignment: { id: 'a-1', startDate: '2025-10-01', endDate: null, hasPayroll: true },
   };
 }
@@ -109,10 +108,10 @@ describe('PayrollSummaryListPage', () => {
       rangeStart: '2026-01-01',
       rangeEnd: '2026-03-31',
       status: null,
-      nonExistent: false, // NEW: required by the interface
+      nonExistent: false,
       payrollFrequency: null,
-      employeeId: null,   // NEW
-      employeeName: null, // NEW
+      employeeId: null,
+      employeeName: null,
       anyCountryIds: [],
       anyDepartmentIds: [],
       anyRoleIds: [],
@@ -165,7 +164,7 @@ describe('PayrollSummaryListPage', () => {
     fixture.detectChanges();
   });
 
-  // ... (existing tests unchanged, they now type-check) ...
+  // ---------- Initial state ----------
 
   it('starts idle and does not call search on construction', () => {
     expect(component.state()).toBe('idle');
@@ -174,6 +173,8 @@ describe('PayrollSummaryListPage', () => {
     expect(el.querySelector('[data-testid="payroll-summary-list-idle"]')).not.toBeNull();
     expect(el.querySelector('app-payroll-summary-table')).toBeNull();
   });
+
+  // ---------- Filter → search ----------
 
   it('calls search on filter change and renders the table', () => {
     service.search.and.returnValue(
@@ -223,6 +224,8 @@ describe('PayrollSummaryListPage', () => {
     expect(args.size).toBe(50);
   });
 
+  // ---------- Navigation ----------
+
   it('navigates to the detail page on row click', () => {
     component.onRowClick(makeRow('s-1'));
     expect(router.navigate).toHaveBeenCalledWith(['/payroll-summaries', 's-1']);
@@ -237,6 +240,8 @@ describe('PayrollSummaryListPage', () => {
     component.onNew();
     expect(router.navigate).toHaveBeenCalledWith(['/payroll-summaries/new']);
   });
+
+  // ---------- Row actions ----------
 
   it('opens a confirm dialog on Validate and calls validate on confirm', () => {
     dialog.open.and.returnValue({ afterClosed: () => of(true) } as any);
@@ -263,15 +268,16 @@ describe('PayrollSummaryListPage', () => {
     expect(service.delete).not.toHaveBeenCalled();
   });
 
-  // ----- UPDATED: bulk-validate tests use the new API -----
+  // ---------- Bulk validate ----------
 
-  it('does not open the bulk dialog when no period is selected', () => {
+  it('does not open the bulk dialog when no filter is applied', () => {
     component.onBulkValidate();
     expect(dialog.open).not.toHaveBeenCalled();
   });
 
-  it('opens the bulk dialog when a period is selected', () => {
-    // NEW: use selectedPeriod signal directly (no availablePeriods / onPeriodSelect)
+  it('opens the bulk dialog with range + period name when a filter is applied', () => {
+    component.onFilterChange(filterValue());
+    service.search.calls.reset();
     component.selectedPeriod.set({
       id: 'p-1',
       name: 'January 2026',
@@ -286,41 +292,39 @@ describe('PayrollSummaryListPage', () => {
 
     expect(dialog.open).toHaveBeenCalled();
     const [, config] = dialog.open.calls.mostRecent().args;
-    expect((config as any).data.periodId).toBe('p-1');
+    const data = (config as any).data;
+    expect(data.rangeStart).toBe('2026-01-01');
+    expect(data.rangeEnd).toBe('2026-03-31');
+    expect(data.periodName).toBe('January 2026');
+    expect(data.filterChips).toEqual([]);
   });
 
-  // ----- NEW tests to backfill coverage -----
-
-  it('onPeriodSelected stores the period and enables bulk validate', () => {
-    component.selectedPeriod.set(null);
+  it('onFilterChange with a valid range enables bulk validate; reset disables it', () => {
     expect(component.canBulkValidate()).toBeFalse();
 
-    component.onPeriodSelected({
-      id: 'p-1',
-      name: 'January 2026',
-      startDate: '2026-01-01',
-      endDate: '2026-01-31',
-      frequency: 'MONTHLY',
-      closed: false,
-    });
+    component.onFilterChange(filterValue());
+    expect(component.canBulkValidate()).toBeTrue();
 
-    expect(component.selectedPeriod()?.id).toBe('p-1');
+    component.onFilterReset();
+    expect(component.canBulkValidate()).toBeFalse();
+  });
+
+  it('onFilterChange with nonExistent=true disables bulk validate', () => {
+    component.onFilterChange({ ...filterValue(), nonExistent: true });
+    expect(component.canBulkValidate()).toBeFalse();
+  });
+
+  it('onFilterChange with VALIDATED status disables bulk validate', () => {
+    component.onFilterChange({ ...filterValue(), status: 'VALIDATED' });
+    expect(component.canBulkValidate()).toBeFalse();
+  });
+
+  it('onFilterChange with DRAFT status enables bulk validate', () => {
+    component.onFilterChange({ ...filterValue(), status: 'DRAFT' });
     expect(component.canBulkValidate()).toBeTrue();
   });
 
-  it('onPeriodSelected(null) disables bulk validate', () => {
-    component.onPeriodSelected({
-      id: 'p-1',
-      name: 'January 2026',
-      startDate: '2026-01-01',
-      endDate: '2026-01-31',
-      frequency: 'MONTHLY',
-      closed: false,
-    });
-    component.onPeriodSelected(null);
-    expect(component.selectedPeriod()).toBeNull();
-    expect(component.canBulkValidate()).toBeFalse();
-  });
+  // ---------- Non-existent flow ----------
 
   it('onFilterChange clears the non-existent selection and reloads', () => {
     component.onFilterChange({ ...filterValue(), nonExistent: true });
@@ -350,8 +354,9 @@ describe('PayrollSummaryListPage', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/payroll-summaries/new']);
   });
 
+  // ---------- Reset ----------
+
   it('onFilterReset returns to idle and clears rows/totals/selection', () => {
-    // get into success state first
     component.onFilterChange(filterValue());
     expect(component.state()).toBe('success');
 
@@ -362,7 +367,10 @@ describe('PayrollSummaryListPage', () => {
     expect(component.totalElements()).toBe(0);
     expect(component.selectedPeriod()).toBeNull();
     expect(component.nonExistentPayroll()).toBeFalse();
+    expect(component.filters()).toBeNull();
   });
+
+  // ---------- Chips ----------
 
   it('builds filter chips from the active filter value', () => {
     component.onFilterChange({
@@ -396,12 +404,14 @@ describe('PayrollSummaryListPage', () => {
     expect(component.filterChips()).toContain('Employee: selected');
   });
 
-  it('bulkValidateLabel shows the default when no period is selected', () => {
-    component.selectedPeriod.set(null);
+  // ---------- Label ----------
+
+  it('bulkValidateLabel shows the default when no filter or period is set', () => {
     expect(component.bulkValidateLabel()).toBe('Validate all drafts');
   });
 
   it('bulkValidateLabel includes the period name and criteria suffix', () => {
+    component.onFilterChange({ ...filterValue(), status: 'DRAFT' });
     component.selectedPeriod.set({
       id: 'p-1',
       name: 'January 2026',
@@ -410,11 +420,12 @@ describe('PayrollSummaryListPage', () => {
       frequency: 'MONTHLY',
       closed: false,
     });
-    component.onFilterChange({ ...filterValue(), status: 'DRAFT' });
 
     expect(component.bulkValidateLabel()).toContain('January 2026');
     expect(component.bulkValidateLabel()).toContain('corresponding to the criteria');
   });
+
+  // ---------- Filter bar wiring ----------
 
   it('passes filters to the child filter bar via the output', () => {
     const formDE = fixture.debugElement.query(
@@ -439,7 +450,6 @@ describe('PayrollSummaryListPage', () => {
 
     expect(spy).toHaveBeenCalled();
     const payload = spy.calls.mostRecent().args[0] as PayrollFilterValue;
-    // The new required fields should be present
     expect(payload).toEqual(
       jasmine.objectContaining({
         nonExistent: false,
