@@ -32,7 +32,10 @@ import {
   BulkValidateDialogData,
 } from '../../components/bulk-validate-dialog/bulk-validate-dialog.component';
 import { PayrollSummaryCriteria } from '../../models/payroll-summary-criteria.model';
-import { PayrollSummaryDto, PayrollSummaryDetailDto } from '../../models/payroll-summary.model';
+import {
+  PayrollSummaryDto,
+  PayrollSummaryDetailDto,
+} from '../../models/payroll-summary.model';
 import { PayrollPeriodDto } from '@features/payroll-period/models';
 
 type PageState = 'idle' | 'loading' | 'success' | 'error';
@@ -71,14 +74,43 @@ export class PayrollSummaryListPage implements OnInit {
   readonly error = signal<string | null>(null);
   readonly nonExistentPayroll = signal<boolean>(false);
 
-  private filters: PayrollFilterValue | null = null;
+  /**
+   * Last applied filter value. A signal so `filterChips` and
+   * `bulkValidateBlockReason` (both `computed`) react when the user hits
+   * Apply. `null` means "no filter applied yet" — the idle state.
+   */
+  readonly filters = signal<PayrollFilterValue | null>(null);
 
   // ---------- Bulk-validate scope (driven by the start period picker) ----------
   readonly selectedPeriod = signal<PayrollPeriodDto | null>(null);
-  readonly canBulkValidate = computed(() => this.selectedPeriod() !== null);
+
+  readonly bulkValidateBlockReason = computed<string | null>(() => {
+    const f = this.filters();
+    // No applied filter → status / employeeId / nonExistent are all
+    // trivially fine (the user hasn't narrowed the view).
+    if (!f) return 'Bulk validate is only available for specific period range';
+
+    if (!f.rangeStart) {
+          return 'Bulk validate is not available for open range period';
+    }
+    if (!f.rangeEnd) {
+      return 'Bulk validate is not available for open range period';
+    }
+    if (f.nonExistent) {
+      return 'Bulk validate is not available for non-existent payrolls';
+    }
+    if (f.status === 'VALIDATED') {
+      return 'Bulk validate only touches drafts — clear the VALIDATED status filter';
+    }
+    return null;
+  });
+
+  readonly canBulkValidate = computed(
+    () => this.bulkValidateBlockReason() === null,
+  );
 
   readonly filterChips = computed<string[]>(() => {
-    const f = this.filters;
+    const f = this.filters();
     if (!f) return [];
     const chips: string[] = [];
     if (f.status) chips.push(`Status: ${f.status}`);
@@ -95,10 +127,12 @@ export class PayrollSummaryListPage implements OnInit {
 
   readonly bulkValidateLabel = computed(() => {
     const p = this.selectedPeriod();
-    if (!p) return 'Validate all drafts';
+    if(!p && !this.filters()?.rangeStart && !this.filters()?.rangeEnd)
+     { return "Validate all payroll";}
+    const dateRange = p? `on ${p.name}` : `from ${this.filters()?.rangeStart} to ${this.filters()?.rangeEnd}`;
     const hasChips = this.filterChips().length > 0;
     const suffix = hasChips ? ' corresponding to the criteria' : '';
-    return `Validate payrolls on ${p.name}${suffix}`;
+    return `Validate payrolls ${dateRange}${suffix}`;
   });
 
   readonly isLoading = computed(() => this.state() === 'loading');
@@ -114,14 +148,14 @@ export class PayrollSummaryListPage implements OnInit {
     this.totalElements.set(0);
     this.selectedPeriod.set(null);
     this.nonExistentPayroll.set(false);
+    this.filters.set(null);
   }
 
   onFilterChange(next: PayrollFilterValue): void {
-    this.filters = next;
+    this.filters.set(next);
     this.page.set(0);
     this.nonExistentPayroll.set(next.nonExistent);
     this.service.clearSelectedNonExistent();
-    console.log("onFilterChange ",{next});
     this.load();
   }
 
@@ -137,22 +171,23 @@ export class PayrollSummaryListPage implements OnInit {
 
   // ---------- Load ----------
   private load(): void {
-    if (!this.filters) return;
+    const f = this.filters();
+    if (!f) return;
 
     this.state.set('loading');
     this.error.set(null);
 
     const criteria: PayrollSummaryCriteria = {
-      rangeStart: this.filters.rangeStart,
-      rangeEnd: this.filters.rangeEnd,
-      status: this.filters.status,
-      nonExistent: this.filters.nonExistent,
-      payrollFrequency: this.filters.payrollFrequency,
-      employeeId: this.filters.employeeId,
-      anyCountryIds: this.filters.anyCountryIds,
-      anyDepartmentIds: this.filters.anyDepartmentIds,
-      anyRoleIds: this.filters.anyRoleIds,
-      anyEmploymentTypes: this.filters.anyEmploymentTypes,
+      rangeStart: f.rangeStart,
+      rangeEnd: f.rangeEnd,
+      status: f.status,
+      nonExistent: f.nonExistent,
+      payrollFrequency: f.payrollFrequency,
+      employeeId: f.employeeId,
+      anyCountryIds: f.anyCountryIds,
+      anyDepartmentIds: f.anyDepartmentIds,
+      anyRoleIds: f.anyRoleIds,
+      anyEmploymentTypes: f.anyEmploymentTypes,
       page: this.page(),
       size: this.size(),
     };
@@ -177,7 +212,7 @@ export class PayrollSummaryListPage implements OnInit {
 
   // ---------- Row navigation ----------
   onRowClick(row: PayrollSummaryDto): void {
-    if (this.filters?.nonExistent) {
+    if (this.filters()?.nonExistent) {
       // Non-existent row: there is no detail page to show; go create it.
       this.service.setSelectedNonExistent(row as unknown as PayrollSummaryDetailDto);
       this.router.navigate([this.newSummaryRoute]);
@@ -187,7 +222,7 @@ export class PayrollSummaryListPage implements OnInit {
   }
 
   onEdit(row: PayrollSummaryDto): void {
-    if (this.filters?.nonExistent) {
+    if (this.filters()?.nonExistent) {
       this.service.setSelectedNonExistent(row as unknown as PayrollSummaryDetailDto);
       this.router.navigate([this.newSummaryRoute]);
       return;
@@ -258,12 +293,21 @@ export class PayrollSummaryListPage implements OnInit {
 
   // ---------- Bulk validate ----------
   onBulkValidate(): void {
-    const period = this.selectedPeriod();
-    if (!period) return;
+    const filters = this.filters();
+    if(!filters || !filters.rangeStart || !filters.rangeEnd) return ;
+
+    const p = this.selectedPeriod();
+    const dateRange = p? `${p.name}` : `${this.filters()?.rangeStart}  ${this.filters()?.rangeEnd}`;
 
     const dialogData: BulkValidateDialogData = {
-      periodId: period.id,
-      periodName: period.name,
+      rangeStart: filters.rangeStart,
+      rangeEnd: filters.rangeEnd,
+      anyCountryIds: filters.anyCountryIds,
+      anyDepartmentIds: filters.anyDepartmentIds,
+      anyRoleIds: filters.anyRoleIds,
+      anyEmploymentTypes: filters.anyEmploymentTypes,
+      payrollFrequency: filters.payrollFrequency,
+      periodName: dateRange,
       filterChips: this.filterChips(),
     };
 

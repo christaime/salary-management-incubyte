@@ -1,4 +1,5 @@
 import { EmploymentType } from '@features/employee/models';
+import { PayrollPeriodFrequency } from '@features/payroll-period/models';
 
 export interface PayrollSummaryCreateRequest {
   employeeId: string;
@@ -23,11 +24,13 @@ export interface PayrollSummaryUpdateRequest {
 }
 
 export interface PayrollSummaryValidateRequest {
-  periodId: string;
+  rangeStart: string,
+  rangeEnd: string,
   anyCountryIds?: string[] | null;
   anyDepartmentIds?: string[] | null;
   anyRoleIds?: string[] | null;
   anyEmploymentTypes?: EmploymentType[] | null;
+  payrollFrequency?: PayrollPeriodFrequency | null;
 }
 
 export interface ValidateAllFailure {

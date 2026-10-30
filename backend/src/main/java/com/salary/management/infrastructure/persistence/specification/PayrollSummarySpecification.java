@@ -55,7 +55,7 @@ public final class PayrollSummarySpecification {
                 }
                 if (criteria.rangeEnd() != null) {
                     predicates.add(cb.lessThanOrEqualTo(
-                            root.get("payrollPeriod").get("startDate"),
+                            root.get("payrollPeriod").get("endDate"),
                             criteria.rangeEnd()));
                 }
             }

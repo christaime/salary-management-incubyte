@@ -12,6 +12,7 @@ import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.domain.model.values.Amounts;
 import com.salary.management.domain.repository.*;
 import com.salary.management.domain.repository.criteria.PayrollSummaryCriteria;
+import com.salary.management.infrastructure.persistence.projection.SummaryValidationRow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,10 +30,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -272,7 +277,6 @@ class PayrollSummaryServiceTest {
         when(summaryRepository.save(any(PayrollSummary.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        // toDetail(...) resolves these:
         when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
         when(countryRepository.findById(countryId)).thenReturn(Optional.of(country));
         when(departmentRepository.findById(deptId)).thenReturn(Optional.of(department));
@@ -336,50 +340,157 @@ class PayrollSummaryServiceTest {
     // -------- validateAll --------
 
     @Test
-    @DisplayName("validateAll loops through every DRAFT and reports failures")
+    @DisplayName("validateAll batches rows, bulk-updates the safe ones, and reports failures")
     void validateAllLoopsAndReportsFailures() {
+        UUID passId = UUID.randomUUID();
         UUID failId = UUID.randomUUID();
-        PayrollSummary pass = summary;
-        PayrollSummary fail = PayrollSummary.builder()
-                .id(failId).employeeId(employeeId).payrollPeriod(period)
-                .employeePeriodicAssignmentId(assignmentId)
-                .amounts(summary.getAmounts())
-                .status(PayrollSummaryStatus.DRAFT).build();
+        UUID orphanId = UUID.randomUUID();   // summary whose assignment is missing
 
-        // The service reads the period up-front; stub it.
-        when(periodRepository.findById(periodId)).thenReturn(Optional.of(period));
+        LocalDate rangeStart = period.getStartDate();   // 2026-01-01
+        LocalDate rangeEnd   = period.getEndDate();     // 2026-01-31
 
-        // First page: both. Second page: empty.
-        when(summaryRepository.page(any(PayrollSummaryCriteria.class)))
-                .thenReturn(new DataPage<>(List.of(pass, fail), 0, 100, 2))
+        // Row 1: safe → validated.
+        SummaryValidationRow passRow = new SummaryValidationRow(
+                passId, PayrollSummaryStatus.DRAFT,
+                periodId, false, rangeStart, rangeEnd,
+                assignmentId, true, assignment.getStartDate(), assignment.getEndDate());
+
+        // Row 2: assignment not in effect → failure.
+        SummaryValidationRow failRow = new SummaryValidationRow(
+                failId, PayrollSummaryStatus.DRAFT,
+                periodId, false, rangeStart, rangeEnd,
+                assignmentId, false, assignment.getStartDate(), assignment.getEndDate());
+
+        // Row 3: assignment missing (LEFT JOIN null) → failure, NOT silently skipped.
+        SummaryValidationRow orphanRow = new SummaryValidationRow(
+                orphanId, PayrollSummaryStatus.DRAFT,
+                periodId, false, rangeStart, rangeEnd,
+                null, null, null, null);
+
+        // The request carries the range directly; no period lookup is needed.
+        // Signature: (rangeStart, rangeEnd, employeeId,
+        //   countryIds, departmentIds, roleIds, employmentTypes,
+        //   frequency, afterId, page, size).
+        when(summaryRepository.findValidationRows(
+                eq(rangeStart),
+                eq(rangeEnd),
+                nullable(UUID.class),                    // employeeId
+                nullable(Set.class),                     // countryIds
+                nullable(Set.class),                     // departmentIds
+                nullable(Set.class),                     // roleIds
+                nullable(Set.class),                     // employmentTypes
+                nullable(PayrollPeriodFrequency.class),  // frequency
+                nullable(UUID.class),                    // afterId
+                eq(0),
+                anyInt()))
+                .thenReturn(new DataPage<>(
+                        List.of(passRow, failRow, orphanRow), 0, 100, 3))
                 .thenReturn(new DataPage<>(List.of(), 0, 100, 0));
 
-        when(validator.validate(summaryId))
-                .thenReturn(mock(PayrollSummaryDetailDto.class));
-        when(validator.validate(failId))
-                .thenThrow(new ConflictException("ASSIGNMENT_NOT_IN_EFFECT",
+        when(validator.check(passRow)).thenReturn(null);
+        when(validator.check(failRow)).thenReturn(
+                new ValidateAllResult.Failure(failId, "ASSIGNMENT_NOT_IN_EFFECT",
                         "Assignment not in effect"));
+        when(validator.check(orphanRow)).thenReturn(
+                new ValidateAllResult.Failure(orphanId, "ASSIGNMENT_NOT_FOUND",
+                        "Assignment missing"));
+
+        when(summaryRepository.bulkUpdateStatus(
+                anyCollection(), eq(PayrollSummaryStatus.DRAFT),
+                eq(PayrollSummaryStatus.VALIDATED)))
+                .thenReturn(1);
 
         ValidateAllResult result = service.validateAll(
-                PayrollSummaryValidateRequest.builder().periodId(periodId).build());
+                PayrollSummaryValidateRequest.builder()
+                        .rangeStart(rangeStart)
+                        .rangeEnd(rangeEnd)
+                        .build());
 
-        assertEquals(2, result.total());
+        assertEquals(3, result.total());
         assertEquals(1, result.validated());
-        assertEquals(1, result.failed());
-        assertEquals(1, result.failures().size());
-        assertEquals(failId, result.failures().get(0).summaryId());
-        assertEquals("ASSIGNMENT_NOT_IN_EFFECT", result.failures().get(0).code());
+        assertEquals(2, result.failed());
+        assertEquals(2, result.failures().size());
+
+        Set<String> codes = result.failures().stream()
+                .map(ValidateAllResult.Failure::code)
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("ASSIGNMENT_NOT_IN_EFFECT", "ASSIGNMENT_NOT_FOUND"), codes);
     }
 
     @Test
-    @DisplayName("validateAll rejects a missing period")
-    void validateAllMissingPeriod() {
-        when(periodRepository.findById(periodId)).thenReturn(Optional.empty());
+    @DisplayName("validateAll reports SUMMARY_NOT_DRAFT when the bulk update misses rows")
+    void validateAllReconcilesWhenBulkUpdateMissesRows() {
+        UUID id = UUID.randomUUID();
+        LocalDate rangeStart = period.getStartDate();
+        LocalDate rangeEnd   = period.getEndDate();
 
-        assertThrows(ResourceNotFoundException.class,
-                () -> service.validateAll(
-                        PayrollSummaryValidateRequest.builder()
-                                .periodId(periodId).build()));
+        SummaryValidationRow row = new SummaryValidationRow(
+                id, PayrollSummaryStatus.DRAFT,
+                periodId, false, rangeStart, rangeEnd,
+                assignmentId, true, assignment.getStartDate(), assignment.getEndDate());
+
+        when(summaryRepository.findValidationRows(
+                eq(rangeStart), eq(rangeEnd),
+                nullable(UUID.class),
+                nullable(Set.class), nullable(Set.class), nullable(Set.class),
+                nullable(Set.class), nullable(PayrollPeriodFrequency.class),
+                nullable(UUID.class), eq(0), anyInt()))
+                .thenReturn(new DataPage<>(List.of(row), 0, 100, 1))
+                .thenReturn(new DataPage<>(List.of(), 0, 100, 0));
+
+        when(validator.check(row)).thenReturn(null);
+
+        // Concurrent delete/validate: the guarded bulk update affects 0 rows.
+        when(summaryRepository.bulkUpdateStatus(
+                anyCollection(), eq(PayrollSummaryStatus.DRAFT),
+                eq(PayrollSummaryStatus.VALIDATED)))
+                .thenReturn(0);
+
+        // Reconciliation: the row is not in VALIDATED.
+        when(summaryRepository.findIdsWithStatus(
+                anyCollection(), eq(PayrollSummaryStatus.VALIDATED)))
+                .thenReturn(Set.of());
+
+        ValidateAllResult result = service.validateAll(
+                PayrollSummaryValidateRequest.builder()
+                        .rangeStart(rangeStart)
+                        .rangeEnd(rangeEnd)
+                        .build());
+
+        assertEquals(1, result.total());
+        assertEquals(0, result.validated());
+        assertEquals(1, result.failed());
+        assertEquals("SUMMARY_NOT_DRAFT", result.failures().get(0).code());
+        verify(summaryRepository).findIdsWithStatus(
+                anyCollection(), eq(PayrollSummaryStatus.VALIDATED));
+    }
+
+    @Test
+    @DisplayName("validateAll accepts an empty result set")
+    void validateAllEmptyRange() {
+        LocalDate rangeStart = LocalDate.of(2026, 5, 1);
+        LocalDate rangeEnd   = LocalDate.of(2026, 5, 31);
+
+        when(summaryRepository.findValidationRows(
+                eq(rangeStart), eq(rangeEnd),
+                nullable(UUID.class),
+                nullable(Set.class), nullable(Set.class), nullable(Set.class),
+                nullable(Set.class), nullable(PayrollPeriodFrequency.class),
+                nullable(UUID.class), eq(0), anyInt()))
+                .thenReturn(new DataPage<>(List.of(), 0, 100, 0));
+
+        ValidateAllResult result = service.validateAll(
+                PayrollSummaryValidateRequest.builder()
+                        .rangeStart(rangeStart)
+                        .rangeEnd(rangeEnd)
+                        .build());
+
+        assertEquals(0, result.total());
+        assertEquals(0, result.validated());
+        assertEquals(0, result.failed());
+        assertTrue(result.failures().isEmpty());
+        verify(summaryRepository, never())
+                .bulkUpdateStatus(anyCollection(), any(), any());
     }
 
     @Test

@@ -23,16 +23,13 @@
         type="button"
         mat-stroked-button
         [disabled]="!canBulkValidate()"
-        [attr.title]="
-          canBulkValidate()
-            ? bulkValidateLabel()
-            : 'Select a start payroll period to bulk-validate'
-        "
+        [attr.title]="canBulkValidate() ? bulkValidateLabel() : bulkValidateBlockReason()"
         (click)="onBulkValidate()"
       >
         <mat-icon class="!w-4 !h-4 !text-[16px]">checklist</mat-icon>
         {{ bulkValidateLabel() }}
       </button>
+
       <button
         data-testid="payroll-summary-new"
         type="button"

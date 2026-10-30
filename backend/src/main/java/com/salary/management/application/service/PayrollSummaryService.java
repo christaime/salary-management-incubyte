@@ -6,10 +6,12 @@ import com.salary.management.common.exception.ConflictException;
 import com.salary.management.common.exception.ResourceNotFoundException;
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.domain.model.*;
+import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.domain.model.values.Amounts;
 import com.salary.management.domain.repository.*;
 import com.salary.management.domain.repository.criteria.PayrollSummaryCriteria;
+import com.salary.management.infrastructure.persistence.projection.SummaryValidationRow;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -75,7 +77,7 @@ public class PayrollSummaryService {
             throw new ConflictException(
                     "PERIOD_CLOSED",
                     "Payroll period " + period.getName() + " is closed",
-                    Map.of("periodId", period.getId(),"periodName", period.getName()));
+                    Map.of("periodId", period.getId(), "periodName", period.getName()));
         }
         EmployeePeriodicAssignment assignment = assignmentRepository
                 .findById(request.assignmentId())
@@ -158,7 +160,7 @@ public class PayrollSummaryService {
             throw new ConflictException(
                     "PERIOD_CLOSED",
                     "Payroll period " + period.getName() + " is closed",
-                    Map.of("periodId", period.getId(),"periodName", period.getName()));
+                    Map.of("periodId", period.getId(), "periodName", period.getName()));
         }
 
         PayrollSummary updated = existing;
@@ -234,58 +236,89 @@ public class PayrollSummaryService {
     // Validate — bulk
     // ------------------------------------------------------------------
 
+    /**
+     * Validates every {@code DRAFT} summary in the requested period that matches
+     * the request's assignment filters.
+     *
+     * <p>Reads flat validation rows in keyset-paginated batches (see
+     * {@link PayrollSummaryRepository#findValidationRows}), applies
+     * {@link PayrollSummaryValidator#check} in memory, and applies a single guarded
+     * bulk update per batch. The happy path costs two queries per batch (one
+     * projection + one update); a third reconciliation query runs only when some
+     * rows lost a race between the projection and the update.</p>
+     *
+     * <p>Concurrent validation / deletion is treated as a per-row
+     * {@code SUMMARY_NOT_DRAFT} failure — the summary did not end up
+     * {@code VALIDATED} through this call, so it is reported even though the goal
+     * (the row is no longer {@code DRAFT}) may have been achieved elsewhere.</p>
+     */
+    @Transactional
     public ValidateAllResult validateAll(PayrollSummaryValidateRequest request) {
-        periodRepository.findById(request.periodId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "PayrollPeriod not found: " + request.periodId()));
+        if(request.rangeStart() == null || request.rangeEnd() == null){
+            throw new IllegalArgumentException("A date range must be selected to validate bulk summaries");
+        }
+
+        Set<UUID> countryIds         = request.anyCountryIds();
+        Set<UUID> departmentIds      = request.anyDepartmentIds();
+        Set<UUID> roleIds            = request.anyRoleIds();
+        Set<EmploymentType> empTypes = request.anyEmploymentTypes();
 
         int total = 0;
         int validated = 0;
         List<ValidateAllResult.Failure> failures = new ArrayList<>();
-        List<UUID> excluded = new ArrayList<>();
-        int pageIndex = 0;
+        UUID cursor = null;
 
         while (true) {
-            if (excluded.size() >= BULK_PAGE_SIZE) {
-                excluded = new ArrayList<>(
-                        excluded.subList(BULK_PAGE_SIZE, excluded.size()));
-                pageIndex++;
-            }
+            DataPage<SummaryValidationRow> page = summaryRepository.findValidationRows(
+                    request.rangeStart(),
+                    request.rangeEnd(),
+                    request.employeeId(),
+                    countryIds, departmentIds, roleIds, empTypes,
+                    request.payrollFrequency(),
+                    cursor,
+                    0,                               // keyset: always first page
+                    BULK_PAGE_SIZE);
 
-            PayrollSummaryCriteria criteria = PayrollSummaryCriteria.builder()
-                    .payrollPeriodId(request.periodId())
-                    .status(PayrollSummaryStatus.DRAFT)
-                    .anyCountryIds(request.anyCountryIds())
-                    .anyDepartmentIds(request.anyDepartmentIds())
-                    .anyRoleIds(request.anyRoleIds())
-                    .anyEmploymentTypes(request.anyEmploymentTypes())
-                    .excludeIds(new HashSet<>(excluded))
-                    .page(pageIndex)
-                    .size(BULK_PAGE_SIZE)
-                    .build();
-
-            DataPage<PayrollSummary> chunk = summaryRepository.page(criteria);
-            if (chunk.content().isEmpty()) {
+            if (page.content().isEmpty()) {
                 break;
             }
 
-            for (PayrollSummary draft : chunk.content()) {
+            List<UUID> ok = new ArrayList<>(page.content().size());
+            for (SummaryValidationRow row : page.content()) {
                 total++;
-                try {
-                    validator.validate(draft.getId());
-                    validated++;
-                } catch (ConflictException ex) {
-                    failures.add(new ValidateAllResult.Failure(
-                            draft.getId(), ex.getCode(), ex.getMessage()));
-                    excluded.add(draft.getId());
-                } catch (RuntimeException ex) {
-                    log.error("Unexpected failure validating payroll summary {}",
-                            draft.getId(), ex);
-                    failures.add(new ValidateAllResult.Failure(
-                            draft.getId(), "UNEXPECTED_ERROR", ex.getMessage()));
-                    excluded.add(draft.getId());
+                ValidateAllResult.Failure f = validator.check(row);
+                if (f != null) {
+                    failures.add(f);
+                } else {
+                    ok.add(row.summaryId());
                 }
             }
+
+            if (!ok.isEmpty()) {
+                int updated = summaryRepository.bulkUpdateStatus(
+                        ok, PayrollSummaryStatus.DRAFT, PayrollSummaryStatus.VALIDATED);
+                if (updated == ok.size()) {
+                    validated += ok.size();
+                } else {
+                    // Some rows lost the race between the projection and the
+                    // update: re-query their current status once.
+                    Set<UUID> confirmed = summaryRepository.findIdsWithStatus(
+                            ok, PayrollSummaryStatus.VALIDATED);
+                    validated += confirmed.size();
+                    for (UUID id : ok) {
+                        if (!confirmed.contains(id)) {
+                            failures.add(new ValidateAllResult.Failure(
+                                    id, "SUMMARY_NOT_DRAFT",
+                                    "Payroll summary " + id + " is no longer in DRAFT"));
+                        }
+                    }
+                }
+            }
+
+            // Advance the keyset cursor. Every returned row is seen exactly once
+            // regardless of success or failure, so failures do not need an
+            // excluded set and there is no skip-a-row risk under shrinking sets.
+            cursor = page.content().get(page.content().size() - 1).summaryId();
         }
 
         return new ValidateAllResult(total, validated, failures.size(), failures);
@@ -307,9 +340,8 @@ public class PayrollSummaryService {
         return mapper.toDto(summary, employee,
                 assignment.getCountry(), assignment.getDepartment(),
                 assignment.getRole(),
-                assignment ,
-                assignment.getEmploymentType()
-                );
+                assignment,
+                assignment.getEmploymentType());
     }
 
     private PayrollSummaryDetailDto toDetail(PayrollSummary summary) {

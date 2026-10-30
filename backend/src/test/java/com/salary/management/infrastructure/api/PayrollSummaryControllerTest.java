@@ -175,9 +175,14 @@ class PayrollSummaryControllerTest {
         when(service.validateAll(any(PayrollSummaryValidateRequest.class)))
                 .thenReturn(result);
 
+        // PayrollSummaryValidateRequest now requires rangeStart/rangeEnd (@NotNull).
+        // periodId is gone from the request record.
         String body = """
-                { "periodId": "%s" }
-                """.formatted(periodId);
+            {
+              "rangeStart": "2026-01-01",
+              "rangeEnd": "2026-01-31"
+            }
+            """;
 
         mockMvc.perform(post("/api/v1/payroll-summaries/validate-all")
                         .contentType(MediaType.APPLICATION_JSON)

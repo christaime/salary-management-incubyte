@@ -11,7 +11,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-
+import { PayrollPeriodFrequency } from '@features/payroll-period/models';
+import { EmploymentType } from '@features/employee/models';
 import { PayrollSummaryService } from '../../services/payroll-summary.service';
 import {
   ValidateAllFailure,
@@ -20,8 +21,14 @@ import {
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 
 export interface BulkValidateDialogData {
-  periodId: string;
+  rangeStart: string,
+  rangeEnd: string,
   periodName: string;
+  anyCountryIds?: string[] | null;
+  anyDepartmentIds?: string[] | null;
+  anyRoleIds?: string[] | null;
+  anyEmploymentTypes?: EmploymentType[] | null;
+  payrollFrequency?: PayrollPeriodFrequency | null;
   /** Optional summary of the active filters, rendered as small chips. */
   filterChips?: string[];
 }
@@ -80,7 +87,15 @@ export class BulkValidateDialogComponent implements OnInit {
     this.phase.set('running');
     this.errorMessage.set(null);
 
-    this.service.validateAll({ periodId: this.data.periodId }).subscribe({
+    this.service.validateAll({
+      rangeStart: this.data.rangeStart,
+      rangeEnd: this.data.rangeEnd,
+      anyCountryIds: this.data.anyCountryIds,
+      anyDepartmentIds: this.data.anyDepartmentIds,
+      anyRoleIds: this.data.anyRoleIds,
+      anyEmploymentTypes: this.data.anyEmploymentTypes,
+      payrollFrequency: this.data.payrollFrequency
+      }).subscribe({
       next: (res) => {
         this.result.set(res);
         this.phase.set('done');

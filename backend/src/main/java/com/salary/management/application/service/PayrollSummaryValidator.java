@@ -1,6 +1,7 @@
 package com.salary.management.application.service;
 
 import com.salary.management.application.dto.payroll.PayrollSummaryDetailDto;
+import com.salary.management.application.dto.payroll.ValidateAllResult;
 import com.salary.management.application.mapper.PayrollSummaryApiMapper;
 import com.salary.management.common.exception.ConflictException;
 import com.salary.management.common.exception.ResourceNotFoundException;
@@ -13,11 +14,13 @@ import com.salary.management.domain.model.PayrollSummary;
 import com.salary.management.domain.model.Role;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.domain.repository.*;
+import com.salary.management.infrastructure.persistence.projection.SummaryValidationRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
@@ -96,8 +99,7 @@ public class PayrollSummaryValidator {
     }
 
     private boolean covers(EmployeePeriodicAssignment a, PayrollPeriod p) {
-        if (a.getStartDate().isAfter(p.getStartDate())) return false;
-        return a.getEndDate() == null || !a.getEndDate().isBefore(p.getEndDate());
+        return covers(a.getStartDate(), a.getEndDate(), p.getStartDate(), p.getEndDate());
     }
 
     private PayrollSummaryDetailDto toDetail(PayrollSummary summary) {
@@ -119,5 +121,47 @@ public class PayrollSummaryValidator {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Role not found: " + assignment.getRole().getId()));
         return mapper.toDetail(summary, employee, country, department, role, assignment);
+    }
+
+    /**
+     * Pure predicate over a flat validation row. No I/O. Returns {@code null} when
+     * the summary is safe to validate, or a per-row failure otherwise.
+     *
+     * <p>Same rules as {@link #validate(UUID)}, but operating on
+     * {@link SummaryValidationRow} so the bulk path does not need to load
+     * entities.</p>
+     */
+    public ValidateAllResult.Failure check(SummaryValidationRow row) {
+        if (row.status() != PayrollSummaryStatus.DRAFT) {
+            return new ValidateAllResult.Failure(row.summaryId(), "SUMMARY_NOT_DRAFT",
+                    "Payroll summary " + row.summaryId() + " is not DRAFT");
+        }
+        if (row.assignmentId() == null) {
+            return new ValidateAllResult.Failure(row.summaryId(), "ASSIGNMENT_NOT_FOUND",
+                    "Assignment referenced by summary " + row.summaryId() + " does not exist");
+        }
+        if (Boolean.TRUE.equals(row.periodClosed())) {
+            return new ValidateAllResult.Failure(row.summaryId(), "PERIOD_CLOSED",
+                    "Payroll period " + row.periodId() + " is closed");
+        }
+        if (!Boolean.TRUE.equals(row.assignmentInEffect())) {
+            return new ValidateAllResult.Failure(row.summaryId(), "ASSIGNMENT_NOT_IN_EFFECT",
+                    "Assignment " + row.assignmentId() + " is not in effect");
+        }
+        if (!covers(row.assignmentStart(), row.assignmentEnd(),
+                row.periodStart(), row.periodEnd())) {
+            return new ValidateAllResult.Failure(row.summaryId(),
+                    "ASSIGNMENT_DOES_NOT_COVER_PERIOD",
+                    "Assignment " + row.assignmentId()
+                            + " does not cover period " + row.periodId());
+        }
+        return null;
+    }
+
+    /** Null-safe date overlap predicate; shared by both paths. */
+    private boolean covers(LocalDate aStart, LocalDate aEnd,
+                           LocalDate pStart, LocalDate pEnd) {
+        if (aStart.isAfter(pStart)) return false;
+        return aEnd == null || !aEnd.isBefore(pEnd);
     }
 }

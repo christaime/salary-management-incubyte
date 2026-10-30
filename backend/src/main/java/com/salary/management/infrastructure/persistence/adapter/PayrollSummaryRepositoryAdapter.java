@@ -4,8 +4,9 @@ import com.salary.management.common.pagination.DataPage;
 import com.salary.management.domain.model.Country;
 import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.PayrollSummary;
+import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
-import com.salary.management.domain.model.values.Amounts;
 import com.salary.management.domain.repository.CountryRepository;
 import com.salary.management.domain.repository.EmployeePeriodicAssignmentRepository;
 import com.salary.management.domain.repository.PayrollPeriodRepository;
@@ -17,6 +18,7 @@ import com.salary.management.infrastructure.persistence.entity.EmployeeEntity;
 import com.salary.management.infrastructure.persistence.entity.EmployeePeriodicAssignmentEntity;
 import com.salary.management.infrastructure.persistence.entity.PayrollSummaryEntity;
 import com.salary.management.infrastructure.persistence.mapper.PayrollSummaryPersistenceMapper;
+import com.salary.management.infrastructure.persistence.projection.SummaryValidationRow;
 import com.salary.management.infrastructure.persistence.repository.EmployeeJpaRepository;
 import com.salary.management.infrastructure.persistence.repository.EmployeePeriodicAssignmentJpaRepository;
 import com.salary.management.infrastructure.persistence.repository.PayrollSummaryJpaRepository;
@@ -29,7 +31,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -48,6 +49,10 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
     private final PayrollSummaryPersistenceMapper mapper;
     private final PayrollPeriodRepository payrollPeriodRepository;
     private final CountryRepository countryRepository;
+
+    // ------------------------------------------------------------------
+    // Standard CRUD
+    // ------------------------------------------------------------------
 
     @Override
     public PayrollSummary save(PayrollSummary summary) {
@@ -80,6 +85,15 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
     }
 
     @Override
+    public void deleteById(UUID id) {
+        jpaRepository.deleteById(id);
+    }
+
+    // ------------------------------------------------------------------
+    // Criteria-based reads
+    // ------------------------------------------------------------------
+
+    @Override
     public List<PayrollSummary> list(PayrollSummaryCriteria criteria) {
         Sort sort = CriteriaUtils.toSpringSort(criteria);
         List<PayrollSummaryEntity> entities = jpaRepository.findAll(
@@ -101,14 +115,19 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
             throw new IllegalArgumentException(
                     "pageNonExistent requires criteria.nonExistent = true");
         }
-        if (criteria.payrollPeriodId() == null && (criteria.rangeStart() == null || criteria.rangeEnd() == null)) {
+        if (criteria.payrollPeriodId() == null
+                && (criteria.rangeStart() == null || criteria.rangeEnd() == null)) {
             throw new IllegalArgumentException(
-                    "pageNonExistent requires criteria.payrollPeriodId or criteria.rangeStart and criteria.rangeEnd");
+                    "pageNonExistent requires criteria.payrollPeriodId "
+                            + "or criteria.rangeStart and criteria.rangeEnd");
         }
+
         LocalDate criteriaStartDate = criteria.rangeStart();
         LocalDate criteriaEndDate = criteria.rangeEnd();
-        if(criteria.payrollPeriodId() != null) {// The period has precedence on the range date
-            PayrollPeriod period = payrollPeriodRepository.findById(criteria.payrollPeriodId())
+        if (criteria.payrollPeriodId() != null) {
+            // The period has precedence over the range dates.
+            PayrollPeriod period = payrollPeriodRepository
+                    .findById(criteria.payrollPeriodId())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "Payroll period not found: " + criteria.payrollPeriodId()));
             criteriaStartDate = period.getStartDate();
@@ -121,19 +140,20 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
                 Sort.by(Sort.Direction.ASC, "startDate")
                         .and(Sort.by(Sort.Direction.ASC, "id")));
 
-        Page<PayrollSummaryEntity> page =
-                assignmentJpaRepository.findMissingSummaryPage(
-                        criteriaStartDate,
-                        criteriaEndDate,
-                        criteria.payrollFrequency(),
-                        criteria.employeeId(),
-                        nullIfEmpty(criteria.anyCountryIds()),
-                        nullIfEmpty(criteria.anyDepartmentIds()),
-                        nullIfEmpty(criteria.anyRoleIds()),
-                        nullIfEmpty(criteria.anyEmploymentTypes()),
-                        pageable);
+        Page<PayrollSummaryEntity> page = assignmentJpaRepository.findMissingSummaryPage(
+                criteriaStartDate,
+                criteriaEndDate,
+                criteria.payrollFrequency(),
+                criteria.employeeId(),
+                nullIfEmpty(criteria.anyCountryIds()),
+                nullIfEmpty(criteria.anyDepartmentIds()),
+                nullIfEmpty(criteria.anyRoleIds()),
+                nullIfEmpty(criteria.anyEmploymentTypes()),
+                pageable);
 
-        List<PayrollSummary> content = page.getContent().stream().map(this::toSyntheticPayrollSummary).toList();
+        List<PayrollSummary> content = page.getContent().stream()
+                .map(this::toSyntheticPayrollSummary)
+                .toList();
 
         return new DataPage<>(
                 content,
@@ -142,10 +162,9 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
                 page.getTotalElements());
     }
 
-    @Override
-    public void deleteById(UUID id) {
-        jpaRepository.deleteById(id);
-    }
+    // ------------------------------------------------------------------
+    // Assignment-linked reads
+    // ------------------------------------------------------------------
 
     @Override
     public LocalDate latestLinkedPeriodStart(UUID assignmentId) {
@@ -157,11 +176,74 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
         return jpaRepository.hasAnySummaryForAssignment(assignmentId);
     }
 
+    // ------------------------------------------------------------------
+    // Bulk validation read
+    // ------------------------------------------------------------------
+
+    @Override
+    public DataPage<SummaryValidationRow> findValidationRows(
+            LocalDate rangeStart,
+            LocalDate rangeEnd,
+            UUID employeeId,
+            Set<UUID> anyCountryIds,
+            Set<UUID> anyDepartmentIds,
+            Set<UUID> anyRoleIds,
+            Set<EmploymentType> anyEmploymentTypes,
+            PayrollPeriodFrequency payrollFrequency,
+            UUID afterId,
+            int page,
+            int size) {
+
+        // No Sort here: the JPQL query carries ORDER BY s.id, and a Sort on a
+        // SELECT NEW query is unreliable (Spring Data resolves it against the
+        // projection type, not the FROM root). Keyset paging uses afterId,
+        // never the offset, so `page` is always 0.
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<SummaryValidationRow> rows = jpaRepository.findValidationRows(
+                rangeStart,
+                rangeEnd,
+                employeeId,
+                nullIfEmpty(anyCountryIds),
+                nullIfEmpty(anyDepartmentIds),
+                nullIfEmpty(anyRoleIds),
+                nullIfEmpty(anyEmploymentTypes),
+                payrollFrequency,
+                afterId,
+                pageable);
+
+        return new DataPage<>(
+                rows.getContent(),
+                rows.getNumber(),
+                rows.getSize(),
+                rows.getTotalElements());
+    }
+
+    // ------------------------------------------------------------------
+    // Status transitions
+    // ------------------------------------------------------------------
+
     @Override
     public int updateStatus(UUID id, PayrollSummaryStatus expectedStatus,
                             PayrollSummaryStatus newStatus) {
         return jpaRepository.updateStatus(id, expectedStatus, newStatus);
     }
+
+    @Override
+    public int bulkUpdateStatus(Collection<UUID> ids,
+                                PayrollSummaryStatus expected,
+                                PayrollSummaryStatus target) {
+        return jpaRepository.bulkUpdateStatus(ids, expected, target);
+    }
+
+    @Override
+    public Set<UUID> findIdsWithStatus(Collection<UUID> ids, PayrollSummaryStatus status) {
+        return jpaRepository.findIdsWithStatus(ids, status);
+    }
+
+    // ------------------------------------------------------------------
+    // Internals
+    // ------------------------------------------------------------------
 
     private DataPage<PayrollSummary> toDataPage(Page<PayrollSummaryEntity> page) {
         List<PayrollSummary> content =
@@ -174,13 +256,16 @@ public class PayrollSummaryRepositoryAdapter implements PayrollSummaryRepository
     }
 
     private PayrollSummary toSyntheticPayrollSummary(PayrollSummaryEntity payrollSummaryEntity) {
-        Country country = countryRepository.findById(payrollSummaryEntity.getAssignmentCountryId())
+        Country country = countryRepository
+                .findById(payrollSummaryEntity.getAssignmentCountryId())
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Country not found: " + payrollSummaryEntity.getAssignmentCountryId()));
+                        "Country not found: "
+                                + payrollSummaryEntity.getAssignmentCountryId()));
         String currency = country.getCurrencyCode();
         if (currency == null || currency.isBlank()) {
             throw new IllegalStateException(
-                    "Country " + country.getId() + " has no currency code; cannot build synthetic summary");
+                    "Country " + country.getId()
+                            + " has no currency code; cannot build synthetic summary");
         }
         AmountsEmbeddable amountWithCurrency = payrollSummaryEntity.getAmounts();
         amountWithCurrency.setCurrency(currency);
