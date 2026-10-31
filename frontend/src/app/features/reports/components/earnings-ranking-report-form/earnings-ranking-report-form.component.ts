@@ -17,7 +17,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { PayrollPeriodPickerComponent } from '../../../payroll-period/components/payroll-period-picker/payroll-period-picker.component';
 import { PayrollPeriodDto } from '../../../payroll-period/models/payroll-period.model';
 import { PayrollPeriodCriteria } from '../../../payroll-period/models/payroll-period-criteria.model';
-import { PayrollPeriodFrequency } from '../../../payroll-period/models/payroll-period-frequency.model';
 import { CountryService } from '../../../country/services/country.service';
 import { DepartmentService } from '../../../department/services/department.service';
 import { RoleService } from '../../../role/services/role.service';
@@ -32,7 +31,16 @@ import {
   EMPLOYMENT_TYPE_LABELS,
   EmploymentType
 } from '@features/employee/models';
-type DimensionOption = { id: string; label: string };
+import { RefDto } from '@core/models';
+
+export interface EarningsRankingFormValue {
+  period: PayrollPeriodDto | null;
+  groupKey: GroupKey | null;
+  country: RefDto | null;
+  department: RefDto | null;
+  role: RefDto | null;
+  employmentType: EmploymentType | null;
+}
 
 @Component({
   selector: 'app-earnings-ranking-report-form',
@@ -56,8 +64,9 @@ export class EarningsRankingReportFormComponent {
   private readonly roleService = inject(RoleService);
 
   readonly submitting = input<boolean>(false);
-  readonly submitForm = output<EarningRankingReportRequest>();
+  readonly submitForm = output<EarningsRankingFormValue>();
   readonly cancel = output<void>();
+  readonly formChange = output<EarningsRankingFormValue | null>();
 
   readonly currentYear = new Date().getFullYear();
 
@@ -75,53 +84,35 @@ export class EarningsRankingReportFormComponent {
   readonly form: FormGroup<{
     period: FormControl<PayrollPeriodDto | null>;
     groupKey: FormControl<GroupKey | null>;
-    countryId: FormControl<string | null>;
-    departmentId: FormControl<string | null>;
-    roleId: FormControl<string | null>;
+    country: FormControl<RefDto | null>;
+    department: FormControl<RefDto | null>;
+    role: FormControl<RefDto | null>;
     employmentType: FormControl<EmploymentType | null>;
   }> = new FormGroup({
     period: new FormControl<PayrollPeriodDto | null>(null, [Validators.required]),
     groupKey: new FormControl<GroupKey | null>(null),
-    countryId: new FormControl<string | null>(null),
-    departmentId: new FormControl<string | null>(null),
-    roleId: new FormControl<string | null>(null),
+    country: new FormControl<RefDto | null>(null),
+    department: new FormControl<RefDto | null>(null),
+    role: new FormControl<RefDto | null>(null),
     employmentType: new FormControl<EmploymentType | null>(null),
   });
 
   readonly groupKey = signal<GroupKey | null>(null);
   readonly period = signal<PayrollPeriodDto | null>(null);
 
-  // Lookup data
-  readonly countries = signal<DimensionOption[]>([]);
-  readonly departments = signal<DimensionOption[]>([]);
-  readonly roles = signal<DimensionOption[]>([]);
+  // Lookup data storing full RefDto objects
+  readonly countries = signal<RefDto[]>([]);
+  readonly departments = signal<RefDto[]>([]);
+  readonly roles = signal<RefDto[]>([]);
 
- // Range for the period picker: [currentYear - 5, currentYear]
   readonly pickerYearRange = computed<[number, number]>(() => [
     this.currentYear - 5,
     this.currentYear,
   ]);
 
-  // Filter for the End picker: starts from the endDate of the selected start period
   readonly periodFilter = signal<PayrollPeriodCriteria>({ frequency: "MONTHLY" });
 
-  /**
-   * The dimension selector is only shown when the group key is not null.
-   */
   readonly showDimensionPicker = computed(() => this.groupKey() !== null);
-
-  /**
-   * Which dimension options the selector should display, based on `groupKey`.
-   */
-  readonly dimensionOptions = computed<DimensionOption[]>(() => {
-    switch (this.groupKey()) {
-      case 'COUNTRY':         return this.countries();
-      case 'DEPARTMENT':      return this.departments();
-      case 'ROLE':            return this.roles();
-      case 'EMPLOYMENT_TYPE': return this.employmentTypes.map(t => ({ id: t, label: this.employmentTypeLabels[t] }));
-      default:                return [];
-    }
-  });
 
   readonly dimensionLabel = computed(() => {
     switch (this.groupKey()) {
@@ -133,14 +124,11 @@ export class EarningsRankingReportFormComponent {
     }
   });
 
-  /**
-   * Which form control backs the dimension picker. Used to bind `formControlName`.
-   */
-  readonly dimensionControlName = computed<'countryId' | 'departmentId' | 'roleId' | 'employmentType' | null>(() => {
+  readonly dimensionControlName = computed<'country' | 'department' | 'role' | 'employmentType' | null>(() => {
     switch (this.groupKey()) {
-      case 'COUNTRY':         return 'countryId';
-      case 'DEPARTMENT':      return 'departmentId';
-      case 'ROLE':            return 'roleId';
+      case 'COUNTRY':         return 'country';
+      case 'DEPARTMENT':      return 'department';
+      case 'ROLE':            return 'role';
       case 'EMPLOYMENT_TYPE': return 'employmentType';
       default:                return null;
     }
@@ -153,13 +141,24 @@ export class EarningsRankingReportFormComponent {
   constructor() {
     this.form.controls.period.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(p => this.period.set(p));
+      .subscribe(p => {
+        this.period.set(p);
+        this.formChange.emit(this.toFormValue());
+      });
 
     this.form.controls.groupKey.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(k => this.onGroupKeyChange(k));
+      .subscribe(k => {
+        this.onGroupKeyChange(k);
+        this.formChange.emit(this.toFormValue());
+      });
 
-    // Disable form when submitting
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.formChange.emit(this.toFormValue());
+      });
+
     effect(() => {
       const isSubmitting = this.submitting();
       Object.values(this.form.controls).forEach(control =>
@@ -170,28 +169,32 @@ export class EarningsRankingReportFormComponent {
     this.loadLookups();
   }
 
+  compareRef(o1: RefDto | null, o2: RefDto | null): boolean {
+    if (!o1 || !o2) return o1 === o2;
+    return o1.code === o2.code || o1.name === o2.name;
+  }
+
   private loadLookups(): void {
     this.countryService.search()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(res => this.countries.set(res.content.map(c => ({ id: c.id, label: c.name }))));
+      .subscribe(res => this.countries.set(res.content));
 
     this.departmentService.search()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(res => this.departments.set(res.content.map(d => ({ id: d.id, label: d.name }))));
+      .subscribe(res => this.departments.set(res.content));
 
     this.roleService.search()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(res => this.roles.set(res.content.map(r => ({ id: r.id, label: r.name }))));
+      .subscribe(res => this.roles.set(res.content));
   }
 
   private onGroupKeyChange(key: GroupKey | null): void {
-    // Reset all dimension controls when the group key changes
     this.form.patchValue({
-      countryId: null,
-      departmentId: null,
-      roleId: null,
+      country: null,
+      department: null,
+      role: null,
       employmentType: null,
-    });
+    }, { emitEvent: false });
     this.groupKey.set(key);
   }
 
@@ -203,36 +206,42 @@ export class EarningsRankingReportFormComponent {
     }
   }
 
-  onSubmit(): void {
-    if (!this.canSubmit()) {
-      this.form.markAllAsTouched();
-      return;
-    }
-    const v = this.form.getRawValue();
-    if (!v.period) return;
-
-    const request: EarningRankingReportRequest = {
-      periodId: v.period.id,
-      groupKey: v.groupKey,
-      countryId: v.groupKey === 'COUNTRY' ? v.countryId : null,
-      departmentId: v.groupKey === 'DEPARTMENT' ? v.departmentId : null,
-      roleId: v.groupKey === 'ROLE' ? v.roleId : null,
-      employmentType: v.groupKey === 'EMPLOYMENT_TYPE' ? v.employmentType : null,
-    };
-    this.submitForm.emit(request);
-  }
+ onSubmit(): void {
+   if (!this.canSubmit()) {
+     this.form.markAllAsTouched();
+     return;
+   }
+   const value = this.toFormValue();
+   if (value) {
+     this.submitForm.emit(value);
+   }
+ }
 
   onReset(): void {
     this.form.reset({
       period: null,
       groupKey: null,
-      countryId: null,
-      departmentId: null,
-      roleId: null,
+      country: null,
+      department: null,
+      role: null,
       employmentType: null,
     });
     this.groupKey.set(null);
     this.period.set(null);
     this.cancel.emit();
+    this.formChange.emit(null);
+  }
+
+  private toFormValue(): EarningsRankingFormValue | null {
+    const v = this.form.getRawValue();
+    if (!v.period) return null;
+    return {
+      period: v.period,
+      groupKey: v.groupKey,
+      country: v.country,
+      department: v.department,
+      role: v.role,
+      employmentType: v.employmentType,
+    };
   }
 }

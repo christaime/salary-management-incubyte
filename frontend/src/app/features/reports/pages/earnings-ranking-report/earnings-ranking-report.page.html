@@ -7,8 +7,7 @@
       Earnings ranking report
     </h1>
     <p class="text-sm text-slate-700 m-0">
-      Pick a payroll period and a grouping to see the top and bottom 5 earners
-      with percentile context.
+      {{ reportDescription() }}
     </p>
   </header>
 
@@ -26,7 +25,8 @@
   <section class="mb-2 mt-2">
     <app-earnings-ranking-report-form
       [submitting]="isLoading()"
-      (submitForm)="onSubmit($event)"
+      (formChange)="onFormChange($event)"
+      (submitForm)="onSubmitForm($event)"
       (cancel)="onCancel()"
     />
   </section>

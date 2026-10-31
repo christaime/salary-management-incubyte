@@ -6,7 +6,7 @@
       Payroll report
     </h1>
     <p class="text-sm text-black m-0">
-      Choose a date range and a report.
+      {{ reportDescription() }}
     </p>
   </header>
 
@@ -17,10 +17,10 @@
   />
 
   <!-- Form -->
-  <section class="mb-4 mt-4">
+  <section class="mb-2 mt-2">
     <app-aggregate-report-form
       [submitting]="isLoading()"
-      (formChange)="onFormChange()"
+      (formChange)="onFormChange($event)"
       (submitForm)="onFormSubmit($event)"
       (cancel)="onFormReset()"
     />
