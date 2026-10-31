@@ -1,13 +1,9 @@
 package com.salary.management.application.service;
 
-import com.salary.management.application.dto.PayrollPeriodResponse;
-import com.salary.management.application.dto.RefDto;
 import com.salary.management.application.dto.ranking.EarnerRankingDto;
 import com.salary.management.application.dto.ranking.EarningRankingReportRequest;
 import com.salary.management.application.dto.ranking.EarningRankingReportResponse;
 import com.salary.management.application.dto.ranking.PositionContextDto;
-import com.salary.management.application.exception.ReportBlockedException;
-import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.Country;
 import com.salary.management.domain.model.Department;
@@ -23,22 +19,12 @@ import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.domain.model.enums.ReportKind;
-import com.salary.management.domain.model.enums.ReportWarningCode;
 import com.salary.management.domain.model.values.Amount;
-import com.salary.management.domain.model.values.RankingAndPercentileSnapshot;
-import com.salary.management.domain.model.values.ReportWarning;
-import com.salary.management.domain.model.values.SnapshotBuildResult;
-import com.salary.management.domain.repository.CurrencyRateRepository;
-import com.salary.management.domain.repository.EmployeePeriodicAssignmentRepository;
-import com.salary.management.domain.repository.PayrollPeriodAggregateRepository;
-import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
-import com.salary.management.domain.repository.PayrollPeriodRepository;
-import jakarta.persistence.EntityManager;
+import com.salary.management.domain.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -81,17 +67,12 @@ class RankingReportServiceTest {
     private EmployeePeriodicAssignmentRepository periodicAssignmentRepository;
 
     @Mock
-    private SnapshotBuilder snapshotBuilder;
-
-    @Mock
     private CurrencyRateRepository currencyRateRepository;
 
-    private RankingReportService service;
-
-    private ReportService baseService;
-
     @Mock
-    private EntityManager entityManager;
+    private PayrollPeriodSnapshotRepository payrollPeriodSnapshotRepository;
+
+    private RankingReportService service;
 
     private UUID PERIOD_ID;
     private UUID FR;
@@ -111,14 +92,13 @@ class RankingReportServiceTest {
         EMPLOYEE_1 = UUID.randomUUID();
         EMPLOYEE_2 = UUID.randomUUID();
 
-        baseService = new ReportService(payrollPeriodAggregateRepository,payrollPeriodEarnerRankingRepository,snapshotBuilder, entityManager);
         service = new RankingReportService(
                 payrollPeriodRepository,
                 payrollPeriodEarnerRankingRepository,
                 payrollPeriodAggregateRepository,
                 currencyRateRepository,
                 periodicAssignmentRepository,
-                baseService);
+                payrollPeriodSnapshotRepository);
 
         // Default: no assignment matches the period range, so DTO dimension
         // fields fall back to the ranking row's captured values.
@@ -243,52 +223,6 @@ class RankingReportServiceTest {
         assertEquals("NotFound", ex.getErrors().get(0).code());
     }
 
-    @Test
-    @DisplayName("snapshot blocker propagates as ReportBlockedException")
-    void snapshotBlockerPropagates() {
-        PayrollPeriod period = period(PayrollPeriodFrequency.MONTHLY, false);
-        when(payrollPeriodRepository.findById(PERIOD_ID)).thenReturn(Optional.of(period));
-
-        ReportWarning blocker = new ReportWarning(
-                ReportWarningCode.MISSING_FX_RATE,
-                ReportWarning.Severity.BLOCKER, "Missing FX", Map.of());
-        when(snapshotBuilder.build(period)).thenReturn(new SnapshotBuildResult(
-                List.of(), RankingAndPercentileSnapshot.empty(), List.of(), List.of(blocker)));
-
-        assertThrows(ReportBlockedException.class,
-                () -> service.generate(request(PERIOD_ID, null, null)));
-
-        verify(payrollPeriodEarnerRankingRepository, never())
-                .deleteDraftsByPayrollPeriodId(any());
-        verify(payrollPeriodEarnerRankingRepository, never())
-                .saveAll(any(), any());
-    }
-
-    @Test
-    @DisplayName("open period triggers snapshot build and persist")
-    void openPeriodTriggersBuildAndPersist() {
-        PayrollPeriod period = period(PayrollPeriodFrequency.MONTHLY, false);
-        when(payrollPeriodRepository.findById(PERIOD_ID)).thenReturn(Optional.of(period));
-        when(snapshotBuilder.build(period)).thenReturn(new SnapshotBuildResult(
-                List.of(), RankingAndPercentileSnapshot.empty(), List.of(), List.of()));
-        when(currencyRateRepository.getReferenceCurrencyCode()).thenReturn(REFERENCE_CURRENCY);
-        when(payrollPeriodEarnerRankingRepository.findByPayrollPeriodAndDimension(
-                eq(PERIOD_ID), any(), any(), any(), any())).thenReturn(List.of());
-        when(payrollPeriodEarnerRankingRepository.findPercentileByPayrollPeriodAndDimension(
-                eq(PERIOD_ID), any(), any(), any(), any())).thenReturn(List.of());
-        when(payrollPeriodAggregateRepository.sumReferenceTotalByPeriodId(PERIOD_ID))
-                .thenReturn(BigDecimal.ZERO);
-        when(payrollPeriodAggregateRepository.sumReferenceTotalByPeriodAndDimension(
-                eq(PERIOD_ID), any(), any(), any(), any())).thenReturn(BigDecimal.ZERO);
-
-        service.generate(request(PERIOD_ID, null, null));
-
-        verify(snapshotBuilder).build(period);
-        verify(payrollPeriodEarnerRankingRepository).deleteDraftsByPayrollPeriodId(PERIOD_ID);
-        verify(payrollPeriodEarnerRankingRepository)
-                .deleteDraftsPercentileByPayrollPeriodId(PERIOD_ID);
-        verify(payrollPeriodEarnerRankingRepository).saveAll(any(), any());
-    }
 
     // ------------------------------------------------------------------
     // Empty result

@@ -1,5 +1,6 @@
 package com.salary.management.infrastructure.persistence.adapter;
 
+import com.salary.management.application.dto.DateRange;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
@@ -13,6 +14,7 @@ import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -42,6 +44,8 @@ class ReportDataRepositoryAdapterTest {
             UUID.fromString("77777777-7777-7777-7777-777777777777");
     private static final UUID MISSING =
             UUID.fromString("00000000-0000-0000-0000-000000000000");
+    private static final DateRange JANUARY_DATE_RANGE = new DateRange(LocalDate.of(2026,1,1),LocalDate.of(2026,1,31));
+
 
     private static final String REFERENCE_CURRENCY = "USD";
 
@@ -207,7 +211,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(GroupKey.COUNTRY),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(2, rows.size());
@@ -233,7 +237,7 @@ class ReportDataRepositoryAdapterTest {
                 Set.of(FR), null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(GroupKey.COUNTRY),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
@@ -249,7 +253,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.DEPARTMENT),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(GroupKey.DEPARTMENT),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(2, rows.size());
@@ -275,7 +279,7 @@ class ReportDataRepositoryAdapterTest {
                 null, Set.of(FINANCE), null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.DEPARTMENT),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(), List.of(GroupKey.DEPARTMENT),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
@@ -289,7 +293,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.ROLE),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(), List.of(GroupKey.ROLE),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(2, rows.size());
@@ -315,7 +319,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, Set.of(MANAGER), null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.ROLE),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(GroupKey.ROLE),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
@@ -329,7 +333,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.EMPLOYMENT_TYPE),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(), List.of(GroupKey.EMPLOYMENT_TYPE),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
@@ -346,7 +350,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, Set.of(EmploymentType.FULL_TIME));
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.EMPLOYMENT_TYPE),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(GroupKey.EMPLOYMENT_TYPE),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
@@ -360,7 +364,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(), PayrollPeriodFrequency.MONTHLY,
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(), PayrollPeriodFrequency.MONTHLY,
                 filters, REFERENCE_CURRENCY);
 
         assertEquals(1, rows.size());
@@ -384,7 +388,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(GroupKey.COUNTRY),
                 PayrollPeriodFrequency.BI_WEEKLY, filters, REFERENCE_CURRENCY);
 
         // The seed has only a monthly period, so the frequency filter excludes all rows.
@@ -401,13 +405,13 @@ class ReportDataRepositoryAdapterTest {
                 GroupKey.COUNTRY, GroupKey.DEPARTMENT,
                 GroupKey.ROLE, GroupKey.EMPLOYMENT_TYPE)) {
             assertTrue(adapter.queryStatistics(
-                                    List.of(JANUARY), List.of(key),
+                                    JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(key),
                                     PayrollPeriodFrequency.BI_WEEKLY, filters, REFERENCE_CURRENCY)
                             .isEmpty(),
                     "Expected empty for " + key);
         }
         var stats = adapter.queryStatistics(
-                List.of(JANUARY), List.of(),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(),
                 PayrollPeriodFrequency.BI_WEEKLY, filters, REFERENCE_CURRENCY);
         assertTrue(stats.isEmpty());
     }
@@ -423,7 +427,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),
                 List.of(GroupKey.COUNTRY, GroupKey.DEPARTMENT),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
@@ -437,7 +441,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(MISSING), List.of(GroupKey.COUNTRY),
+                LocalDate.of(2020,1,1),LocalDate.of(2020,1,31), List.of(GroupKey.COUNTRY),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertTrue(rows.isEmpty());
@@ -451,7 +455,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(GroupKey.COUNTRY),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertTrue(rows.isEmpty());
@@ -464,7 +468,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(GroupKey.COUNTRY),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(GroupKey.COUNTRY),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertNotNull(rows);
@@ -485,7 +489,7 @@ class ReportDataRepositoryAdapterTest {
                 null, null, null, null);
 
         List<AggregateRowProjection> rows = adapter.queryStatistics(
-                List.of(JANUARY), List.of(),
+                JANUARY_DATE_RANGE.startDate(), JANUARY_DATE_RANGE.endDate(),  List.of(),
                 PayrollPeriodFrequency.MONTHLY, filters, REFERENCE_CURRENCY);
 
         assertNotNull(rows);

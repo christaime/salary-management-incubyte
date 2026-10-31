@@ -28,4 +28,22 @@ public record AggregateReportResponse(
         String referenceCurrency,
         List<AggregateLineDto> lines,
         List<ReportWarning> warnings) {
+    public static AggregateReportResponse of(AggregateReportRequest request, String referenceCurrency) {
+        return new AggregateReportResponse(
+                ReportKind.AGGREGATE,
+                request.dateRange(),
+                request.groupKeys(),
+                referenceCurrency,
+                List.of(),
+                List.of());
+    }
+    public static AggregateReportResponse of(AggregateReportRequest request, String referenceCurrency, List<ReportWarning> warnings) {
+        return new AggregateReportResponse(
+                ReportKind.AGGREGATE,
+                request.dateRange(),
+                request.groupKeys(),
+                referenceCurrency,
+                List.of(),
+                warnings);
+    }
 }

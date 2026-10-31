@@ -3,6 +3,7 @@ package com.salary.management.infrastructure.persistence.repository;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodAggregateEntity;
 import com.salary.management.infrastructure.persistence.projection.AggregateRow;
+import com.salary.management.infrastructure.persistence.projection.PayrollAggregateRow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
@@ -91,6 +92,61 @@ public interface PayrollPeriodAggregateJpaRepository
     List<AggregateRow> aggregateByGroup(
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+
+    @Query("""
+    SELECT s.assignmentCountryId        AS countryId,
+           s.assignmentDepartmentId     AS departmentId,
+           s.assignmentRoleId           AS roleId,
+           s.assignmentEmploymentType   AS employmentType,
+           s.amounts.currency           AS currency,
+           COUNT(DISTINCT s.employee.id) AS employeeCount,
+           SUM(s.amounts.base)            AS base,
+           SUM(s.amounts.variable)        AS variable,
+           SUM(s.amounts.allowances)      AS allowances,
+           SUM(s.amounts.employerTaxes)   AS employerTaxes,
+           SUM(s.amounts.total)           AS total,
+           SUM(CASE
+                 WHEN s.amounts.currency = :refCurrency THEN s.amounts.base
+                 WHEN cr.rate IS NULL                   THEN 0
+                 ELSE ROUND(s.amounts.base * cr.referenceAmount / cr.rate, 2)
+               END)                       AS referenceBase,
+           SUM(CASE
+                 WHEN s.amounts.currency = :refCurrency THEN s.amounts.variable
+                 WHEN cr.rate IS NULL                   THEN 0
+                 ELSE ROUND(s.amounts.variable * cr.referenceAmount / cr.rate, 2)
+               END)                       AS referenceVariable,
+           SUM(CASE
+                 WHEN s.amounts.currency = :refCurrency THEN s.amounts.allowances
+                 WHEN cr.rate IS NULL                   THEN 0
+                 ELSE ROUND(s.amounts.allowances * cr.referenceAmount / cr.rate, 2)
+               END)                       AS referenceAllowances,
+           SUM(CASE
+                 WHEN s.amounts.currency = :refCurrency THEN s.amounts.employerTaxes
+                 WHEN cr.rate IS NULL                   THEN 0
+                 ELSE ROUND(s.amounts.employerTaxes * cr.referenceAmount / cr.rate, 2)
+               END)                       AS referenceEmployerTaxes,
+           SUM(CASE
+                 WHEN s.amounts.currency = :refCurrency THEN s.amounts.total
+                 WHEN cr.rate IS NULL                   THEN 0
+                 ELSE ROUND(s.amounts.total * cr.referenceAmount / cr.rate, 2)
+               END)                       AS referenceTotal,
+           :refCurrency                   AS referenceCurrency
+    FROM PayrollSummaryEntity s
+    INNER JOIN PayrollPeriodEntity p ON p.id = s.payrollPeriod.id
+    LEFT JOIN CurrencyRateEntity cr
+      ON cr.currencyCode = s.amounts.currency
+     AND cr.referenceCurrencyCode = :refCurrency
+    WHERE p.startDate >= :startDate
+      AND p.startDate < :endDate
+      AND s.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.VALIDATED
+    GROUP BY s.assignmentCountryId, s.assignmentDepartmentId,
+             s.assignmentRoleId, s.assignmentEmploymentType, s.amounts.currency
+    """)
+    List<PayrollAggregateRow> aggregateInReferenceCurrency(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("refCurrency") String refCurrency);
 
     /**
      * Returns the sum of reference totals across all aggregate rows of one period.

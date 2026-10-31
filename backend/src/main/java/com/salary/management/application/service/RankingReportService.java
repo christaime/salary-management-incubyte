@@ -8,14 +8,13 @@ import com.salary.management.application.dto.ranking.EarningRankingReportRequest
 import com.salary.management.application.dto.ranking.EarningRankingReportResponse;
 import com.salary.management.application.dto.ranking.PositionContextDto;
 import com.salary.management.application.exception.ReportBlockedException;
-import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.*;
 import com.salary.management.domain.model.enums.*;
+import com.salary.management.domain.model.values.PayrollPeriodSnapshotResult;
 import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.repository.*;
-import jakarta.persistence.EntityManager;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,7 +44,7 @@ public class RankingReportService {
     private final PayrollPeriodAggregateRepository aggregateRepository;
     private final CurrencyRateRepository currencyRateRepository;
     private final EmployeePeriodicAssignmentRepository periodicAssignmentRepository;
-    private final ReportService baseService;
+    private final PayrollPeriodSnapshotRepository payrollPeriodSnapshotRepository;
 
     protected String referenceCurrency() {
         return currencyRateRepository.getReferenceCurrencyCode();
@@ -73,12 +72,17 @@ public class RankingReportService {
 
         // Closed periods already hold a snapshot — read-only. Open periods get
         // a rebuild before the report is assembled.
-        List<ReportWarning> warnings;
+        List<ReportWarning> warnings = List.of();
         if (Boolean.TRUE.equals(period.getClosed())) {
             log.debug("Period {} is closed; skipping snapshot rebuild", period.getId());
-            warnings = List.of();
         } else {
-            warnings = baseService.buildAndPersistSnapshots(List.of(period));
+            PayrollPeriodSnapshotResult result = payrollPeriodSnapshotRepository.buildAndSaveRankings(period);
+            warnings = new ArrayList<>(result.warnings());
+            if (result.isBlocked()) {
+                log.warn("Snapshot build for periodId={} returned {} blocker(s); aborting report generation",
+                        period.getId(), result.blockers().size());
+                throw new ReportBlockedException(result.blockers(), warnings);
+            }
             // NEW — distinguish "rebuild was clean" from "rebuild emitted warnings"
             if (warnings.isEmpty()) {
                 log.debug("Snapshot rebuilt for period {} (no warnings)", period.getId());
@@ -150,6 +154,7 @@ public class RankingReportService {
                 .groupKey(request.groupKey())
                 .tops(tops)
                 .bottoms(bottoms)
+                .warnings(warnings)
                 .positionContext(positionContext)
                 .totalReferenceAmount(totalReferenceAmount)
                 .totalDimensionReferenceAmount(totalDimensionReferenceAmount)

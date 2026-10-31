@@ -29,6 +29,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -204,7 +205,7 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
 
     @Override
     public List<AggregateRowProjection> queryStatistics(
-            List<UUID> periodIds,
+            LocalDate startDate, LocalDate endDate,
             List<GroupKey> groupKeys,
             PayrollPeriodFrequency frequency,
             ReportEffectiveFilters filters,
@@ -219,12 +220,12 @@ public class ReportDataRepositoryAdapter implements ReportDataRepository {
             return List.of();
         }
 
-        log.debug("queryStatistics periods={} group={} frequency={} referenceCurrency={} filters={}",
-                periodIds == null ? 0 : periodIds.size(), key, frequency,
+        log.debug("queryStatistics periods={} - {} group={} frequency={} referenceCurrency={} filters={}",
+                startDate, endDate, key, frequency,
                 referenceCurrencyCode, describe(filters));
 
         List<AggregateRowProjection> result = dynamicStatisticsBuilder.minMax(
-                periodIds, key, frequency, referenceCurrencyCode,
+                startDate, endDate, key, frequency, referenceCurrencyCode,
                 nullIfEmpty(filters.countryIds()),
                 nullIfEmpty(filters.departmentIds()),
                 nullIfEmpty(filters.roleIds()),
