@@ -11,4 +11,18 @@ public record PositionContextDto(
         BigDecimal p75,
         BigDecimal p90,
         BigDecimal max
-) {}
+) {
+    @Override
+    public String toString() {
+        return "PositionContextDto{" +
+                "employeeCount=" + employeeCount +
+                ", min=" + min +
+                ", p10=" + p10 +
+                ", p25=" + p25 +
+                ", p50=" + p50 +
+                ", p75=" + p75 +
+                ", p90=" + p90 +
+                ", max=" + max +
+                '}';
+    }
+}

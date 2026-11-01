@@ -339,7 +339,8 @@ public class DynamicRankingBuilder {
                 LEFT JOIN currency_rates cr
                   ON cr.currency_code = s.currency
                  AND cr.reference_currency_code = :refCurrency
-                WHERE s.payroll_period_id = :periodId
+                WHERE p.start_date >= :startDate
+                  AND p.start_date < :endDate
                   AND s.status = 'VALIDATED'
                   AND (s.currency = :refCurrency OR cr.rate IS NOT NULL)
                 GROUP BY %s s.employee_id
@@ -376,7 +377,8 @@ public class DynamicRankingBuilder {
         List<Object[]> rows;
         try {
             rows = entityManager.createNativeQuery(sql)
-                    .setParameter("periodId", period.getId().toString())
+                    .setParameter("startDate", period.getStartDate().toString())
+                    .setParameter("endDate", period.getEndDate().toString())
                     .setParameter("refCurrency", referenceCurrencyCode)
                     .setParameter("daysInMonth", daysInMonth)
                     .setParameter("daysInBiweekly", daysInBiweekly)
