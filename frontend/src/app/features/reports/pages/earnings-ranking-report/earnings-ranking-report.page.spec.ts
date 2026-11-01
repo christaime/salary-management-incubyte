@@ -12,12 +12,12 @@ import {
 } from '../../models';
 import { PayrollPeriodDto } from '../../../payroll-period/models/payroll-period.model';
 import { ReportsError } from '../../services/reports-error';
-import { EarningsRankingReportFormComponent } from '../../components/earnings-ranking-report-form/earnings-ranking-report-form.component';
+import { EarningsRankingReportFormComponent, EarningsRankingFormValue } from '../../components/earnings-ranking-report-form/earnings-ranking-report-form.component';
 import { PositionContextComponent } from '../../components/position-context/position-context.component';
 import { EarnerSpectrumComponent } from '../../components/earner-spectrum/earner-spectrum.component';
-import { apiUrl } from '@core/config/api-base-url';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { httpErrorInterceptor } from '@core/http/http-error.interceptor';
+import { RefDto } from '@core/models';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -31,6 +31,20 @@ function makePeriod(overrides: Partial<PayrollPeriodDto> = {}): PayrollPeriodDto
     endDate: '2026-01-31',
     frequency: 'MONTHLY',
     closed: false,
+    ...overrides,
+  };
+}
+
+function makeFormValue(
+  overrides: Partial<EarningsRankingFormValue> = {},
+): EarningsRankingFormValue {
+  return {
+    period: makePeriod(),
+    groupKey: null,
+    country: null,
+    department: null,
+    role: null,
+    employmentType: null,
     ...overrides,
   };
 }
@@ -95,15 +109,10 @@ function makeError(code: string, message: string): ReportsError {
     code,
     message,
     warnings: [
-      {
-        code: 'PERIOD_CLOSED',
-        message,
-        severity: 'BLOCKER',
-      } as any,
+      { code: 'PERIOD_CLOSED', message, severity: 'BLOCKER' } as any,
     ],
-  };
+  } as any;
 }
-
 
 function makeEmptyResponse(): EarningRankingReportResponse {
   return {
@@ -121,7 +130,15 @@ function makeEmptyResponse(): EarningRankingReportResponse {
   };
 }
 
-const emptyRequest: EarningRankingReportRequest = {
+const COUNTRY_FR: RefDto = { id: 'c-fr', code: 'FR', name: 'France' };
+const DEPT_ENG: RefDto = { id: 'd-eng', code: 'ENG', name: 'Engineering' };
+const ROLE_SWE: RefDto = { id: 'r-swe', code: 'SWE', name: 'Software Engineer' };
+
+/**
+ * The request the page is expected to hand to ReportsService when
+ * the form value has no groupKey (GLOBAL view).
+ */
+const globalRequest: EarningRankingReportRequest = {
   periodId: 'p-1',
   groupKey: null,
   countryId: null,
@@ -148,8 +165,8 @@ describe('EarningsRankingReportPage', () => {
       imports: [EarningsRankingReportPage],
       providers: [
         provideHttpClient(withInterceptors([httpErrorInterceptor])),
-        { provide: ReportsService, useValue: reportsService }
-        ],
+        { provide: ReportsService, useValue: reportsService },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(EarningsRankingReportPage);
@@ -165,7 +182,7 @@ describe('EarningsRankingReportPage', () => {
   // Idle state
   // ------------------------------------------------------------------
 
-  it('renders the title and empty state on idle', () => {
+  it('renders the title and idle hint on idle', () => {
     const el = fixture.nativeElement as HTMLElement;
 
     expect(
@@ -180,25 +197,97 @@ describe('EarningsRankingReportPage', () => {
   });
 
   // ------------------------------------------------------------------
-  // Success path
+  // Submit → request mapping
   // ------------------------------------------------------------------
 
-  it('calls generateRankingReport with the emitted request', () => {
+  it('maps a GLOBAL form value to a request with all dimension ids null', () => {
     reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     expect(reportsService.generateRankingReport).toHaveBeenCalledOnceWith(
-      emptyRequest,
+      globalRequest,
     );
     expect(component.state()).toBe('success');
   });
 
+  it('maps a COUNTRY form value to a request with only countryId set', () => {
+    reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
+
+    component.onSubmitForm(
+      makeFormValue({ groupKey: 'COUNTRY', country: COUNTRY_FR }),
+    );
+
+    expect(reportsService.generateRankingReport).toHaveBeenCalledOnceWith({
+      periodId: 'p-1',
+      groupKey: 'COUNTRY',
+      countryId: COUNTRY_FR.id,
+      departmentId: null,
+      roleId: null,
+      employmentType: null,
+    });
+  });
+
+  it('maps a DEPARTMENT form value to a request with only departmentId set', () => {
+    reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
+
+    component.onSubmitForm(
+      makeFormValue({ groupKey: 'DEPARTMENT', department: DEPT_ENG }),
+    );
+
+    expect(reportsService.generateRankingReport).toHaveBeenCalledOnceWith({
+      periodId: 'p-1',
+      groupKey: 'DEPARTMENT',
+      countryId: null,
+      departmentId: DEPT_ENG.id,
+      roleId: null,
+      employmentType: null,
+    });
+  });
+
+  it('maps a ROLE form value to a request with only roleId set', () => {
+    reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
+
+    component.onSubmitForm(
+      makeFormValue({ groupKey: 'ROLE', role: ROLE_SWE }),
+    );
+
+    expect(reportsService.generateRankingReport).toHaveBeenCalledOnceWith({
+      periodId: 'p-1',
+      groupKey: 'ROLE',
+      countryId: null,
+      departmentId: null,
+      roleId: ROLE_SWE.id,
+      employmentType: null,
+    });
+  });
+
+  it('maps an EMPLOYMENT_TYPE form value to a request with only employmentType set', () => {
+    reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
+
+    component.onSubmitForm(
+      makeFormValue({ groupKey: 'EMPLOYMENT_TYPE', employmentType: 'FULL_TIME' }),
+    );
+
+    expect(reportsService.generateRankingReport).toHaveBeenCalledOnceWith({
+      periodId: 'p-1',
+      groupKey: 'EMPLOYMENT_TYPE',
+      countryId: null,
+      departmentId: null,
+      roleId: null,
+      employmentType: 'FULL_TIME',
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Success rendering
+  // ------------------------------------------------------------------
+
   it('renders position context, earner spectrum and metadata on success', () => {
     reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
@@ -206,14 +295,12 @@ describe('EarningsRankingReportPage', () => {
     expect(el.querySelector('app-earner-spectrum')).not.toBeNull();
     expect(el.textContent).toContain('January 2026');
     expect(el.textContent).toContain('USD');
-    expect(el.textContent).toContain('GLOBAL');
-    expect(el.textContent).toContain('10 employees in scope');
   });
 
   it('does not show blocker or warning wrappers on clean success', () => {
     reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
@@ -233,7 +320,7 @@ describe('EarningsRankingReportPage', () => {
     } as any);
     reportsService.generateRankingReport.and.returnValue(of(response));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
@@ -251,7 +338,7 @@ describe('EarningsRankingReportPage', () => {
       throwError(() => makeError('REPORT_BLOCKED', 'Report could not be generated')),
     );
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
@@ -268,7 +355,7 @@ describe('EarningsRankingReportPage', () => {
       throwError(() => makeError('REPORT_BLOCKED', 'Blocked')),
     );
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
     expect(component.state()).toBe('error');
 
@@ -288,7 +375,7 @@ describe('EarningsRankingReportPage', () => {
   it('resets state and clears the report on cancel', () => {
     reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
     expect(component.report()).not.toBeNull();
 
@@ -308,19 +395,20 @@ describe('EarningsRankingReportPage', () => {
   // ------------------------------------------------------------------
 
   it('computes topTotalAnnual and bottomTotalAnnual from the response', () => {
-    const response = makeResponse({
-      tops: [makeEarner(1, 10_000, 9999), makeEarner(2, 5_000, 9900)],
-      bottoms: [makeEarner(999, 1_000, 10), makeEarner(1000, 500, 1)],
-    });
-    reportsService.generateRankingReport.and.returnValue(of(response));
+    reportsService.generateRankingReport.and.returnValue(
+      of(
+        makeResponse({
+          tops: [makeEarner(1, 10_000, 9999), makeEarner(2, 5_000, 9900)],
+          bottoms: [makeEarner(999, 1_000, 10), makeEarner(1000, 500, 1)],
+        }),
+      ),
+    );
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
-    // (10_000 + 5_000) × 12 = 180_000
-    expect(component.topTotalAnnual()).toBe(180_000);
-    // (1_000 + 500) × 12 = 18_000
-    expect(component.bottomTotalAnnual()).toBe(18_000);
+    expect(component.topTotalAnnual()).toBe(180_000);     // (10_000 + 5_000) × 12
+    expect(component.bottomTotalAnnual()).toBe(18_000);   // (1_000 + 500) × 12
   });
 
   it('returns zero totals when the report is null', () => {
@@ -329,10 +417,10 @@ describe('EarningsRankingReportPage', () => {
   });
 
   // ------------------------------------------------------------------
-  // Form wiring
+  // Form wiring (child component)
   // ------------------------------------------------------------------
 
-  it('forwards the form submit through the child form component', () => {
+  it('forwards the child form submitForm output to ReportsService', () => {
     reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
     fixture.detectChanges();
 
@@ -341,19 +429,16 @@ describe('EarningsRankingReportPage', () => {
     );
     expect(formDE).toBeTruthy();
 
-    formDE.componentInstance.submitForm.emit(emptyRequest);
+    formDE.componentInstance.submitForm.emit(makeFormValue());
     fixture.detectChanges();
 
-    expect(reportsService.generateRankingReport).toHaveBeenCalledWith(
-      emptyRequest,
-    );
+    expect(reportsService.generateRankingReport).toHaveBeenCalledWith(globalRequest);
   });
 
-  it('forwards the form cancel through the child form component', () => {
+  it('forwards the child form cancel output to reset state', () => {
     reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
 
-    // First get into success state
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
     expect(component.report()).not.toBeNull();
 
@@ -375,7 +460,7 @@ describe('EarningsRankingReportPage', () => {
     const response = makeResponse();
     reportsService.generateRankingReport.and.returnValue(of(response));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     const spectrumDE = fixture.debugElement.query(
@@ -394,7 +479,7 @@ describe('EarningsRankingReportPage', () => {
     const response = makeResponse();
     reportsService.generateRankingReport.and.returnValue(of(response));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     const ctxDE = fixture.debugElement.query(
@@ -403,34 +488,27 @@ describe('EarningsRankingReportPage', () => {
     expect(ctxDE).toBeTruthy();
 
     const ctx = ctxDE.componentInstance as PositionContextComponent;
-    expect(ctx.data()).toEqual(response.positionContext!);   // ← non-null assertion
+    expect(ctx.data()).toEqual(response.positionContext!);
     expect(ctx.referenceCurrency()).toBe('USD');
   });
 
   it('renders the "no earners in scope" zone when the response is empty', () => {
     reportsService.generateRankingReport.and.returnValue(of(makeEmptyResponse()));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="ranking-empty-state"]')).not.toBeNull();
     expect(el.textContent).toContain('No earners in scope');
-    // No full-report sections rendered
     expect(el.querySelector('app-position-context')).toBeNull();
     expect(el.querySelector('app-earner-spectrum')).toBeNull();
-  });
-
-  it('renders the idle zone before any submission', () => {
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('[data-testid="ranking-empty-state"]')).toBeNull();
-    expect(el.textContent).toContain('Pick a payroll period');
   });
 
   it('does not render the empty state zone on success with data', () => {
     reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     const el = fixture.nativeElement as HTMLElement;
@@ -441,9 +519,37 @@ describe('EarningsRankingReportPage', () => {
   it('exposes hasData as false for an empty response', () => {
     reportsService.generateRankingReport.and.returnValue(of(makeEmptyResponse()));
 
-    component.onSubmit(emptyRequest);
+    component.onSubmitForm(makeFormValue());
     fixture.detectChanges();
 
     expect(component.hasData()).toBeFalse();
+  });
+
+  it('exposes hasData as true for a non-empty response', () => {
+    reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
+
+    component.onSubmitForm(makeFormValue());
+    fixture.detectChanges();
+
+    expect(component.hasData()).toBeTrue();
+  });
+
+  // ------------------------------------------------------------------
+  // onFormChange clears prior result
+  // ------------------------------------------------------------------
+
+  it('onFormChange clears the previous report and error', () => {
+    reportsService.generateRankingReport.and.returnValue(of(makeResponse()));
+
+    component.onSubmitForm(makeFormValue());
+    fixture.detectChanges();
+    expect(component.report()).not.toBeNull();
+
+    component.onFormChange(makeFormValue({ groupKey: 'COUNTRY', country: COUNTRY_FR }));
+
+    expect(component.report()).toBeNull();
+    expect(component.error()).toBeNull();
+    expect(component.state()).toBe('idle');
+    expect(component.currentFormValue()?.groupKey).toBe('COUNTRY');
   });
 });

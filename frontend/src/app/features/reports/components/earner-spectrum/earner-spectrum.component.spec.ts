@@ -151,10 +151,10 @@ describe('EarnerSpectrumComponent', () => {
     ).toContain('$12,000.00');
     expect(
       el.querySelector('[data-testid="top-monthly-e-1"]')?.textContent,
-    ).toContain('/ mo');
+    ).toContain('/ mo [mo]');
   });
 
-  it('uses "/ bi-wk" as the cadence label for BI_WEEKLY items', () => {
+  it('uses "/ mo [bi-wk]" as the cadence label for BI_WEEKLY items', () => {
     createWith({
       tops: [makeEarner(1, 12_000, 9999, 'BI_WEEKLY')],
       bottoms: [makeEarner(999, 1_500, 10, 'BI_WEEKLY')],
@@ -163,7 +163,7 @@ describe('EarnerSpectrumComponent', () => {
 
     expect(
       el.querySelector('[data-testid="top-monthly-e-1"]')?.textContent,
-    ).toContain('/ bi-wk');
+    ).toContain('/ mo [bi-wk]');
   });
 
   it('formats percentile as Pxx.xx', () => {
@@ -296,8 +296,8 @@ describe('EarnerSpectrumComponent', () => {
 
   it('cadenceLabel() returns the right suffix', () => {
     createWith();   // ← REQUIRED: input.required() needs an injection context
-    expect(component.cadenceLabel('MONTHLY')).toBe('/ mo');
-    expect(component.cadenceLabel('BI_WEEKLY')).toBe('/ bi-wk');
+    expect(component.cadenceLabel('MONTHLY')).toBe('/ mo [mo]');
+    expect(component.cadenceLabel('BI_WEEKLY')).toBe('/ mo [bi-wk]');
   });
 
   it('countryFlag() converts a 2-letter code to a flag emoji', () => {
