@@ -1,4 +1,4 @@
-# 005. Store snapshot checkpoints when a payroll period closes
+# 004. Enforce consistency at data entry, warn about gaps at reporting
 
 ## Status
 
@@ -6,68 +6,87 @@ Accepted
 
 ## Context
 
-Reports need to convert payroll amounts to a single reference currency (USD) so
-figures across countries can be compared and summed.
+The system can detect two kinds of data issue:
 
-The straightforward approach is to store historical exchange rates — one rate
-per currency per period — and convert at report time. This is correct but has
-two costs.
+1. A payroll summary that contradicts an employee's assignment (wrong employee,
+   assignment not in effect, or assignment does not cover the period).
+2. A gap in the data — an employee with an in-effect assignment but no payroll
+   summary for a period.
 
-First, it maintains a second piece of historical data that must be accurate for
-every period ever reported. The system is not a currency-change system; keeping
-rate history is a burden that grows with time.
+The question was whether these should be rejected, warned about, or ignored.
 
-Second, reports over long ranges must scan and group every payroll summary in
-range. For 10,000 employees across multiple years, this is a real cost, and it
-recurs on every report.
+The answer is not the same for both, because the two situations are different.
+Furthermore, some reporting conditions make the report *wrong* rather than
+*incomplete*, and those must be handled differently from gaps.
 
 ## Decision
 
-When a payroll period is closed, compute and store a **snapshot** of its
-reporting data — cumulative totals by `(country, department, role)`,
-with amounts in both original and reference currency, plus the top and bottom
-5 earners per combination.
+Apply different policies at entry and at reporting.
 
-Reports over closed periods read the snapshot. Reports over open periods read
-live data.
+**At entry:** a payroll summary that contradicts an assignment is rejected.
+The HR Manager is told what to reconcile, and the summary is not saved until
+the contradiction is resolved. The system does not accumulate records that
+contradict the assignment.
 
-Snapshots are **cumulative**: each holds totals from the beginning of recorded
-payroll through the end of its period. A report over any range starts from the
-most recent snapshot that ends before the range, and adds live data for the
-remainder. The pattern is the same as computing an account balance: start from
-the last known balance, apply subsequent transactions.
+**At reporting:** the system distinguishes between **blockers** and
+**warnings**.
 
-Currency rates become current-only. Historical precision is no longer needed,
-because closed periods never re-convert.
+A **blocker** means the report would be wrong if produced. The report is not
+generated. A **warning** means the report would be incomplete but still
+meaningful. The report is produced, with the warning alongside it.
+
+The conditions currently classified this way:
+
+| Condition | Severity | Why |
+| :--- | :--- | :--- |
+| `MISSING_PAYROLL_SUMMARY` (employee has an in-effect assignment but no summary) | WARNING | The report is a valid sample of what was paid; it is just missing some employees. |
+| `UNVALIDATED_PAYROLL_SUMMARY` (summaries still in DRAFT) | BLOCKER | The report's totals would be lower than reality, because drafts don't count. Producing the report would understate payroll. |
+| `MISSING_REFERENCE_CURRENCY` (currency_rates is empty) | BLOCKER | Nothing can be converted. The report would be all zeros. |
+| `MISSING_FX_RATE` (a currency used in the period has no rate) | BLOCKER | Some rows could not be converted. The total would be wrong. |
+| Invalid date range (start > end) | BLOCKER | The request is incoherent. |
+| Future period | BLOCKER | No payroll data can exist for a future period; the report would be empty for a non-obvious reason. |
+| Duplicate group keys | BLOCKER | The request is malformed. |
+| `ORIGIN_COUNTRY` group key | BLOCKER | The dimension is not supported by the snapshot. |
+| Statistics with more than one group key | BLOCKER | The statistics shape does not support it. |
 
 ## Consequences
 
 **Easier:**
 
-- Reports over closed periods are fast. A report over three closed years reads a
-  few thousand pre-aggregated rows instead of scanning 10,000 employees'
-  payroll summaries across every period.
-- The converted values are frozen. If a rate is later corrected, historical
-  reports do not change — they reflect what was reported at the time.
-- The rate table no longer needs history. It holds one rate per currency pair,
-  updated as needed.
-- The system can answer min and max questions from the snapshot, because the
-  top and bottom earners are stored.
+- Entry stays clean. The system does not accumulate records that contradict the
+  assignment.
+- Reporting stays useful. The HR Manager can generate a report even when some
+  employees are missing payroll summaries, with the gap stated explicitly in
+  the warnings array.
+- The distinction maps to what the user can actually do. At entry, the HR
+  Manager is looking at one record and can fix it immediately. At reporting,
+  the HR Manager is asking a question and wants the best available answer, not
+  a dead end.
+- Blockers prevent wrong numbers. A report that omits unvalidated summaries
+  would understate payroll; a report that cannot convert a currency would
+  show a partial total. Both are worse than no report at all.
 
 **Harder:**
 
-- Snapshots must be computed at close time. Closing a period is more than a
-  status change; it triggers a computation that stores two tables of data.
-- Reports over mixed ranges (closed and open periods) combine two sources. The
-  algorithm is straightforward, but it must be implemented and tested.
-- Some reports cannot be answered from the snapshot — distribution buckets and
-  top N beyond 5 are explicitly not supported. This is documented rather than
-  hidden.
-- The snapshot's totals must match live aggregation at the moment of close. If
-  they diverge, one of the two paths has a bug. A consistency test is required.
+- The system has two policies where a single policy would be simpler. A reader
+  must understand why they differ.
+- The distinction between blockers and warnings must be designed explicitly.
+  Which conditions block and which warn is a decision, not a default. The
+  table above is the current state; adding a new condition requires choosing
+  a severity.
+- Blockers are all-or-nothing at the period level. A single unvalidated
+  summary in a period blocks the entire report for that period. The HR Manager
+  must validate or delete every draft in the period before the report runs.
+  This is deliberate — a partial report would understate payroll — but it is
+  a real operational constraint.
 
-**What this prevents:**
+**Why this is the right policy:**
 
-A recurring cost that would grow with the dataset. Without snapshots, every
-historical report would scan and convert the full history. With snapshots, the
-cost is paid once at close, and reports thereafter are cheap.
+Data entry is a moment of authorship. The HR Manager is creating a record and
+can be held to a standard. Reporting is a moment of inquiry. The HR Manager is
+asking what is true and should receive the answer along with its limitations.
+
+Rejecting a report because one employee has no summary would make the system
+unusable. Accepting a payroll summary that contradicts the assignment would make
+the data unreliable. Producing a report that omits unvalidated summaries would
+make the numbers wrong. The split above handles all three cases correctly.

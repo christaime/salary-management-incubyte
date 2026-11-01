@@ -9,6 +9,11 @@ A principle that runs through the whole system: when an action cannot proceed,
 the system explains why and offers a way to resolve it. The HR Manager is never
 left with a silent failure.
 
+**Note on what is built.** Section 4 (Payroll Period Management) describes a
+flow that is designed but not built. The milestones list records `M11` as
+0/4 — periods are seeded, not managed. The section is kept here as design
+documentation for the intended behavior.
+
 ---
 
 ## 1. Employee Management
@@ -23,7 +28,7 @@ left with a silent failure.
 2. A form opens with two sections: identity and first assignment.
 3. HR enters identity fields: matricule, name, email, birth date, origin country.
 4. HR enters the first assignment fields: start date, country of employment,
-   department, role, employment type.
+   department, role, employment type, payroll frequency.
 5. HR submits.
 6. The system creates the employee and the first assignment together, with
    `inEffect = true`.
@@ -31,9 +36,10 @@ left with a silent failure.
 
 **Rules**
 - Matricule is required and unique across the organization.
-- All identity fields are required.
+- All identity fields are required except `originCountry` and `birthDate`,
+  which are nullable.
 - The first assignment is required.
-- The assignment's start date is required.
+- The assignment's start date and payroll frequency are required.
 
 **Outcome**
 - An `Employee` and an `EmployeePeriodicAssignment` exist, linked.
@@ -57,69 +63,58 @@ left with a silent failure.
 - Email
 
 **Filter fields**
-- In-effect country of employment
-- In-effect department (by `code` or `name`)
-- In-effect role (by `code` or `name`)
-- In-effect employment type
-- Origin country
+- In-effect country of employment (`anyAssignmentCountryIds`)
+- In-effect department (`anyDepartmentIds`)
+- In-effect role (`anyRoleIds`)
+- In-effect employment type (`employmentTypes`)
+- Origin country (`anyOriginCountryIds`)
 
 **Rules**
 - Search and filters combine. All are optional.
-- Results are paginated.
-- Departments and roles can be searched by `code` or `name`.
+- Results are paginated (default size 20).
+- All filters accept a set of IDs or enum values (multi-select).
 
 **Outcome**
 - A filtered, paginated list of employees.
 
 ---
 
-### UC-1.3 — View an employee's detail
+### UC-1.3 — View and edit an employee
+
+> **Note:** the system does not have a separate read-only employee detail page.
+> The employee list row opens the edit form directly. The form is both the
+> view and the edit surface. See M9 in the milestone table.
 
 **Preconditions**
 - The employee exists
 
 **Flow**
 1. HR selects an employee from the list.
-2. The detail page opens.
-3. It shows identity and the full list of assignments, ordered by start date.
-4. The in-effect assignment is visually marked.
-
-**Rules**
-- The detail page is read-only.
-
-**Outcome**
-- The HR sees who the employee is and where they have worked.
-
----
-
-### UC-1.4 — Edit an employee
-
-**Preconditions**
-- The employee exists
-
-**Flow**
-1. HR opens the employee detail page and selects "Edit".
-2. The edit form opens with identity fields, the in-effect assignment as an
-   editable row, and a "Create new assignment" button.
-3. HR edits identity fields and, optionally, the in-effect assignment row.
-4. If the HR clicks "Create new assignment", a new empty row appears below.
-5. HR fills in both rows.
-6. HR clicks Save.
-7. The system validates. If valid, it performs the atomic assignment change. If
-   not, it marks the offending fields and explains.
+2. The edit form opens.
+3. It shows identity fields, the in-effect assignment as an editable row, and
+   a "Create new assignment" button.
+4. HR edits identity fields and, optionally, the in-effect assignment row.
+5. If the HR clicks "Create new assignment", a new empty row appears below.
+6. HR fills in both rows.
+7. HR clicks Save.
+8. The system validates. If valid, it performs the atomic assignment change.
+   If not, it marks the offending fields and explains.
 
 **Rules**
 - Identity fields are editable.
 - The in-effect assignment row is editable subject to UC-2.3 rules.
 - All fields in both rows must be filled before Save succeeds.
-- The in-effect assignment's end date must be before the new assignment's start
-  date.
+- The in-effect assignment's end date must be before the new assignment's
+  start date (when a new assignment is created).
 - Neither range may overlap with another assignment for the same employee.
+- If the employee already has a payroll summary linked to the in-effect
+  assignment, only the assignment's `endDate` and `inEffect` status remain
+  editable.
 
 **Outcome**
-- The employee's identity is updated, and — if a new assignment row was filled —
-  the assignment change is applied atomically. The new assignment becomes
-  in-effect.
+- The employee's identity is updated, and — if a new assignment row was
+  filled — the assignment change is applied atomically. The new assignment
+  becomes in-effect.
 
 ---
 
@@ -129,7 +124,7 @@ left with a silent failure.
 - The employee exists and has no payroll, including drafts
 
 **Flow**
-1. HR opens the employee detail page and selects "Delete".
+1. HR opens the employee edit form and selects "Delete".
 2. The system checks for payroll.
 3. If the employee has no payroll, the system asks for confirmation.
 4. HR confirms.
@@ -160,14 +155,14 @@ assignment area.
 3. HR clicks "Create new assignment".
 4. A new empty row appears below, with the same columns and a Save button.
 5. HR fills in the new assignment's country, department, role, employment type,
-   start date, and end date.
+   payroll frequency, start date, and end date.
 6. HR fills in the in-effect assignment's end date.
 7. HR clicks Save.
 8. The system validates:
     - All fields present in both rows
     - In-effect end date before new start date
     - No overlap with other assignments
-    - New start date before new end date
+    - New start date before new end date (when end date is provided)
 9. If valid, the system applies the change atomically: sets the in-effect
    assignment's end date, marks it not in-effect, and creates the new assignment
    with `inEffect = true`.
@@ -177,10 +172,13 @@ assignment area.
 - The operation is atomic.
 - Every field in both rows is required.
 - Any validation failure blocks the save and marks the offending field.
+- The client must send `toClose` for the previous in-effect assignment in the
+  same request; otherwise the system rejects the creation with
+  `InEffectNotClosed`.
 
 **Outcome**
 - The employee has a new in-effect assignment. The previous one is ended and
-  remains in the detail page's history.
+  remains in the edit form's history.
 
 ---
 
@@ -223,35 +221,20 @@ assignment area.
 
 **Rules**
 - If the assignment has **no** payroll: all fields are editable, subject to the
-  overlap rule.
-- If the assignment has **payroll**: only the end date is editable, and the new
-  end date must still cover every payroll period that references the assignment.
-- The start date must be before the end date.
-- The end date must not fall inside a payroll period that references the
-  assignment.
-- Editing the end date — including extending it — does not change the `inEffect`
-  flag.
+  overlap rule and to the requirement that `endDate > startDate` when endDate
+  is provided.
+- If the assignment has **payroll** linked: only the `endDate` is editable,
+  and the new end date must still cover every payroll period that references
+  the assignment. Any attempt to change a structural field (country,
+  department, role, employmentType, payrollFrequency, startDate) is rejected
+  with `ImmutableAfterPayroll`.
+- The end date must not fall before the latest linked payroll period's start
+  date.
+- Editing the end date — including extending it — does not change the
+  `inEffect` flag.
 
 **Outcome**
 - The assignment is updated within the allowed constraints.
-
----
-
-### UC-2.4 — View assignments
-
-**Preconditions**
-- The employee exists
-
-**Flow**
-1. HR opens the employee detail page.
-2. The assignments section lists all assignments, ordered by start date.
-3. The in-effect assignment is visually marked.
-
-**Rules**
-- The detail page is read-only.
-
-**Outcome**
-- The HR sees the employee's placement history.
 
 ---
 
@@ -260,8 +243,7 @@ assignment area.
 ### UC-3.1 — Record a payroll summary
 
 **Preconditions**
-- The payroll period exists and is open (`snapshotStatus = NOT_COMPUTED`)
-- The previous period of the same frequency is closed
+- The payroll period exists and is open (`closed = false`)
 
 **Flow**
 1. HR opens the payroll recording screen.
@@ -287,9 +269,10 @@ assignment area.
 - The payroll period must fall entirely within the assignment's date range.
 - The currency must match the assignment's country currency.
 - Components must be non-negative.
-- Total must equal the sum of components.
+- Total must equal the sum of components (enforced with scale-2 rounding to
+  survive SQLite's REAL storage).
 - `(employee, period)` must be unique.
-- The period must be open.
+- The period must be open (`closed = false`).
 
 **Outcome**
 - A payroll summary exists in `DRAFT` or `VALIDATED` status.
@@ -314,11 +297,13 @@ it stops, explains, and offers the fix.
 
 **Flow**
 1. HR loads the payroll list, filters, and opens the draft.
-2. HR edits the amounts.
+2. HR edits the amounts, or changes the linked assignment.
 3. HR saves.
 
 **Rules**
 - Only `DRAFT` summaries can be edited.
+- If the linked assignment changes, the new assignment must belong to the same
+  employee, be in-effect, and cover the period.
 
 **Outcome**
 - The draft is updated.
@@ -351,12 +336,16 @@ it stops, explains, and offers the fix.
 
 **Flow**
 1. HR opens the draft and selects "Validate".
-2. The system transitions the summary to `VALIDATED`.
-3. The summary becomes immutable.
+2. The system checks: the period is open, the assignment is in-effect, and the
+   assignment covers the period.
+3. If all pass, the summary transitions to `VALIDATED`.
+4. The summary becomes immutable.
 
 **Rules**
 - Validation is one-way.
 - A validated summary can no longer be edited or deleted.
+- The single-validation call runs in its own transaction (`REQUIRES_NEW`), so
+  a failure on one summary does not roll back others when called in a loop.
 
 **Outcome**
 - The summary is `VALIDATED` and immutable.
@@ -371,14 +360,20 @@ it stops, explains, and offers the fix.
 
 **Flow**
 1. HR opens the period and selects "Validate all drafts".
-2. The system attempts to validate each draft.
-3. Drafts that pass become `VALIDATED`.
-4. Drafts that fail are reported, with reasons.
-5. HR sees the result.
+2. The system reads matching drafts in keyset-paginated batches.
+3. For each draft, it applies the same rules as UC-3.4.
+4. Drafts that pass become `VALIDATED`.
+5. Drafts that fail are reported, with reasons.
+6. HR sees the result: total count, validated count, and per-row failures.
 
 **Rules**
-- Bulk validation does not fail atomically.
-- The system reports each failure.
+- Bulk validation does not fail atomically. Successful rows commit; failures
+  are reported per-row.
+- Uses keyset pagination (a cursor) so the working set shrinking does not skip
+  rows.
+- If a row lost a race between the read and the update (someone else validated
+  or deleted it), it is reported as `SUMMARY_NOT_DRAFT`. The row is no longer
+  in `DRAFT` — the goal is achieved, just not by this call.
 
 **Outcome**
 - Some or all drafts are validated. Failures are visible.
@@ -400,10 +395,14 @@ it stops, explains, and offers the fix.
 **Filters**
 - Date range (required) — start and end date, not a payroll period
 - Employee
-- Role (by `code` or `name`)
-- Department (by `code` or `name`)
+- Role
+- Department
 - Country
 - Employment type
+- Status (`DRAFT` / `VALIDATED`)
+- Payroll frequency (`MONTHLY` / `BI_WEEKLY`)
+- `nonExistent=true` — inverted query; returns employees with an in-effect
+  assignment who have **no** payroll summary for the period
 
 **Columns**
 - Employee
@@ -417,7 +416,8 @@ it stops, explains, and offers the fix.
 **Rules**
 - Pagination is available.
 - The date range resolves the payroll periods within it.
-- Departments and roles can be searched by `code` or `name`.
+- The `nonExistent` mode is the query behind the "missing payroll summary"
+  warning on the aggregate report.
 
 **Outcome**
 - A filtered, paginated list of payroll summaries.
@@ -425,6 +425,9 @@ it stops, explains, and offers the fix.
 ---
 
 ## 4. Payroll Period Management
+
+> **Not built.** Milestone `M11` is 0/4. Periods are seeded. The use cases
+> below describe the intended design, kept for reference.
 
 ### UC-4.1 — Create a payroll period
 
@@ -443,7 +446,7 @@ it stops, explains, and offers the fix.
 8. If the HR declines, the process stops.
 9. If the HR accepts, the system opens the previous period's close flow
    (UC-4.4). After it completes, creation resumes.
-10. The period is created with `snapshotStatus = NOT_COMPUTED`.
+10. The period is created with `closed = false`.
 
 **Rules**
 - Frequency is `MONTHLY` or `BI_WEEKLY`.
@@ -472,7 +475,7 @@ it stops, explains, and offers the fix.
 - Frequency
 - Start date
 - End date
-- Snapshot status
+- Closed (boolean)
 
 **Outcome**
 - The HR sees every period and its state.
@@ -502,30 +505,24 @@ it stops, explains, and offers the fix.
 
 **Preconditions**
 - Every payroll summary in the period is `VALIDATED`
-- The period's `snapshotStatus` is `NOT_COMPUTED`
 
 **Flow**
 1. HR opens the period and selects "Close".
 2. The system verifies all summaries are `VALIDATED`. If any are drafts, the
    close is rejected, the drafts are listed, and the reason is explained.
-3. The system computes the snapshot: aggregates and rankings.
-4. The system stores the snapshot and sets `snapshotStatus` to `DRAFT`.
-5. The system presents the snapshot: totals by country, department, and role,
-   plus any data-quality issues.
-6. HR reviews the snapshot.
-7. If there are critical issues, HR must resolve them before validating. The
-   system explains what must be fixed.
-8. HR validates the snapshot.
-9. The system sets `snapshotStatus` to `VALIDATED`. The period is closed.
+3. The system builds the snapshot: aggregates, rankings, percentiles.
+4. The system stores the snapshot with `status = VALIDATED` (replacing any
+   existing DRAFT rows for the period).
+5. The period is marked `closed = true`.
 
 **Rules**
 - Close requires all summaries to be validated.
-- The snapshot is generated once.
 - Validating the snapshot is the act of closing the period.
 - A closed period accepts no further payroll summaries and no edits.
 
 **Outcome**
-- The period is closed. Its snapshot is stored and immutable.
+- The period is closed. Its snapshot is stored with `status = VALIDATED` and
+  is immutable.
 
 ---
 
@@ -539,21 +536,35 @@ it stops, explains, and offers the fix.
 **Flow**
 1. HR opens reporting and selects the aggregate report.
 2. HR sets a date range.
-3. HR selects zero or more group keys.
+3. HR selects zero or more group keys from the supported set.
 4. HR optionally enables component breakdown and statistics.
 5. HR submits.
-6. The system checks for blockers.
+6. The system resolves the MONTHLY periods in the range and rebuilds the
+   aggregate snapshot for each open period.
+7. The system checks for blockers.
     - If a blocker exists, the report is not produced, and the blocker is
       explained.
-7. Otherwise, the system produces the report and shows any warnings.
-8. The HR sees the results.
+8. Otherwise, the system reads the snapshots for the range and produces the
+   report, with any warnings.
+9. HR sees the results.
+
+**Group keys (supported)**
+- `COUNTRY`
+- `DEPARTMENT`
+- `ROLE`
+- `EMPLOYMENT_TYPE`
+- `CURRENCY` — accepted by the request, but statistics cannot be computed per
+  currency; requesting statistics with `CURRENCY` returns `VALIDATION_FAILED`.
+- `ORIGIN_COUNTRY` — rejected at validation with `UNSUPPORTED_GROUP_KEY`.
 
 **Rules**
-- Group keys: country, department, role, employment type, currency, origin
-  country.
-- Statistics require country, department, and role as group keys.
-- The report is returned in the reference currency.
-- Warnings do not block the report.
+- **Statistics require at most one group key.** Requesting statistics with more
+  than one dimension returns `VALIDATION_FAILED`.
+- Statistics are computed **per frequency** — the response carries separate
+  monthly and bi-weekly distributions. When statistics are requested, the
+  line's `amount` becomes the sum of the two frequency totals.
+- The report is returned in the reference currency (USD today).
+- Warnings do not block the report. Blockers do.
 
 **Outcome**
 - A table of totals, with optional breakdown and statistics, plus any warnings.
@@ -567,42 +578,42 @@ it stops, explains, and offers the fix.
 
 **Flow**
 1. HR opens reporting and selects the ranking report.
-2. HR selects a payroll period, country, department, and role.
-3. HR selects TOP or BOTTOM and a limit (up to 5).
-4. HR submits.
-5. The system returns the ranked employees.
+2. HR selects a payroll period and one group key (or "global" for no key).
+3. HR optionally selects the dimension value (country, department, role, or
+   employment type — matching the chosen group key).
+4. HR selects TOP or BOTTOM.
+5. HR submits.
+6. The system rebuilds the ranking and percentile snapshots for the period
+   (if the period is open).
+7. The system returns the top 5 and bottom 5 earners, plus the 7-point
+   percentile distribution for the selected group.
 
 **Rules**
-- The report is period-scoped.
-- The limit is at most 5.
-- Country, department, and role must be complete.
+- The report is period-scoped, not range-scoped.
+- The group key and dimension fields must agree: `groupKey = COUNTRY` requires
+  `countryId` and forbids `departmentId`, `roleId`, `employmentType`. Any
+  mismatch returns `VALIDATION_FAILED`.
+- `groupKey = null` requires all dimension fields to be null (the global
+  partition).
+- The limit is capped at 5.
+- Rankings are by **monthly rate**, not raw amount, so monthly and bi-weekly
+  earners are comparable.
+- The response includes a `positionContext` (min, p10, p25, p50, p75, p90,
+  max) when the group has at least 10 employees. Groups below 10 have a null
+  `positionContext`.
+- Each earner's `percentile` is interpolated from the distribution and
+  expressed in basis points (0–10000).
 
 **Outcome**
-- A list of up to 5 employees with names, ranks, and amounts.
+- Top 5 and bottom 5 employees with names, ranks, monthly rates, and
+  interpolated percentiles, plus the position context for the group.
 
 ---
 
 ### UC-5.3 — Generate a comparison report
 
-**Preconditions**
-- None
-
-**Flow**
-1. HR opens reporting and selects the comparison report.
-2. HR sets two date ranges.
-3. HR selects one or more group keys.
-4. HR submits.
-5. The system produces both aggregate results, joins them, and returns the
-   comparison.
-
-**Rules**
-- Same group keys apply to both periods.
-- A group present in only one period is reported with zero on the missing side.
-- `deltaPercent` is null when the first period's amount is zero.
-- Blockers and warnings apply as in UC-5.1.
-
-**Outcome**
-- A table of side-by-side totals with deltas and percentages.
+> **Not built.** The `ReportKind.COMPARISON` enum value exists as a
+> placeholder, but no code produces it. `docs/planning.md` records the reason.
 
 ---
 
@@ -612,14 +623,17 @@ it stops, explains, and offers the fix.
 - HR has attempted to generate a report
 
 **Flow**
-1. If the report is blocked, the HR sees the blocker, an explanation, and what
-   to do about it.
+1. If the report is blocked, the system returns a `REPORT_BLOCKED` response
+   with the blocker(s) and any warnings collected before the abort. The report
+   is not produced.
 2. If the report is produced with warnings, the HR sees the report and the
    warnings alongside it.
 
 **Rules**
 - Blockers prevent the report. Warnings do not.
 - Each blocker or warning states the issue and how the system handled it.
+- The conditions currently classified as blocker vs warning are listed in
+  `docs/adr/004-enforce-entry-warn-reporting.md`.
 
 **Outcome**
 - The HR knows whether the report is reliable, and what to fix if it is not.
@@ -631,7 +645,7 @@ it stops, explains, and offers the fix.
 ### Pagination
 
 Every list — employees, payroll, periods, report results — is paginated
-server-side. The default page size is 20.
+server-side. The default page size is 20, max 100.
 
 ### Data entry is strict, and explains itself
 
@@ -648,3 +662,9 @@ conditions that make the result incorrect block the report.
 
 A validated payroll summary is immutable. A closed period accepts no changes.
 Corrections are out of scope.
+
+### Snapshot lifecycle
+
+Reports over open periods rebuild the snapshot before reading; reports over
+closed periods read the frozen snapshot. See `docs/architecture.md` for the
+full design.

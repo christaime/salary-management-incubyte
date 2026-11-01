@@ -1,67 +1,48 @@
 # Salary Management — Incubyte Assessment
 
-> A web-based salary management platform for ACME's HR team — replacing
-> spreadsheet-based salary tracking for 10,000 employees across multiple countries.
-
-**Status:** 🟢 Slice 1 complete — aggregate report working end-to-end (M1–M7).
+> A web-based salary management application for ACME's HR team. It manages
+> payroll records for 10,000 employees across multiple countries and answers
+> questions about how the organization pays people.
 
 **Submitted by:** Christelle Mamekem Ngueguim
 **Contact:** mnchristelle@gmail.com · [LinkedIn](https://linkedin.com/in/christelle-mamekem-ngueguim) · [GitHub](https://github.com/christaime)
 
----
-
-## 📌 What Works Today
-
-- **Seeded SQLite database** — 10,000 employees, 4 countries, 4 departments,
-  5 roles, 19 payroll periods (6 monthly + 13 bi-weekly), ~68,700 payroll
-  summaries, plus snapshots (aggregates + earner rankings) for closed periods.
-- **Aggregate report** — select a payroll period range, optionally filter by
-  Country, Department, Role, and Employment Type, and toggle between Total,
-  Country, Department, Role, and Employment Type aggregations.
-- **Single deployable JAR** — the Angular SPA is bundled into the Spring Boot
-  JAR. One process serves both the API (`/api/v1/**`) and the SPA (deep links
-  like `/reports/aggregate` resolve correctly via an `index.html` fallback).
-- **CI on every push and PR** — backend tests (JUnit 5), frontend unit tests
-  (Jasmine / Karma), production build, and Cypress end-to-end tests.
+**Status:** Runs locally as a single JAR. Not deployed; no video demo recorded.
 
 ---
 
-## 🎯 Scope of Slice 1
+## Quick Start
 
-The Slice 1 deliverable is a working aggregate report over seeded data. The HR
-manager opens the app, picks a payroll period range, and sees a table of
-payroll totals. They can customize the view by opening the filter drawer and
-can switch the report dimension using the kind toggle (Total, Country,
-Department, Role, Employment Type).
+### Prerequisites
 
-**Not in Slice 1** — these are planned for later milestones and do not
-currently exist in the app:
+- Java 17
+- Node.js 20+ and npm
+- No external database — SQLite is embedded
 
-- Ranking and comparison reports (M8)
-- Employee CRUD and assignment editing (M9)
-- Payroll recording and validation (M10)
-- Payroll period create / edit / close (M11)
-- Authentication and authorization
-- Deployment (M12)
+### Backend (dev)
 
----
+```bash
+cd backend
+./gradlew bootRun
+```
 
-## 🏗️ Stack
+The API is served at <http://localhost:8080>. Swagger UI is at
+<http://localhost:8080/swagger-ui.html>.
 
-| Layer | Technology |
-| :--- | :--- |
-| Backend | Spring Boot 3.3, Java 17, Gradle |
-| Persistence | SQLite, Flyway, Spring Data JPA, MapStruct |
-| Frontend | Angular 19 (standalone components, signals, OnPush) |
-| UI | Angular Material + Tailwind CSS |
-| Testing | JUnit 5 / Mockito (backend), Jasmine / Karma (frontend), Cypress (E2E) |
-| CI | GitHub Actions (`.github/workflows/ci.yml`) |
+### Frontend (dev)
 
----
+```bash
+cd frontend
+npm install
+npm start
+```
 
-## 🚀 Running Locally
+The Angular dev server runs at <http://localhost:4200>. The backend's
+`CorsConfig` allows requests from `http://localhost:4200`, so the SPA calls
+the API directly at `http://localhost:8080` in development. There is no
+proxy config file — CORS is the mechanism.
 
-### Single JAR (production-like)
+### Production-like (single JAR)
 
 ```bash
 cd backend
@@ -69,206 +50,488 @@ cd backend
 java -jar build/libs/salary-management-0.0.1-SNAPSHOT.jar
 ```
 
-Then open <http://localhost:8080/reports/aggregate>.
+The `bootJar` task runs the frontend build (`npmInstall` → `npmBuild` →
+`copyFrontendToPublic`), copies the output into the backend's
+`src/main/resources/public/`, and bundles everything into one JAR that serves
+both the API and the SPA. Deep links such as `/reports/aggregate` resolve
+through an `index.html` fallback.
 
-The `bootJar` task builds the Angular frontend, copies the output into the
-backend's `src/main/resources/public/`, and bundles everything into one JAR.
+### Database and seed
 
-### Dev mode (hot reload)
+The SQLite file lives at `backend/data/salary-management.db` by default.
+Flyway applies schema migrations and seed scripts on startup. The seed lives
+in `backend/src/main/resources/db/seed/`, separate from migrations.
 
-Two terminals:
+To disable the seed (e.g. to run against an already-seeded database), set:
 
 ```bash
-# Terminal 1 — backend API on :8080
-cd backend
-./gradlew bootRun
+DB_SEED_DIR_PATH=classpath:db/seed-disabled
 ```
 
-```bash
-# Terminal 2 — Angular dev server on :4200
-cd frontend
-npm install
-npm start
-```
-
-Then open <http://localhost:4200>. The dev server proxies `/api/**` to
-`http://localhost:8080` via `frontend/proxy.conf.json`.
-
-### Database
-
-The SQLite file lives at `backend/data/salary-management.db` by default. Flyway
-runs migrations and seed scripts on startup. To point at a different database
-or seed directory, set the `DB_URL` / `DB_SEED_DIR_PATH` environment variables
-(see `backend/src/main/resources/application.yml`).
+`DB_URL` overrides the database location. See
+`backend/src/main/resources/application.yml` for all options.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 salary-management-incubyte/
-├── .github/
-│   └── workflows/
-│       └── ci.yml                  # backend + frontend tests, Cypress E2E
-├── backend/                        # Spring Boot application
+├── backend/
 │   ├── src/main/java/com/salary/management/
-│   │   ├── domain/                 # entities, value objects, ports
-│   │   ├── application/            # services, use cases
+│   │   ├── domain/              # models, value objects, ports (plain Java)
+│   │   ├── application/         # DTOs, mappers, services, exception
 │   │   ├── infrastructure/
-│   │   │   ├── api/                # controllers, DTOs, exception handling
-│   │   │   ├── database/           # JPA entities, adapters, migrations
-│   │   │   └── reporting/          # snapshot builder, currency converter
-│   │   └── ...
+│   │   │   ├── api/             # controllers, advice, config
+│   │   │   ├── database/        # SQLite directory initializer
+│   │   │   └── persistence/     # entities, mappers, adapters, specs, JDBC
+│   │   └── common/              # pagination, validation, exceptions
 │   ├── src/main/resources/
-│   │   ├── db/migration/           # Flyway schema migrations
-│   │   ├── db/seed/                # seeded reference and payroll data
-│   │   ├── public/                 # built Angular SPA (generated)
-│   │   └── application.yml
-│   └── build.gradle.kts
-├── frontend/                       # Angular application
+│   │   ├── db/migration/        # Flyway migrations
+│   │   ├── db/seed/             # seed scripts
+│   │   └── public/              # built SPA (generated by bootJar)
+│   └── build.gradle
+├── frontend/
 │   ├── src/app/
-│   │   ├── core/                   # interceptors, models, global services
-│   │   ├── shared/                 # shared components, pipes
-│   │   └── features/reports/       # aggregate report feature
-│   ├── cypress/e2e/                # end-to-end tests
-│   └── proxy.conf.json
+│   │   ├── core/                # interceptors, models, shared UI
+│   │   ├── features/            # employee, payroll, reports
+│   │   └── layout/              # header, sidebar
+│   └── cypress/e2e/             # end-to-end tests
 ├── docs/
 │   ├── architecture.md
+│   ├── clean-architecture.md
+│   ├── use-cases.md
+│   ├── planning.md
 │   ├── adr/
-│   ├── diagrams/
+│   ├── ai/
 │   └── screenshots/
-├── README.md
+├── .github/workflows/ci.yml
 ├── REQUIREMENTS.md
-└── AI_WORKFLOW.md
+├── AI_WORKFLOW.md
+└── README.md
 ```
 
 ---
 
-## 🔌 API
+## What's Built
 
-The application exposes the aggregate report endpoint and interactive documentation.
+Every claim below can be verified by running the app.
 
-### `POST /api/v1/reports/aggregate`
+- **Aggregate report** — `POST /api/v1/reports/aggregate`, plus a frontend
+  page at `/reports/aggregate`. Select a date range, choose one or more group
+  keys (`COUNTRY`, `DEPARTMENT`, `ROLE`, `EMPLOYMENT_TYPE`, `CURRENCY`),
+  apply selection filters, and toggle breakdown and statistics. **Open
+  periods are rebuilt on every read; closed periods are read from their
+  frozen snapshot.** Rebuilds are all-or-nothing: if any period in the range
+  blocks, nothing is written and the report is not produced.
+- **Ranking report** — `POST /api/v1/reports/rankings`, plus a frontend page.
+  Returns the top 5 and bottom 5 by **monthly rate** (not raw amount), a
+  7-point percentile distribution (min, p10, p25, p50, p75, p90, max), and
+  each earner's interpolated percentile in basis points. **Open periods are
+  rebuilt on every read; closed periods read the frozen ranking and
+  percentile snapshots.**
+- **Employee management** — create, update, and delete employees; assign
+  employees to placements via an inline editor on the employee edit form;
+  search by matricule, name, email, or current placement; list employees. The
+  update endpoint can atomically close the in-effect assignment and create a
+  new one in the same request.
+- **Payroll recording** — create, update, and delete `DRAFT` payroll
+  summaries; validate single or bulk summaries; search payroll by date range
+  and dimensions. `nonExistent=true` returns employees with an in-effect
+  assignment who have **no** payroll summary for the period — the query
+  behind the "missing payroll summary" warning. Bulk validation is
+  **not atomic**: successful rows commit, per-row failures are reported.
+- **Seed data** — 10,000 employees with deterministic IDs, 10 countries,
+  10 departments, 12 roles, 8 currency rates, and 19 payroll periods (6
+  monthly + 13 bi-weekly from 2026-01-01, mixed closed and open). Payroll
+  summaries are seeded with ~70,000 rows: `VALIDATED` for closed periods,
+  `DRAFT` for open ones. Aggregates and rankings are seeded for closed
+  periods.
+- **Snapshot builder** — `PayrollPeriodSnapshotRepositoryAdapter` builds and
+  persists the snapshots from `VALIDATED` payroll summaries.
+  `buildAndSaveAggregates(period)` rebuilds the aggregate snapshot;
+  `buildAndSaveRankings(period)` rebuilds the ranking and percentile
+  snapshots. Each returns warnings and blockers, and each replaces the
+  period's DRAFT rows in the same call. Only open periods are rebuilt; the
+  policy lives in the calling service.
+- **Single JAR packaging** — the backend serves the compiled Angular SPA.
+- **CI** — GitHub Actions runs backend tests, frontend unit tests, the
+  production build, and Cypress end-to-end tests on every push and pull
+  request.
+- **API documentation** — springdoc-openapi exposes Swagger UI.
 
-Generate an aggregate payroll report over a date range, grouped by one or more
-dimensions.
+---
 
-**Request**
+## Architecture
 
-```json
-{
-  "dateRange": { "startDate": "2026-01-01", "endDate": "2026-03-31" },
-  "groupKeys": ["COUNTRY", "DEPARTMENT"],
-  "anyCountryIds": null,
-  "anyDepartmentIds": null,
-  "anyRoleIds": null,
-  "anyEmploymentTypes": ["FULL_TIME"],
-  "includeBreakdown": false,
-  "includeStatistics": true
-}
+Clean architecture, applied uniformly across the codebase.
+
+```
+backend/src/main/java/com/salary/management/
+├── domain/           # models, values, repository ports (plain Java)
+├── application/      # DTOs, mappers, services, exception
+├── infrastructure/   # api, persistence, database
+└── common/           # pagination, validation, exceptions
 ```
 
-**Response** (200)
+Key points:
+
+- **Domain is plain Java.** No Spring, no JPA, no HTTP annotations.
+- **Repository ports** are defined in the domain; implementations live in
+  infrastructure.
+- **Domain objects are immutable** and built via hand-written static inner
+  `Builder` classes that validate on `build()`.
+- **MapStruct** maps persistence entities to domain objects.
+- **No JPA relations except one documented case.** `PayrollSummaryEntity`
+  uses two `@ManyToOne` (employee, payrollPeriod) so the payroll list can
+  sort and filter without a per-row join. Every other foreign reference is a
+  UUID column loaded explicitly by the adapter.
+- **`LocalDateStringConverter`** is an `@Converter(autoApply = true)` that
+  stores `LocalDate` as ISO `YYYY-MM-DD` text, so SQLite can compare dates
+  lexically.
+- **Snapshot-based reporting.** Aggregates, rankings, and percentiles are
+  read from dedicated snapshot tables. **Open periods are rebuilt on every
+  report; closed periods are read from their frozen snapshot.**
+
+See `docs/architecture.md` for the full design, `docs/clean-architecture.md`
+for how the layering is enforced, `docs/adr/` for the reasoning behind
+individual decisions, and `docs/use-cases.md` for user flows.
+
+---
+
+## Planning
+
+Work was planned and tracked as GitHub milestones, from domain modelling
+through to a single deployable JAR. Each milestone contains its own issues and
+reflects the state of the code today — including what was completed, what was
+deliberately excluded, and what remains out of scope.
+
+**Milestones:** <https://github.com/christaime/salary-management-incubyte/milestones>
+
+| Milestone | Focus | State |
+| :--- | :--- | :--- |
+| M1 | Domain models, repository ports, enums, value objects, and their tests | 14/14 ✅ |
+| M2 | JPA entities, Flyway migration, mappers, adapters, integration tests | 8/8 ✅ |
+| M3 | Deterministic seed: 10,000 employees, mixed-frequency periods over ~6 months | 5/5 ✅ |
+| M4 | Build snapshots from live payroll summaries; warnings and blockers | 4/4 ✅ |
+| M5 | Aggregate report — DTOs, service, controller, error handling | 7/7 ✅ |
+| M6 | Angular report page — date range, group keys, results table | 5/5 ✅ |
+| M7 | Single JAR serves frontend and API; CI workflow; README update | 3/3 ✅ |
+| M8 | Ranking and comparison reports | 2/4 ⚠️ Ranking done; comparison deliberately excluded |
+| M9 | Employee and assignment CRUD | 5/6 ⚠️ Employee detail page deliberately excluded |
+| M10 | Payroll recording, validation, payroll list | 6/6 ✅ |
+| M11 | Payroll period list, create, close flow | 0/4 ❌ Not built — periods are seeded |
+| M12 | Video demo, ADRs 006–010, documentation updates, deployment | 0/5 ❌ Not built |
+
+The open issues in M8, M9, M11, and M12 are the concrete record of what was
+left out of scope, and why. See **Known Limitations** below for the
+user-facing consequences, and `docs/planning.md` for the reasoning behind
+each exclusion.
+
+---
+
+## Key Design Decisions
+
+- **Payroll is recorded, not computed.** No tax rules, gross-to-net, or
+  payslips.
+- **Snapshot reporting, driven by the period's `closed` flag.** Open periods
+  are rebuilt on every read; closed periods are frozen at close. Reports on
+  closed periods reflect what was paid, not what would be recomputed today.
+- **Rankings normalize by monthly rate.** Bi-weekly and monthly earners are
+  compared on the same scale; raw amount comparison would bias toward
+  monthly earners.
+- **`inEffect` on assignments is HR-declared**, not derived from dates.
+- **No JPA relations** except the two `@ManyToOne` on `PayrollSummaryEntity`.
+  Every other foreign reference is a UUID column.
+- **`LocalDateStringConverter`** for SQLite date storage.
+- **`currency_rates` is reshaped** with a `reference_amount` column. A
+  single-reference-currency invariant is enforced by database triggers, and
+  self-pairs are disallowed. Conversion formula:
+  `amount_in_reference = amount_in_foreign × reference_amount / rate`.
+  Today every seeded rate has `reference_amount = 1`, so the formula reduces
+  to `amount / rate` for non-USD currencies; USD is identity. See
+  `docs/adr/001-use-sqlite.md` for the associated constraints (no historical
+  rates, single reference currency).
+
+Reasoning for each of these lives in `docs/adr/`.
+
+---
+
+## API
+
+Full documentation at `/swagger-ui.html` when running locally. Base path
+`/api/v1`. All list endpoints return a `DataPage<T>` envelope and accept
+`page` (0-indexed, default `0`), `size` (default `20`, max `100`),
+`sortBy`, and `sortDirection`.
+
+### Reference data
+
+| Method | Path | Notes |
+| :--- | :--- | :--- |
+| `GET` | `/countries` | Filters: `keyword`, `currencyCode`. Sort: `name`, `isoCode`, `currencyCode`. |
+| `GET` | `/countries/{id}` | Returns the country and its currency. |
+| `GET` | `/departments` | Filters: `keyword`, `code`. Sort: `name`, `code`. |
+| `GET` | `/roles` | Filters: `keyword`, `code`. Sort: `name`, `code`. |
+| `GET` | `/payroll-periods` | Filters: `keyword`, `startDate`, `endDate`, `frequency`, `isClosed`. Sort: `startDate` (default `DESC`), `endDate`, `name`. **No create / edit / close endpoints** — periods are seeded only. |
+
+### Employees
+
+`POST /employees` requires an initial assignment. `PUT /employees/{id}` is not
+a simple update — it can atomically close the in-effect assignment and create
+a new one in the same request, or update the existing assignment in place.
+
+| Method | Path | Notes |
+| :--- | :--- | :--- |
+| `GET` | `/employees` | Filters: `keyword`, `matricule`, `anyOriginCountryIds`, `anyAssignmentCountryIds`, `anyDepartmentIds`, `anyRoleIds`, `employmentTypes`. |
+| `GET` | `/employees/{id}` | Employee + in-effect assignment. |
+| `POST` | `/employees` | Create employee + initial in-effect assignment, atomically. |
+| `PUT` | `/employees/{id}` | Update identity; optionally close the in-effect assignment (`toClose`) and/or create a new one (`assignmentInEffect` with `id = null`) in the same atomic request. Structural changes to an assignment are rejected once payroll exists — only `endDate` and `inEffect` remain mutable. |
+| `DELETE` | `/employees/{id}` | Rejected with `DATA_CONFLICT` if the employee has any payroll summary in any status. |
+
+### Payroll summaries
+
+| Method | Path | Notes |
+| :--- | :--- | :--- |
+| `GET` | `/payroll-summaries` | **`rangeStart` and `rangeEnd` are required.** Additional filters: `employeeId`, `employeeMatricule`, `anyCountryIds`, `anyDepartmentIds`, `anyRoleIds`, `anyEmploymentTypes`, `status`, `payrollFrequency`. **`nonExistent=true`** inverts the query: it returns employees with an in-effect assignment covering the period who have **no** payroll summary — the query behind the "missing payroll summary" warning on the aggregate report. |
+| `GET` | `/payroll-summaries/{id}` | Detail view. |
+| `POST` | `/payroll-summaries` | Create a `DRAFT`. Rejected on closed periods. |
+| `PUT` | `/payroll-summaries/{id}` | Update a `DRAFT`. Rejected on `VALIDATED`. |
+| `DELETE` | `/payroll-summaries/{id}` | Delete a `DRAFT`. Rejected on `VALIDATED`. |
+| `POST` | `/payroll-summaries/{id}/validate` | `DRAFT` → `VALIDATED`. Runs in its own transaction. |
+| `POST` | `/payroll-summaries/validate-all` | Bulk validate. **Not atomic.** Uses keyset pagination; reports per-row failures (`SUMMARY_NOT_DRAFT`, `PERIOD_CLOSED`, `ASSIGNMENT_NOT_IN_EFFECT`, `ASSIGNMENT_DOES_NOT_COVER_PERIOD`). |
+
+### Reports
+
+| Method | Path | Body / notes |
+| :--- | :--- | :--- |
+| `POST` | `/reports/aggregate` | Aggregate report over a date range. **Only MONTHLY periods are resolved** — bi-weekly summaries contribute to their containing month's totals (see `docs/architecture.md`). Statistics are computed **per frequency** (MONTHLY and BI_WEEKLY side-by-side). |
+| `POST` | `/reports/rankings` | Earner ranking for a period and dimension. Returns top 5, bottom 5, the 7-point percentile distribution, and each earner's interpolated percentile in basis points. |
+
+There is no `/reports/comparison` endpoint. See **Known Limitations**.
+
+### Error envelope
+
+Every failing endpoint returns the same shape:
 
 ```json
 {
-  "kind": "AGGREGATE",
-  "dateRange": { "startDate": "2026-01-01", "endDate": "2026-03-31" },
-  "groupKeys": ["COUNTRY", "DEPARTMENT"],
-  "referenceCurrency": "USD",
-  "lines": [
+  "code": "VALIDATION_FAILED",
+  "message": "One or more fields are invalid",
+  "errors": [
     {
-      "amount": { "amount": 1250000.00, "currency": "USD" },
-      "employeeCount": 42,
-      "country": "FR",
-      "department": "Engineering",
-      "statistics": {
-        "min": { "amount": 35000.00, "currency": "USD" },
-        "max": { "amount": 120000.00, "currency": "USD" },
-        "average": { "amount": 29761.90, "currency": "USD" }
-      }
+      "code": "NotBlank",
+      "message": "must not be blank",
+      "severity": "ERROR",
+      "details": { "field": "matricule", "attributes": { "max": 100 } }
     }
   ],
-  "warnings": []
+  "timestamp": "2026-10-31T14:30:00Z"
 }
 ```
 
-**Errors**
+Top-level `code` is one of:
 
-- `400 VALIDATION_FAILED` — request validation (reversed date range, future
-  end date, duplicate group keys, statistics with more than one key, or
-  unsupported `ORIGIN_COUNTRY` key).
-- `400 REPORT_BLOCKED` — data prerequisite missing (e.g., missing FX rate,
-  unvalidated payroll summaries, closed period, or missing reference currency).
-- `404 NOT_FOUND`, `500 INTERNAL_ERROR`
+| HTTP | `code` | Cause |
+| :--- | :--- | :--- |
+| 400 | `VALIDATION_FAILED` | Domain validation failed |
+| 400 | `REPORT_BLOCKED` | Snapshot build returned a blocker |
+| 400 | `INVALID_REQUEST` | Bean Validation on the request body, or a malformed body |
+| 404 | `NOT_FOUND` | Resource doesn't exist |
+| 409 | `DATA_CONFLICT` | Unique / foreign-key / check constraint violation, or a service-level state conflict (`PERIOD_CLOSED`, `SUMMARY_NOT_DRAFT`, `ASSIGNMENT_NOT_IN_EFFECT`, `ASSIGNMENT_DOES_NOT_COVER_PERIOD`, `SUMMARY_ALREADY_EXISTS`, `ASSIGNMENT_NOT_FOR_EMPLOYEE`) |
+| 500 | `INTERNAL_ERROR` | Unhandled |
 
-**Documentation & Health**
-
-- **Swagger UI**: <http://localhost:8080/swagger-ui/index.html> (interactive API docs)
-- **Actuator Health**: `/actuator/health`
-- **Actuator Metrics**: `/actuator/metrics`
+`severity` on each `ApiError` is `ERROR` or `WARNING`. `REPORT_BLOCKED`
+responses use both: blockers are `ERROR`, warnings are `WARNING`, and both
+prevent the report from being produced.
 
 ---
 
-## 🧪 Testing
+## Assumptions
+
+Before building, I sent two clarifying questions to the Incubyte team (a
+sample of the current Excel file, and what specifically makes the current
+process "tedious"). I did not receive a response before starting, so the
+following assumptions were made and documented in the design artifacts:
+
+- **The current process is a data-integrity and querying problem, not a scale
+  problem.** 10,000 rows in a spreadsheet is unwieldy for filtering and
+  joining, but not for storage. This is why the design prioritizes
+  structured queries and a consistent schema over raw performance.
+- **"Answer questions about how the org pays people" means aggregate
+  reporting, not individual analysis.** The aggregate and ranking reports
+  are the primary capability. Employee detail is secondary.
+- **Payroll is recorded, not computed.** The problem statement does not
+  mention tax rules, gross-to-net, or payslips. These are stated as out of
+  scope.
+- **Multi-country means multi-currency.** Currencies are converted to a
+  reference currency for reporting; the original amounts are preserved on
+  each summary.
+- **A single HR manager is the user.** No authentication is built, per the
+  assessment's framing.
+- **The reporting surface is monthly-first.** The aggregate report resolves
+  only MONTHLY periods in the range; bi-weekly summaries roll into their
+  containing month. This matches the seed's monthly-window aggregate model.
+
+Each assumption is isolated and reversible: the currency conversion is
+encapsulated, the report shape is a request/response contract, and the
+record-not-compute decision is documented in ADR 002.
+
+---
+
+## AI Workflow
+
+AI tools were used throughout as a collaborator, not as an autopilot. The
+full record is in `AI_WORKFLOW.md` and `docs/ai/`.
+
+- **What was AI-assisted:** boilerplate (entity scaffolds, DTO mappers),
+  test case generation from specification, exploration of design
+  alternatives before committing.
+- **What was reviewed line-by-line:** every domain invariant, every adapter
+  specification, every migration script. These are the parts that would
+  silently corrupt data, so they are the parts that got human eyes.
+- **What was rejected:** AI-suggested `@ManyToOne` relations between
+  entities (kept UUID columns instead, except the one documented case),
+  eager fetching (would break the criteria pattern), and any mapping code
+  that could not be verified against `docs/architecture.md`.
+
+---
+
+## Artifacts
+
+- `REQUIREMENTS.md` — scope, features, and what was deliberately excluded.
+- `docs/planning.md` — how the work was planned, and why features were left
+  out.
+- `AI_WORKFLOW.md` — how AI tools were used, and what was reviewed manually.
+- `docs/architecture.md` — system design, data model, snapshot design,
+  report model, diagrams.
+- `docs/clean-architecture.md` — layering rules, port/adapter pattern,
+  immutability, builders, validation strategy.
+- `docs/use-cases.md` — user flows for employee management, assignment
+  management, payroll recording, period management, and reporting.
+- `docs/adr/` — architecture decisions.
+- `docs/ai/` — prompts and context used during the build, per milestone.
+- **GitHub milestones** — issue-level record of what was tracked and
+  shipped: <https://github.com/christaime/salary-management-incubyte/milestones>
+
+---
+
+## Testing
 
 ```bash
-# Backend unit + integration tests
+# Backend — JUnit 5 + Mockito
 cd backend && ./gradlew test
 
-# Frontend unit tests (Jasmine / Karma, headless)
+# Frontend unit tests — Jasmine / Karma (headless)
 cd frontend && npm test -- --watch=false --browsers=ChromeHeadless
 
-# Frontend end-to-end tests (Cypress)
+# Frontend end-to-end tests — Cypress
 cd frontend && npm run e2e
 ```
 
-CI runs all three suites on every push to `main` and `develop`, and on every
-pull request. Cypress artifacts (screenshots, videos) are uploaded on failure
-for triage.
+Cypress covers the aggregate report, the earnings-ranking report, employee
+management, and payroll summary flows. CI runs all three suites plus the
+production build on every push and pull request
+(`.github/workflows/ci.yml`); Cypress artifacts (screenshots, videos) are
+uploaded on failure.
+
+Test coverage is concentrated where it matters most: the adapter layer and
+the domain. Domain tests run in milliseconds with no Spring context. Adapter
+integration tests run against a real SQLite database and exercise the
+specifications, sorting, and mapping logic. See `docs/clean-architecture.md`
+§10 for the strategy.
 
 ---
 
-## 📸 Screenshots
+## Screenshots
+
+### Aggregate report — Total
 
 ![Aggregate report page](docs/screenshots/aggregate-report.png)
 
+Total payroll cost and statistical spread over a date range. The main card
+separates cost by pay cadence (Monthly vs. Bi-weekly), showing min/median/max
+spread and annualized equivalents. The donut chart on the right breaks down
+the total cost by component (Base, Variable, Allowances, Employer Taxes). Tabs
+allow switching the primary group dimension.
+
+### Aggregate report — Cost by country
+
+![Aggregate report by country](docs/screenshots/aggregate-report_by-country.png)
+
+The same aggregate report, grouped by `COUNTRY`. The horizontal bar chart
+ranks the organization's payroll expenditure by country budget share,
+displaying the headcount and total cost (in the reference currency) for each.
+Selecting a country's bar reveals the right-hand donut chart, which shows the
+component breakdown (Base, Variable, Allowances, Employer Taxes) for that
+specific country's total.
+
+### Ranking report
+
+![Ranking report page](docs/screenshots/ranking-report.png)
+
+Top and bottom earners for a specific period and dimension. The
+**Position Context** bar visually anchors the selected group within the broader
+company pay distribution (min, p10, median, p90, max). The Top 5 and Bottom 5
+cards list each earner with their percentile badge, monthly rate, and
+annualized amount, normalizing bi-weekly and monthly cadences to a comparable
+scale.
+
+### Payroll summary editor
+
+![Payroll edition page](docs/screenshots/edit-payroll.png)
+
+Recording or editing a `DRAFT` payroll summary. The top section displays the
+employee and their resolved in-effect assignment (jurisdiction, department,
+role, cadence) as read-only context, ensuring the payment is tied to the
+correct placement. The bottom section captures the amount components (base,
+variable, allowances, employer taxes) and computes the total.
+
 ---
 
-## 🗺️ Milestones
+## Known Limitations
 
-| Milestone | Focus | Status |
-| :--- | :--- | :--- |
-| M1 | Domain models, ports, enums | ✅ |
-| M2 | Persistence (JPA, Flyway, adapters) | ✅ |
-| M3 | Seed data (10,000 employees, 19 periods) | ✅ |
-| M4 | Snapshot builder | ✅ |
-| M5 | Aggregate report backend | ✅ |
-| M6 | Aggregate report frontend | ✅ |
-| M7 | Single JAR, CI, documentation | ✅ |
-| M8 | Ranking and comparison reports | ⏳ |
-| M9 | Employee CRUD | ⏳ |
-| M10 | Payroll recording | ⏳ |
-| M11 | Payroll period management | ⏳ |
-| M12 | Deployment, demo, final docs | ⏳ |
+These are real limitations, not hedges.
+
+1. **Payroll period management is not built.** Periods are seeded only. The
+   HR manager cannot create or close periods through the UI or the API.
+2. **The comparison report is not built.** Only aggregate and ranking
+   reports exist. The `ReportKind.COMPARISON` enum value is a placeholder
+   for the planned report; no code produces it.
+3. **The employee detail page is not built.** The employee list and edit
+   form cover the essential flows.
+4. **No authentication or authorization.** The assessment scoped the system
+   to a single trusted user.
+5. **`ORIGIN_COUNTRY` group key is unsupported.** `PayrollPeriodAggregate`
+   does not carry the employee's origin country. The endpoint rejects it
+   with `VALIDATION_FAILED` / `UNSUPPORTED_GROUP_KEY`.
+6. **Statistics require at most one group key.** Requesting statistics with
+   more than one dimension returns `VALIDATION_FAILED`.
+7. **Groups with fewer than 10 employees have no percentile distribution.**
+   The seed only ranks groups of 10 or more; smaller groups surface as a
+   null `positionContext` rather than an error.
+8. **Filters in the aggregate report form use static lists.** The country /
+   department / role list endpoints are paginated, but the report form uses
+   the seeded reference lists.
+9. **`NUMERIC(38, 2)` for money in SQLite.** SQLite stores `NUMERIC` as
+   `REAL` (IEEE-754) with about 15 significant digits. This is safe for
+   payroll amounts; a system requiring exact arithmetic at extreme
+   magnitudes would use `TEXT` storage.
+10. **Excel import is out of scope.** The seed replaces it.
+11. **Payroll execution is out of scope.** No tax computation, gross-to-net,
+    or payslips.
+12. **No historical currency rates.** Conversion uses the current
+    `currency_rates` row, not the rate at payroll time. Changing the
+    reference currency would require a full-DB re-conversion of every
+    aggregate, ranking, and percentile row.
+13. **No audit trail, backup, or disaster recovery.**
+14. **Not deployed.** The app runs locally as a JAR. A video demo has not
+    been recorded.
 
 ---
 
-## ⚠️ Known Limitations
-
-- **`ORIGIN_COUNTRY` group key is unsupported.** The backend rejects it with
-  `VALIDATION_FAILED` / `UNSUPPORTED_GROUP_KEY`. The frontend does not offer
-  it as an option.
-- **No authentication.** Every endpoint is publicly accessible.
-- **No deployment.** The app runs locally; production deployment and a demo
-  video are M12 deliverables.
-
----
-
-## 📬 Submission
+## Submission
 
 Submitted in response to the Incubyte Software Craftsperson (Java/Angular II)
-take-home assessment, October 2026.
+take-home assessment.
 
-For questions or clarifications, feel free to reach out:
-**mnchristelle@gmail.com**
+For questions: **mnchristelle@gmail.com**
