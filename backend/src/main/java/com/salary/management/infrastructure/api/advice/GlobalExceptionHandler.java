@@ -1,6 +1,7 @@
 package com.salary.management.infrastructure.api.advice;
 
 import com.salary.management.application.exception.ReportBlockedException;
+import com.salary.management.common.exception.ConflictException;
 import com.salary.management.common.exception.ResourceNotFoundException;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
@@ -200,6 +201,25 @@ public class GlobalExceptionHandler {
                 ErrorResponse.DATA_CONFLICT, message, BLOCKER_SEVERITY, details);
         ErrorResponse body = new ErrorResponse(
                 ErrorResponse.DATA_CONFLICT, message, List.of(error), Instant.now());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
+     * Handles business-state conflicts raised by the service layer.
+     *
+     * @param ex the exception
+     * @return 409 with the structured code and details
+     */
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        if (ex.getDetails() != null && !ex.getDetails().isEmpty()) {
+            details.putAll(ex.getDetails());
+        }
+        ApiError error = new ApiError(
+                ex.getCode(), ex.getMessage(), BLOCKER_SEVERITY, details);
+        ErrorResponse body = new ErrorResponse(
+                ErrorResponse.DATA_CONFLICT, ex.getMessage(), List.of(error), Instant.now());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 

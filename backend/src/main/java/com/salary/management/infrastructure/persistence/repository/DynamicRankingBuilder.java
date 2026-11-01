@@ -1,5 +1,6 @@
 package com.salary.management.infrastructure.persistence.repository;
 
+import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.enums.EarnerRankingDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
@@ -12,6 +13,7 @@ import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEnti
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -22,6 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DynamicRankingBuilder {
@@ -54,6 +57,9 @@ public class DynamicRankingBuilder {
             throw new IllegalArgumentException("period must not be null");
         }
 
+        log.debug("Ranking/percentile build: period={} referenceCurrency={} group={} limit={}",
+                period.getId(), referenceCurrencyCode, key, limit);
+
         List<PayrollPeriodEarnerRankingEntity> rankings = new ArrayList<>();
         rankings.addAll(rank(period, referenceCurrencyCode,
                 EarnerRankingDirection.TOP, key, limit));
@@ -63,6 +69,10 @@ public class DynamicRankingBuilder {
         List<PayrollPeriodEarnerPercentileEntity> percentiles =
                 computePercentiles(period, referenceCurrencyCode, key);
 
+        log.debug("Ranking/percentile build done: period={} group={} -> "
+                        + "{} ranking(s), {} percentile(s)",
+                period.getId(), key, rankings.size(), percentiles.size());
+
         return new RankingAndPercentileResult(rankings, percentiles);
     }
 
@@ -70,11 +80,11 @@ public class DynamicRankingBuilder {
     // Rankings (top 5 + bottom 5)
     // ------------------------------------------------------------------
 
-    private int getDaysInBiweekly(PayrollPeriodEntity period){
+    private int getDaysInBiweekly(PayrollPeriodEntity period) {
         return DEFAULT_DAYS_IN_BIWEEKLY;
     }
 
-    private int getDaysInMonth(PayrollPeriodEntity period){
+    private int getDaysInMonth(PayrollPeriodEntity period) {
         return YearMonth.from(period.getStartDate()).lengthOfMonth();
     }
 
@@ -83,8 +93,8 @@ public class DynamicRankingBuilder {
             String referenceCurrencyCode,
             EarnerRankingDirection direction,
             GroupKey key,
-            int limit
-           ) {
+            int limit) {
+
         int daysInMonth = getDaysInMonth(period);
         int daysInBiweekly = getDaysInBiweekly(period);
         String partitionBy      = partitionBy(key);
@@ -117,7 +127,6 @@ public class DynamicRankingBuilder {
         String jpql = """
         SELECT %s
                r.employeeId         AS employeeId,
-               r.periodId           AS periodId,
                r.originalTotal      AS originalTotal,
                r.originalCurrency   AS originalCurrency,
                r.referenceTotal     AS referenceTotal,
@@ -128,7 +137,6 @@ public class DynamicRankingBuilder {
         FROM (
             SELECT %s
                    s.employee.id                     AS employeeId,
-                   s.payrollPeriod.id                AS periodId,
                    SUM(s.amounts.total)              AS originalTotal,
                    MAX(s.amounts.currency)           AS originalCurrency,
                    %s                                AS referenceTotal,
@@ -152,32 +160,47 @@ public class DynamicRankingBuilder {
               AND (s.amounts.currency = :refCurrency OR cr.rate IS NOT NULL)
             GROUP BY
                    %s
-                   s.employee.id,
-                   s.payrollPeriod.id
+                   s.employee.id
         ) r
         WHERE r.rank <= :limit
         """.formatted(
-                selectDimensions,          // 1: outer SELECT dimension
-                selectRawDims,             // 2: inner SELECT dimension
-                referenceTotalExpr,        // 3: referenceTotal
-                daysCoveredExpr,           // 4: daysCovered
-                monthlyRateExpr,           // 5: monthlyRate
-                partitionBy,               // 6: PARTITION BY
-                monthlyRateExpr,           // 7: ORDER BY expression
-                orderDirection,            // 8: ORDER BY direction (DESC/ASC)
-                groupByDimensions(key));   // 9: GROUP BY dimension
+                selectDimensions,
+                selectRawDims,
+                referenceTotalExpr,
+                daysCoveredExpr,
+                monthlyRateExpr,
+                partitionBy,
+                monthlyRateExpr,
+                orderDirection,
+                groupByDimensions(key));
 
-        return entityManager.createQuery(jpql, Tuple.class)
-                .setParameter("startDate", period.getStartDate())
-                .setParameter("endDate", period.getEndDate())
-                .setParameter("refCurrency", referenceCurrencyCode)
-                .setParameter("daysInMonth", daysInMonth)
-                .setParameter("daysInBiweekly", daysInBiweekly)
-                .setParameter("limit", limit)
-                .getResultList()
-                .stream()
-                .map(t -> toRankingEntity(t, direction, key))
-                .toList();
+        log.trace("rank JPQL: period={} direction={} group={} limit={}",
+                period.getId(), direction, key, limit);
+
+        List<PayrollPeriodEarnerRankingEntity> result;
+        try {
+            result = entityManager.createQuery(jpql, Tuple.class)
+                    .setParameter("startDate", period.getStartDate())
+                    .setParameter("endDate", period.getEndDate())
+                    .setParameter("refCurrency", referenceCurrencyCode)
+                    .setParameter("daysInMonth", daysInMonth)
+                    .setParameter("daysInBiweekly", daysInBiweekly)
+                    .setParameter("limit", limit)
+                    .getResultList()
+                    .stream()
+                    .map(t -> toRankingEntity(t,period.getId(), direction, key))
+                    .toList();
+        } catch (RuntimeException ex) {
+            log.error("rank query failed: period={} direction={} group={} limit={} "
+                            + "referenceCurrency={}",
+                    period.getId(), direction, key, limit,
+                    referenceCurrencyCode, ex);
+            throw ex;
+        }
+
+        log.debug("rank done: period={} direction={} group={} -> {} row(s)",
+                period.getId(), direction, key, result.size());
+        return result;
     }
 
     // ------------------------------------------------------------------
@@ -192,14 +215,6 @@ public class DynamicRankingBuilder {
         int daysInMonth = getDaysInMonth(period);
         int daysInBiweekly = getDaysInBiweekly(period);
 
-        // ----------------------------------------------------------------
-        // 1. Dimension fragments. Three shapes are needed:
-        //    - dimSelect:      the CTE projection with AS aliases
-        //    - innerDimExpr:   the raw column path, used inside the CTE
-        //                      (where `s` IS in scope)
-        //    - outerGroupBy:   the projected alias, used outside the CTE
-        //                      (where `s` is NOT in scope)
-        // ----------------------------------------------------------------
         String dimSelect = "";
         String innerDimExpr = "";
         String outerGroupBy = "";
@@ -255,14 +270,13 @@ public class DynamicRankingBuilder {
                     innerDimExpr = "s.assignment_employment_type";
                     outerGroupBy = "employmentType";
                 }
-                case CURRENCY, ORIGIN_COUNTRY ->
-                        throw new IllegalArgumentException("Unsupported: " + key);
+                case CURRENCY, ORIGIN_COUNTRY -> {
+                    log.error("computePercentiles: unsupported group key {}", key);
+                    throw new IllegalArgumentException("Unsupported: " + key);
+                }
             }
         }
 
-        // ----------------------------------------------------------------
-        // 2. Annualized expression.
-        // ----------------------------------------------------------------
         String annualizedExpr = """
             CASE
               WHEN SUM(CASE
@@ -284,9 +298,6 @@ public class DynamicRankingBuilder {
             END
             """.trim();
 
-        // ----------------------------------------------------------------
-        // 3. Portable greatest(1, x) as CASE expressions.
-        // ----------------------------------------------------------------
         java.util.function.IntFunction<String> rankExpr = p -> """
             CASE
               WHEN CAST(CEIL(n * %d / 100.0) AS INTEGER) < 1
@@ -303,12 +314,6 @@ public class DynamicRankingBuilder {
         String p90Expr  = rankExpr.apply(90);
         String p100Expr = rankExpr.apply(100);
 
-        // ----------------------------------------------------------------
-        // 4. Build the SQL.
-        //    - partitionClause uses innerDimExpr (inside CTE, `s` in scope)
-        //    - innerGroupBy    uses innerDimExpr (inside CTE)
-        //    - outerGroupBy    uses the projected alias (outside CTE, `s` gone)
-        // ----------------------------------------------------------------
         String partitionClause = innerDimExpr.isEmpty()
                 ? ""
                 : "PARTITION BY " + innerDimExpr;
@@ -334,7 +339,8 @@ public class DynamicRankingBuilder {
                 LEFT JOIN currency_rates cr
                   ON cr.currency_code = s.currency
                  AND cr.reference_currency_code = :refCurrency
-                WHERE s.payroll_period_id = :periodId
+                WHERE p.start_date >= :startDate
+                  AND p.start_date < :endDate
                   AND s.status = 'VALIDATED'
                   AND (s.currency = :refCurrency OR cr.rate IS NOT NULL)
                 GROUP BY %s s.employee_id
@@ -364,23 +370,30 @@ public class DynamicRankingBuilder {
                 p0Expr, p10Expr, p25Expr, p50Expr, p75Expr, p90Expr, p100Expr,
                 outerGroupByClause);
 
-        // ----------------------------------------------------------------
-        // 5. Execute.
-        // ----------------------------------------------------------------
-        @SuppressWarnings("unchecked")
-        List<Object[]> rows = entityManager.createNativeQuery(sql)
-                .setParameter("periodId", period.getId().toString())
-                .setParameter("refCurrency", referenceCurrencyCode)
-                .setParameter("daysInMonth", daysInMonth)
-                .setParameter("daysInBiweekly", daysInBiweekly)
-                .setParameter("minPopulation", MIN_POPULATION_FOR_PERCENTILE)
-                .getResultList();
+        log.trace("computePercentiles SQL: period={} group={} minPopulation={}",
+                period.getId(), key, MIN_POPULATION_FOR_PERCENTILE);
 
-        // ----------------------------------------------------------------
-        // 6. Map each group row to up to 7 percentile entities.
-        // ----------------------------------------------------------------
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows;
+        try {
+            rows = entityManager.createNativeQuery(sql)
+                    .setParameter("startDate", period.getStartDate().toString())
+                    .setParameter("endDate", period.getEndDate().toString())
+                    .setParameter("refCurrency", referenceCurrencyCode)
+                    .setParameter("daysInMonth", daysInMonth)
+                    .setParameter("daysInBiweekly", daysInBiweekly)
+                    .setParameter("minPopulation", MIN_POPULATION_FOR_PERCENTILE)
+                    .getResultList();
+        } catch (RuntimeException ex) {
+            log.error("computePercentiles query failed: period={} group={} "
+                            + "referenceCurrency={}",
+                    period.getId(), key, referenceCurrencyCode, ex);
+            throw ex;
+        }
+
         int[] percentiles = {0, 10, 25, 50, 75, 90, 100};
         List<PayrollPeriodEarnerPercentileEntity> out = new ArrayList<>();
+        int skippedNullAmounts = 0;
 
         for (Object[] row : rows) {
             String countryId      = (String)  row[0];
@@ -391,7 +404,10 @@ public class DynamicRankingBuilder {
 
             for (int i = 0; i < percentiles.length; i++) {
                 BigDecimal amount = toBigDecimal(row[5 + i]);
-                if (amount == null) continue;
+                if (amount == null) {
+                    skippedNullAmounts++;
+                    continue;
+                }
 
                 out.add(PayrollPeriodEarnerPercentileEntity.builder()
                         .id(UUID.randomUUID())
@@ -403,10 +419,16 @@ public class DynamicRankingBuilder {
                         .percentile(percentiles[i])
                         .referenceAmount(toScaled(amount))
                         .referenceCurrency(referenceCurrencyCode)
+                        .status(PayrollSummaryStatus.DRAFT)
                         .employeeCount(n)
                         .build());
             }
         }
+
+        log.debug("computePercentiles done: period={} group={} -> {} group row(s), "
+                        + "{} percentile entity/ies ({} null amount(s) skipped)",
+                period.getId(), key, rows.size(), out.size(), skippedNullAmounts);
+
         return out;
     }
 
@@ -416,6 +438,7 @@ public class DynamicRankingBuilder {
         if (value instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
         return new BigDecimal(value.toString());
     }
+
     // ------------------------------------------------------------------
     // JPQL fragments
     // ------------------------------------------------------------------
@@ -473,19 +496,78 @@ public class DynamicRankingBuilder {
     // ------------------------------------------------------------------
 
     private PayrollPeriodEarnerRankingEntity toRankingEntity(
-            Tuple t, EarnerRankingDirection direction, GroupKey key) {
+            Tuple t, UUID periodId, EarnerRankingDirection direction, GroupKey key) {
         PayrollPeriodEarnerRankingEntity e = new PayrollPeriodEarnerRankingEntity();
         e.setId(UUID.randomUUID());
-        e.setPayrollPeriodId(t.get("periodId", UUID.class));
-        e.setStatus(PayrollSummaryStatus.VALIDATED);
+        e.setPayrollPeriodId(periodId);
+        e.setStatus(PayrollSummaryStatus.DRAFT);
         e.setDirection(direction);
         e.setEmployeeId(t.get("employeeId", UUID.class));
         e.setRank(((Number) t.get("rank")).intValue());
 
-        if (key == GroupKey.COUNTRY)         e.setCountryId(t.get("countryId", UUID.class));
-        if (key == GroupKey.DEPARTMENT)      e.setDepartmentId(t.get("departmentId", UUID.class));
-        if (key == GroupKey.ROLE)            e.setRoleId(t.get("roleId", UUID.class));
-        if (key == GroupKey.EMPLOYMENT_TYPE) e.setEmploymentType(t.get("employmentType", EmploymentType.class));
+        if (key == GroupKey.COUNTRY) {
+            UUID countryId = t.get("countryId", UUID.class);
+            if (countryId == null) {
+                log.warn("DynamicRankingBuilder: COUNTRY partition row has null countryId — "
+                                + "period={} direction={} rank={} employeeId={}",
+                        t.get("payrollPeriodId", UUID.class),
+                        t.get("direction", String.class),
+                        t.get("rank", Integer.class),
+                        t.get("employeeId", UUID.class));
+                throw new IllegalStateException(
+                        "COUNTRY partition row has null countryId for period="
+                                + t.get("payrollPeriodId", UUID.class));
+            }
+            e.setCountryId(countryId);
+        }
+
+        if (key == GroupKey.DEPARTMENT) {
+            UUID departmentId = t.get("departmentId", UUID.class);
+            if (departmentId == null) {
+                log.warn("DynamicRankingBuilder: DEPARTMENT partition row has null departmentId — "
+                                + "period={} direction={} rank={} employeeId={}",
+                        t.get("payrollPeriodId", UUID.class),
+                        t.get("direction", String.class),
+                        t.get("rank", Integer.class),
+                        t.get("employeeId", UUID.class));
+                throw new IllegalStateException(
+                        "DEPARTMENT partition row has null departmentId for period="
+                                + t.get("payrollPeriodId", UUID.class));
+            }
+            e.setDepartmentId(departmentId);
+        }
+
+        if (key == GroupKey.ROLE) {
+            UUID roleId = t.get("roleId", UUID.class);
+            if (roleId == null) {
+                log.warn("DynamicRankingBuilder: ROLE partition row has null roleId — "
+                                + "period={} direction={} rank={} employeeId={}",
+                        t.get("payrollPeriodId", UUID.class),
+                        t.get("direction", String.class),
+                        t.get("rank", Integer.class),
+                        t.get("employeeId", UUID.class));
+                throw new IllegalStateException(
+                        "ROLE partition row has null roleId for period="
+                                + t.get("payrollPeriodId", UUID.class));
+            }
+            e.setRoleId(roleId);
+        }
+
+        if (key == GroupKey.EMPLOYMENT_TYPE) {
+            EmploymentType employmentType = t.get("employmentType", EmploymentType.class);
+            if (employmentType == null) {
+                log.warn("DynamicRankingBuilder: EMPLOYMENT_TYPE partition row has null employmentType — "
+                                + "period={} direction={} rank={} employeeId={}",
+                        t.get("payrollPeriodId", UUID.class),
+                        t.get("direction", String.class),
+                        t.get("rank", Integer.class),
+                        t.get("employeeId", UUID.class));
+                throw new IllegalStateException(
+                        "EMPLOYMENT_TYPE partition row has null employmentType for period="
+                                + t.get("payrollPeriodId", UUID.class));
+            }
+            e.setEmploymentType(employmentType);
+        }
 
         e.setDaysCovered(((Number) t.get("daysCovered")).intValue());
 

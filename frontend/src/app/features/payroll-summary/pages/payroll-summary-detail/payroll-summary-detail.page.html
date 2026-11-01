@@ -1,0 +1,247 @@
+<div
+  class="max-w-4xl mx-auto flex flex-col gap-4 p-4 md:px-8"
+  data-testid="payroll-detail-page"
+>
+  <!-- Header with back button -->
+  <div class="flex items-start gap-3">
+    <button
+      type="button"
+      data-testid="payroll-detail-back"
+      (click)="onBack()"
+      [disabled]="isLoading()"
+      class="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors disabled:opacity-50"
+      title="Back to payroll summaries"
+      aria-label="Back to payroll summaries"
+    >
+      <mat-icon class="!w-5 !h-5 !text-[20px]">arrow_back</mat-icon>
+    </button>
+
+    @if (summary(); as s) {
+    <div class="flex flex-col gap-1 min-w-0">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1
+          data-testid="payroll-detail-title"
+          class="text-xl font-semibold text-slate-900 m-0 truncate"
+        >
+          {{ s.employee.name }}
+        </h1>
+        <span class="font-mono text-xs text-slate-500">
+            {{ s.employee.matricule }}
+          </span>
+        <app-payroll-summary-status-badge [status]="s.status" />
+
+      </div>
+      <p class="text-sm text-slate-500 m-0">
+        {{ s.period.name }} ·
+        <span class="font-mono">{{ s.period.startDate }} → {{ s.period.endDate }}</span>
+        · {{ s.period.frequency }}
+      </p>
+    </div>
+    } @else {
+    <h1 class="text-xl font-semibold text-slate-900 m-0">Payroll summary</h1>
+    }
+  </div>
+
+  <!-- Loading -->
+  @if (state() === 'loading') {
+  <div class="text-sm text-slate-500" role="status">
+    Loading payroll summary…
+  </div>
+  }
+
+  <!-- Error -->
+  @if (state() === 'error' && error()) {
+  <div
+    data-testid="payroll-detail-error"
+    class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+  >
+    <div class="font-semibold mb-1">{{ error()!.message }}</div>
+    @if (error()!.errors.length > 0) {
+    <ul class="list-disc ml-5 space-y-0.5">
+      @for (e of error()!.errors; track e.field + e.code) {
+      <li>
+        <span class="font-mono text-xs">{{ e.field }}</span> — {{ e.message }}
+      </li>
+      }
+    </ul>
+    }
+  </div>
+  }
+
+  <!-- Body -->
+  @if (state() === 'success' && summary()) {
+  @let s = summary()!;
+
+  <!-- Read-only placement — verbatim from payroll-summary-editor-form (update mode) -->
+  <section
+    data-testid="payroll-detail-placement"
+    class="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-3"
+  >
+    @if (assignedEmployeeForDisplay(); as e) {
+    <app-employee-assignment-display [employee]="e" [onlyAssignment]="false" />
+    }
+
+    <div
+      data-testid="editor-period-selected"
+      class="flex items-center justify-between w-full min-w-0 gap-1.5 h-10 px-3 rounded-lg border border-slate-200 bg-white shadow-xs"
+    >
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-slate-500 font-semibold leading-tight">
+          Period :
+        </span>
+        <span
+          data-testid="period-picker-selected-frequency"
+          class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-900 text-white font-mono font-bold text-[10px]"
+        >
+          {{ s.period.frequency }}
+        </span>
+        <span
+          data-testid="period-picker-selected-name"
+          class="text-xs font-semibold text-slate-900 truncate"
+        >
+          {{ s.period.name }}
+        </span>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        @if (s.period.closed) {
+        <span
+          data-testid="period-picker-selected-closed"
+          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-200"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Closed
+        </span>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Amounts card (unchanged) -->
+  <section
+    data-testid="payroll-detail-amounts"
+    class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col gap-3"
+  >
+    <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+      <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-900 text-white text-[10px] font-bold font-mono">€</span>
+      <h2 class="text-sm font-bold uppercase tracking-wide text-slate-900 m-0">
+        Amounts
+      </h2>
+      <span class="ml-auto font-mono text-[10px] text-slate-500 uppercase tracking-wider">
+          {{ s.amounts.currency }}
+        </span>
+    </div>
+
+    <div class="flex flex-col divide-y divide-slate-100">
+      <div class="flex items-center justify-between py-2 text-sm">
+        <span class="text-slate-600">Base</span>
+        <span
+          data-testid="amount-base"
+          [attr.data-value]="s.amounts.base"
+          class="font-mono font-semibold text-slate-900"
+        >
+            {{ formatMoney(s.amounts.base, s.amounts.currency) }}
+          </span>
+      </div>
+
+      <div class="flex items-center justify-between py-2 text-sm">
+        <span class="text-slate-600">Variable</span>
+        <span
+          data-testid="amount-variable"
+          [attr.data-value]="s.amounts.variable"
+          class="font-mono font-semibold text-slate-900"
+        >
+            {{ formatMoney(s.amounts.variable, s.amounts.currency) }}
+          </span>
+      </div>
+
+      <div class="flex items-center justify-between py-2 text-sm">
+        <span class="text-slate-600">Allowances</span>
+        <span
+          data-testid="amount-allowances"
+          [attr.data-value]="s.amounts.allowances"
+          class="font-mono font-semibold text-slate-900"
+        >
+            {{ formatMoney(s.amounts.allowances, s.amounts.currency) }}
+          </span>
+      </div>
+
+      <div class="flex items-center justify-between py-2 text-sm">
+        <span class="text-slate-600">Employer taxes</span>
+        <span
+          data-testid="amount-employer-taxes"
+          [attr.data-value]="s.amounts.employerTaxes"
+          class="font-mono font-semibold text-slate-900"
+        >
+            {{ formatMoney(s.amounts.employerTaxes, s.amounts.currency) }}
+          </span>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 pb-2 border-t-2 border-slate-200">
+        <span class="text-sm font-bold uppercase tracking-wider text-slate-900">Total</span>
+        <div class="flex items-center gap-2">
+          @if (totalMismatch(s)) {
+          <span
+            data-testid="total-mismatch-warning"
+            class="inline-flex items-center gap-1 text-[10px] text-amber-700 font-mono uppercase"
+            [title]="'Sum of components differs from stored total'"
+          >
+                ⚠ mismatch
+              </span>
+          }
+          <span
+            data-testid="amount-total"
+            [attr.data-value]="s.amounts.total"
+            class="font-mono text-lg font-bold text-slate-900"
+          >
+              {{ formatMoney(s.amounts.total, s.amounts.currency) }}
+            </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Actions row — DRAFT only (unchanged) -->
+  @if (isDraft()) {
+  <div class="flex items-center justify-end gap-2 pt-2">
+    <button
+      data-testid="payroll-detail-delete"
+      type="button"
+      mat-stroked-button
+      (click)="onDelete()"
+      class="!text-red-600 !border-red-200 hover:!bg-red-50"
+    >
+      <mat-icon class="!w-4 !h-4 !text-[16px]">delete</mat-icon>
+      Delete
+    </button>
+
+    <button
+      data-testid="payroll-detail-edit"
+      type="button"
+      mat-stroked-button
+      (click)="onEdit()"
+    >
+      <mat-icon class="!w-4 !h-4 !text-[16px]">edit</mat-icon>
+      Edit
+    </button>
+
+    <button
+      data-testid="payroll-detail-validate"
+      type="button"
+      mat-flat-button
+      color="primary"
+      (click)="onValidate()"
+    >
+      <mat-icon class="!w-4 !h-4 !text-[16px]">check_circle</mat-icon>
+      Validate
+    </button>
+  </div>
+  } @else {
+  <div
+    data-testid="payroll-detail-final-note"
+    class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 flex items-start gap-2"
+  >
+    <mat-icon class="!w-4 !h-4 !text-[16px] text-slate-400 mt-0.5 shrink-0">lock</mat-icon>
+    <span>This summary is final and cannot be edited.</span>
+  </div>
+  }
+  }
+</div>

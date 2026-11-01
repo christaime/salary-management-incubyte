@@ -1,0 +1,217 @@
+<div
+  data-testid="bulk-validate-dialog"
+  class="p-6 flex flex-col gap-5 min-w-[420px] max-w-[640px]"
+>
+  <!-- Header -->
+  <div class="flex items-start gap-3">
+    <div class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-amber-100 text-amber-600">
+      <mat-icon class="!w-5 !h-5 !text-[20px]">checklist</mat-icon>
+    </div>
+    <div class="flex flex-col gap-1 min-w-0">
+      <h2
+        data-testid="bulk-validate-dialog-title"
+        class="text-base font-semibold text-slate-900 m-0"
+      >
+        Validate all draft summaries
+      </h2>
+      <p class="text-sm text-slate-600 m-0">
+        Period: <strong class="text-slate-900">{{ data.periodName }}</strong>
+      </p>
+      @if (data.filterChips && data.filterChips.length > 0) {
+      <div class="flex flex-wrap gap-1 mt-1">
+        @for (chip of data.filterChips; track chip) {
+        <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px] font-semibold border border-slate-200">
+              {{ chip }}
+            </span>
+        }
+      </div>
+      }
+    </div>
+  </div>
+
+  <!-- Body: varies by phase -->
+  @switch (phase()) {
+  @case ('confirm') {
+  <div class="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3">
+    This will attempt to validate every DRAFT matching the current filters
+    in this period. Rows that fail validation stay as DRAFT. The operation
+    cannot be undone.
+  </div>
+  }
+
+  @case ('running') {
+  <div class="flex items-center gap-3 text-sm text-slate-600" role="status">
+    <mat-spinner diameter="20" />
+    <span>Validating draft summaries…</span>
+  </div>
+  }
+
+  @case ('error') {
+  <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+    <div class="font-semibold mb-1">Bulk validation failed</div>
+    <div>{{ errorMessage() }}</div>
+  </div>
+  }
+
+  @case ('done') {
+  @if (result(); as r) {
+  <div class="grid grid-cols-3 gap-2">
+    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+      <div class="text-[10px] font-mono uppercase tracking-wider text-slate-500">Total</div>
+      <div
+        data-testid="bulk-result-total"
+        [attr.data-value]="r.total"
+        class="text-xl font-semibold text-slate-900 mt-0.5"
+      >
+        {{ formatNumber(r.total) }}
+      </div>
+    </div>
+    <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center">
+      <div class="text-[10px] font-mono uppercase tracking-wider text-emerald-700">Validated</div>
+      <div
+        data-testid="bulk-result-validated"
+        [attr.data-value]="r.validated"
+        class="text-xl font-semibold text-emerald-800 mt-0.5"
+      >
+        {{ formatNumber(r.validated) }}
+      </div>
+    </div>
+    <div
+      class="rounded-lg border p-3 text-center"
+      [class.border-slate-200]="r.failed === 0"
+      [class.bg-slate-50]="r.failed === 0"
+      [class.border-red-200]="r.failed > 0"
+      [class.bg-red-50]="r.failed > 0"
+    >
+      <div
+        class="text-[10px] font-mono uppercase tracking-wider"
+        [class.text-slate-500]="r.failed === 0"
+        [class.text-red-700]="r.failed > 0"
+      >
+        Failed
+      </div>
+      <div
+        data-testid="bulk-result-failed"
+        [attr.data-value]="r.failed"
+        class="text-xl font-semibold mt-0.5"
+        [class.text-slate-900]="r.failed === 0"
+        [class.text-red-800]="r.failed > 0"
+      >
+        {{ formatNumber(r.failed) }}
+      </div>
+    </div>
+  </div>
+
+  @if (hasFailures()) {
+  <div
+    data-testid="bulk-validate-failures-scroll"
+    class="rounded-lg border border-slate-200 overflow-y-auto max-h-56"
+  >
+    <table class="w-full text-left text-xs">
+      <thead class="bg-slate-50 sticky top-0 z-10">
+      <tr class="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+        <th class="px-3 py-2 whitespace-nowrap">Summary id</th>
+        <th class="px-3 py-2 whitespace-nowrap">Code</th>
+        <th class="px-3 py-2">Message</th>
+      </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+      @for (f of failures(); track f.summaryId) {
+      <tr [attr.data-testid]="'bulk-failure-' + f.summaryId">
+        <td class="px-3 py-2 font-mono text-[11px] text-slate-700 whitespace-nowrap">
+          {{ f.summaryId }}
+        </td>
+        <td class="px-3 py-2 font-mono text-[10px] text-red-700 font-semibold whitespace-nowrap">
+          {{ f.code }}
+        </td>
+        <td class="px-3 py-2 text-slate-700">
+          {{ f.message }}
+        </td>
+      </tr>
+      }
+      </tbody>
+    </table>
+  </div>
+  } @else {
+  <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+    All drafts were validated successfully.
+  </div>
+  }
+  }
+  }
+  }
+
+  <!-- Actions -->
+  <div class="flex items-center justify-end gap-2 pt-1">
+    @if (phase() === 'confirm') {
+    <button
+      data-testid="bulk-validate-cancel"
+      type="button"
+      mat-stroked-button
+      (click)="onCancel()"
+    >
+      Cancel
+    </button>
+    <button
+      data-testid="bulk-validate-confirm"
+      type="button"
+      mat-flat-button
+      color="primary"
+      (click)="onConfirm()"
+    >
+      Validate all
+    </button>
+    }
+
+    @if (phase() === 'running') {
+    <button
+      data-testid="bulk-validate-cancel"
+      type="button"
+      mat-stroked-button
+      [disabled]="true"
+    >
+      Cancel
+    </button>
+    }
+
+    @if (phase() === 'error') {
+    <button
+      data-testid="bulk-validate-close"
+      type="button"
+      mat-stroked-button
+      (click)="onCancel()"
+    >
+      Close
+    </button>
+    <button
+      data-testid="bulk-validate-retry"
+      type="button"
+      mat-flat-button
+      color="primary"
+      (click)="onConfirm()"
+    >
+      Retry
+    </button>
+    }
+
+    @if (phase() === 'done') {
+    <button
+      data-testid="bulk-validate-close"
+      type="button"
+      mat-stroked-button
+      (click)="onCancel()"
+    >
+      Close
+    </button>
+    <button
+      data-testid="bulk-validate-again"
+      type="button"
+      mat-flat-button
+      color="primary"
+      (click)="onValidateAgain()"
+    >
+      Validate again
+    </button>
+    }
+  </div>
+</div>

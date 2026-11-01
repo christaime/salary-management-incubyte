@@ -9,64 +9,45 @@ import com.salary.management.application.dto.DateRange;
 import com.salary.management.application.dto.aggregate.StatisticsDto;
 import com.salary.management.application.dto.aggregate.StatisticsPerFrequency;
 import com.salary.management.application.exception.ReportBlockedException;
-import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.PayrollPeriod;
-import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.ReportKind;
 import com.salary.management.domain.model.values.AmountUtils;
+import com.salary.management.domain.model.values.PayrollPeriodSnapshotResult;
 import com.salary.management.domain.model.values.ReportWarning;
-import com.salary.management.domain.repository.CurrencyRateRepository;
-import com.salary.management.domain.repository.PayrollPeriodAggregateRepository;
-import com.salary.management.domain.repository.PayrollPeriodEarnerRankingRepository;
-import com.salary.management.domain.repository.PayrollPeriodRepository;
-import com.salary.management.domain.repository.ReportDataRepository;
+import com.salary.management.domain.repository.*;
 import com.salary.management.domain.repository.criteria.PayrollPeriodCriteria;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 /** Generates the aggregate payroll report defined in Milestone 5. */
+@Slf4j
 @Service
-public class AggregateReportService extends  ReportService{
+@AllArgsConstructor
+public class AggregateReportService {
 
     private final ReportDataRepository reportDataRepository;
     private final CurrencyRateRepository currencyRateRepository;
+    protected final PayrollPeriodRepository payrollPeriodRepository;
+    private final PayrollPeriodSnapshotRepository payrollPeriodSnapshotRepository;
 
-    public AggregateReportService(
-            PayrollPeriodRepository payrollPeriodRepository,
-            PayrollPeriodAggregateRepository payrollPeriodAggregateRepository,
-            PayrollPeriodEarnerRankingRepository payrollPeriodEarnerRankingRepository,
-            SnapshotBuilder snapshotBuilder,
-            ReportDataRepository reportDataRepository,
-            CurrencyRateRepository currencyRateRepository) {
-        super(payrollPeriodRepository,
-                payrollPeriodAggregateRepository,
-                payrollPeriodEarnerRankingRepository,
-                snapshotBuilder);
-        this.currencyRateRepository = currencyRateRepository;
-        this.reportDataRepository = reportDataRepository;
-    }
 
-    @Override
     protected String referenceCurrency() {
         return currencyRateRepository.getReferenceCurrencyCode();
     }
+
     /**
      * Generates the aggregate report for the given request.
      *
@@ -77,44 +58,70 @@ public class AggregateReportService extends  ReportService{
      */
     @Transactional
     public AggregateReportResponse generate(AggregateReportRequest request) {
+        log.info("Aggregate report requested: range={}..{}, groupKeys={}, "
+                        + "includeStatistics={}, breakdown={}, filters={}",
+                request.dateRange().startDate(), request.dateRange().endDate(),
+                request.groupKeys(), request.includeStatistics(),
+                request.breakdownRequested(), describeFilters(request));
+
+        String referenceCurrency = referenceCurrency();
 
         ReportEffectiveFilters filters = validate(request);
         List<PayrollPeriod> periods = resolvePeriods(request.dateRange());
         if (periods.isEmpty()) {
-            return emptyResponse(request);
+            log.info("No payroll periods in range {}..{}; returning empty report",
+                    request.dateRange().startDate(), request.dateRange().endDate());
+            return AggregateReportResponse.of(request, referenceCurrency);
         }
+        log.debug("Resolved {} payroll period(s) in range", periods.size());
 
         List<PayrollPeriod> toGenerate = periods.stream()
                 .filter(p -> !p.getClosed())
                 .toList();
-        List<ReportWarning> warnings = buildAndPersistSnapshots(toGenerate);
+        log.debug("Rebuilding snapshots for {} open period(s) of {} total",
+                toGenerate.size(), periods.size());
+
+        List<ReportWarning> collectedWarnings = new ArrayList<>();
+        for (PayrollPeriod period : toGenerate) {
+            log.debug("Building snapshot for periodId={}", period.getId());
+            PayrollPeriodSnapshotResult result = payrollPeriodSnapshotRepository.buildAndSaveAggregates(period);
+            collectedWarnings.addAll(result.warnings());
+            if (result.isBlocked()) {
+                log.warn("Snapshot build for periodId={} returned {} blocker(s); "
+                                + "aborting report generation",
+                        period.getId(), result.blockers().size());
+                throw new ReportBlockedException(result.blockers(), collectedWarnings);
+            }
+        }
 
         List<UUID> periodIds = periods.stream().map(PayrollPeriod::getId).toList();
         List<AggregateRowProjection> aggregateRows = reportDataRepository.queryAggregates(
                 periodIds, request.groupKeys(), filters);
+        log.debug("Aggregate query returned {} row(s)", aggregateRows.size());
 
         GroupKey statisticsKey = request.includeStatistics()
                 ? singleKeyOf(request.groupKeys())
                 : null;
 
-        String referenceCurrency = referenceCurrency();
-        Map<StatisticsKey, StatisticsPair> monthlyStatistics = Map.of();
-        Map<StatisticsKey, StatisticsPair> biWeeklyStatistics = Map.of();
+        List<AggregateRowProjection> monthlyStatistics = List.of();
+        List<AggregateRowProjection> biWeeklyStatistics = List.of();
         if (request.includeStatistics()) {
-            monthlyStatistics = buildStatistics(
-                    reportDataRepository.queryStatistics(
-                            periodIds, request.groupKeys(),
-                            PayrollPeriodFrequency.MONTHLY, filters, referenceCurrency),
-                    statisticsKey);
-            biWeeklyStatistics = buildStatistics(
-                    reportDataRepository.queryStatistics(
-                            periodIds, request.groupKeys(),
-                            PayrollPeriodFrequency.BI_WEEKLY, filters, referenceCurrency),
-                    statisticsKey);
+            monthlyStatistics = reportDataRepository.queryStatistics(
+                            request.dateRange().startDate(), request.dateRange().endDate(), request.groupKeys(),
+                            PayrollPeriodFrequency.MONTHLY, filters, referenceCurrency);
+            biWeeklyStatistics = reportDataRepository.queryStatistics(
+                            request.dateRange().startDate(), request.dateRange().endDate(), request.groupKeys(),
+                            PayrollPeriodFrequency.BI_WEEKLY, filters, referenceCurrency);
+            log.debug("Statistics: monthly={} partition(s), biWeekly={} partition(s)",
+                    monthlyStatistics.size(), biWeeklyStatistics.size());
         }
 
         List<AggregateLineDto> lines = assembleLines(
                 aggregateRows, monthlyStatistics, biWeeklyStatistics, statisticsKey, request);
+
+        log.info("Aggregate report generated: {} line(s), refCurrency={}, "
+                        + "{} warning(s), {} period(s) in range",
+                lines.size(), referenceCurrency, collectedWarnings.size(), periods.size());
 
         return new AggregateReportResponse(
                 ReportKind.AGGREGATE,
@@ -122,7 +129,7 @@ public class AggregateReportService extends  ReportService{
                 request.groupKeys(),
                 referenceCurrency,
                 lines,
-                warnings);
+                collectedWarnings);
     }
 
     private ReportEffectiveFilters validate(AggregateReportRequest request) {
@@ -156,13 +163,14 @@ public class AggregateReportService extends  ReportService{
         }
 
         if (!errors.isEmpty()) {
+            log.warn("Aggregate report rejected: {} validation error(s): {}",
+                    errors.size(), errors);
             throw new DomainValidationException(errors);
         }
         return effectiveFilters(request);
     }
 
     private ReportEffectiveFilters effectiveFilters(AggregateReportRequest request) {
-        Set<GroupKey> keys = Set.copyOf(request.groupKeys());
         return new ReportEffectiveFilters(
                 request.anyCountryIds(),
                 request.anyDepartmentIds(),
@@ -184,36 +192,35 @@ public class AggregateReportService extends  ReportService{
     // Statistics
     // ------------------------------------------------------------------
 
-    /**
-     * Builds the statistics map for one frequency. Throws if the query returned two rows for
-     * the same key, which would indicate a bug in the query or the projection.
-     */
-    private Map<StatisticsKey, StatisticsPair> buildStatistics(
-            List<AggregateRowProjection> rows,
-            GroupKey key) {
-        Map<StatisticsKey, StatisticsPair> map = new LinkedHashMap<>();
-        for (AggregateRowProjection row : rows) {
-            StatisticsKey k = keyOf(row, key);
-            if (map.containsKey(k)) {
-                throw new IllegalStateException(
-                        "Statistics query returned more than one row for key " + k);
-            }
-            map.put(k, new StatisticsPair(row.minReferenceAmount, row.maxReferenceAmount));
-        }
-        return map;
-    }
-
-    private StatisticsKey keyOf(AggregateRowProjection row, GroupKey key) {
+    private AggregateRowProjection statisticsOf(AggregateRowProjection aggregate, GroupKey key, List<AggregateRowProjection> statistics) {
         if (key == null) {
-            return new StatisticsKey(null, null, null, null);
+            return statistics.stream()
+                    .filter(s-> s.country == null && s.department == null && s.role == null && s.employmentType == null)
+                    .findFirst().orElse(null);
         }
+
         return switch (key) {
-            case COUNTRY -> new StatisticsKey(row.country.id(), null, null, null);
-            case DEPARTMENT -> new StatisticsKey(null, row.department.id(), null, null);
-            case ROLE -> new StatisticsKey(null, null, row.role.id(), null);
-            case EMPLOYMENT_TYPE -> new StatisticsKey(null, null, null, row.employmentType);
-            case CURRENCY, ORIGIN_COUNTRY ->
-                    throw new IllegalArgumentException("Unsupported statistics key: " + key);
+            case COUNTRY -> statistics.stream()
+                    .filter(s -> s.country != null && aggregate.country != null
+                            && s.country.id().equals(aggregate.country.id())
+                            && s.department == null && s.role == null && s.employmentType == null)
+                    .findFirst().orElse(null);
+            case DEPARTMENT -> statistics.stream()
+                    .filter(s -> s.department != null && aggregate.department != null
+                            && s.department.id().equals(aggregate.department.id())
+                            && s.country == null && s.role == null && s.employmentType == null)
+                    .findFirst().orElse(null);
+            case ROLE -> statistics.stream()
+                    .filter(s -> s.role != null && aggregate.role != null
+                            && s.role.id().equals(aggregate.role.id())
+                            && s.country == null && s.department == null && s.employmentType == null)
+                    .findFirst().orElse(null);
+            case EMPLOYMENT_TYPE -> statistics.stream()
+                    .filter(s -> s.employmentType != null && aggregate.employmentType != null
+                            && s.employmentType.equals(aggregate.employmentType)
+                            && s.country == null && s.department == null && s.role == null)
+                    .findFirst().orElse(null);
+            case CURRENCY, ORIGIN_COUNTRY -> throw new IllegalArgumentException("Unsupported statistics key: " + key);
         };
     }
 
@@ -234,8 +241,8 @@ public class AggregateReportService extends  ReportService{
 
     private List<AggregateLineDto> assembleLines(
             List<AggregateRowProjection> rows,
-            Map<StatisticsKey, StatisticsPair> monthlyStatistics,
-            Map<StatisticsKey, StatisticsPair> biWeeklyStatistics,
+            List<AggregateRowProjection> monthlyStatistics,
+            List<AggregateRowProjection> biWeeklyStatistics,
             GroupKey statisticsKey,
             AggregateReportRequest request) {
         List<AggregateLineDto> lines = new ArrayList<>(rows.size());
@@ -249,14 +256,20 @@ public class AggregateReportService extends  ReportService{
                     : null;
             StatisticsDto stats = null;
             if (request.includeStatistics()) {
-                StatisticsKey key = keyOf(row, statisticsKey);
-                StatisticsPerFrequency monthly = toPerFrequency(
-                        monthlyStatistics.get(key),
-                        row.monthlyTotal, row.monthlyEmployeeCount, row.monthlyPeriodCount);
-                StatisticsPerFrequency biWeekly = toPerFrequency(
-                        biWeeklyStatistics.get(key),
-                        row.biWeeklyTotal, row.biWeeklyEmployeeCount, row.biWeeklyPeriodCount);
+                AggregateRowProjection stat = statisticsOf(row, statisticsKey, monthlyStatistics);
+                StatisticsPerFrequency monthly = stat != null? toPerFrequency(
+                        stat.minReferenceAmount, stat.maxReferenceAmount,
+                        stat.monthlyTotal, stat.monthlyEmployeeCount, stat.monthlyPeriodCount) : null;
+                stat = statisticsOf(row, statisticsKey, biWeeklyStatistics);
+                StatisticsPerFrequency biWeekly = stat != null ? toPerFrequency(
+                        stat.minReferenceAmount, stat.maxReferenceAmount,
+                        stat.biWeeklyTotal, stat.biWeeklyEmployeeCount, stat.biWeeklyPeriodCount) : null;
                 stats = new StatisticsDto(monthly, biWeekly);
+                BigDecimal totalAmount = monthly != null && monthly.total() != null ? monthly.total().amount() : BigDecimal.ZERO;
+                if(biWeekly != null && biWeekly.total() != null) {
+                    totalAmount = totalAmount.add(biWeekly.total().amount());// The amount is the sum of stat result if stats present
+                }
+                amount = new AmountDto(totalAmount, referenceCurrency);
             }
             lines.add(new AggregateLineDto(
                     amount,
@@ -272,63 +285,52 @@ public class AggregateReportService extends  ReportService{
         return lines;
     }
 
-    /**
-     * Builds one per-frequency statistics block. Returns a block with zero counts and null
-     * amounts when the group has no rows of that frequency, rather than {@code null}, so the
-     * reader can distinguish "no bi-weekly employees" from "field missing".
-     */
     private StatisticsPerFrequency toPerFrequency(
-            StatisticsPair pair,
+            BigDecimal minAmount, BigDecimal maxAmount,
             BigDecimal total,
             Long employeeCount,
             Long periodCount) {
 
-        if (pair == null) return null;
-
         int employees = employeeCount == null ? 0 : employeeCount.intValue();
         int periods = periodCount == null ? 0 : periodCount.intValue();
-        BigDecimal totalAmount = total == null ? BigDecimal.ZERO : total;
+        BigDecimal totalAmount = total == null ? java.math.BigDecimal.ZERO : total;
         String referenceCurrency = referenceCurrency();
-        AmountDto min = pair.min() != null
-                ? new AmountDto(pair.min().setScale(
+        AmountDto min = minAmount != null
+                ? new AmountDto(minAmount.setScale(
                 AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
                 referenceCurrency)
                 : null;
-        AmountDto max = pair.max() != null
-                ? new AmountDto(pair.max().setScale(
+        AmountDto max = maxAmount != null
+                ? new AmountDto(maxAmount.setScale(
                 AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
                 referenceCurrency)
                 : null;
         AmountDto average = employees > 0
                 ? new AmountDto(totalAmount.divide(
-                BigDecimal.valueOf(employees),
+                BigDecimal.valueOf(employees).multiply(BigDecimal.valueOf(periods)),
                 AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
                 referenceCurrency)
                 : null;
         AmountDto totalDto = new AmountDto(
                 totalAmount.setScale(AmountUtils.AMOUNT_SCALE, RoundingMode.HALF_UP),
                 referenceCurrency);
-        int averageEmployees = periods > 0 ? (int) Math.round((double) employees / periods) : 0;
-        return new StatisticsPerFrequency(min, max, average, totalDto, averageEmployees, periods);
-    }
-    // ------------------------------------------------------------------
-    // Small value types
-    // ------------------------------------------------------------------
-
-    /**
-     * Key for the statistics map. Exactly one field is non-null for a single-dimension
-     * partition, and all four are null for the global partition. The record's generated
-     * {@code equals} and {@code hashCode} compare all four fields, so two keys are equal
-     * only when they describe the same partition instance.
-     */
-    private record StatisticsKey(
-            UUID countryId,
-            UUID departmentId,
-            UUID roleId,
-            EmploymentType employmentType) {
+        return new StatisticsPerFrequency(min, max, average, totalDto, employees, periods);
     }
 
-    /** Min and max reference amount for one partition instance, of one frequency. */
-    private record StatisticsPair(BigDecimal min, BigDecimal max) {
+    // ------------------------------------------------------------------
+    // Logging helpers
+    // ------------------------------------------------------------------
+
+    /** Compact filter description, for log lines that would otherwise be huge. */
+    private String describeFilters(AggregateReportRequest request) {
+        return "{countries=" + sizeOf(request.anyCountryIds())
+                + ", departments=" + sizeOf(request.anyDepartmentIds())
+                + ", roles=" + sizeOf(request.anyRoleIds())
+                + ", employmentTypes=" + sizeOf(request.anyEmploymentTypes()) + "}";
     }
+
+    private int sizeOf(Collection<?> list) {
+        return list == null ? 0 : list.size();
+    }
+
 }

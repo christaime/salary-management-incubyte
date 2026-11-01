@@ -7,6 +7,11 @@ spring:
     driver-class-name: org.sqlite.JDBC
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:1}
+      connection-init-sql: >
+        PRAGMA journal_mode=WAL;
+        PRAGMA synchronous=NORMAL;
+        PRAGMA temp_store=MEMORY;
+        PRAGMA cache_size=-65536;
 
   jpa:
     database-platform: org.hibernate.community.dialect.SQLiteDialect
@@ -15,6 +20,10 @@ spring:
     show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
+        jdbc:
+          batch_size: 200
+        order_inserts: true
+        order_updates: true
         format_sql: ${JPA_FORMAT_SQL:true}
         type:
           preferred_uuid_jdbc_type: VARCHAR # Tell Hibernate to store UUIDs as text (is coherent with the actual flyway migration sql scripts)

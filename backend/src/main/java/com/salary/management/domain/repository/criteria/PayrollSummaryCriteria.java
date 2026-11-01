@@ -3,6 +3,7 @@ package com.salary.management.domain.repository.criteria;
 import com.salary.management.common.pagination.Criteria;
 import com.salary.management.common.pagination.SortDirection;
 import com.salary.management.domain.model.enums.EmploymentType;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 
 import java.time.LocalDate;
@@ -25,25 +26,23 @@ public final class PayrollSummaryCriteria implements Criteria {
     private final LocalDate rangeStart;
     private final LocalDate rangeEnd;
     private final PayrollSummaryStatus status;
-    private final boolean nonExistent;
+    private final PayrollPeriodFrequency payrollFrequency;
+    private final Boolean nonExistent;
     private final Set<UUID> anyCountryIds;
     private final Set<UUID> anyDepartmentIds;
     private final Set<UUID> anyRoleIds;
     private final Set<EmploymentType> anyEmploymentTypes;
+    private final Set<UUID> excludeIds;
     private final String sortBy;
     private final SortDirection sortDirection;
     private final int page;
     private final int size;
 
     private PayrollSummaryCriteria(Builder builder) {
-        if (builder.nonExistent) {
-            if (builder.payrollPeriodId == null) {
+        if (Boolean.TRUE.equals(builder.nonExistent)) {
+            if (builder.payrollPeriodId == null && (builder.rangeStart == null || builder.rangeEnd == null)) {
                 throw new IllegalArgumentException(
-                        "nonExistent requires payrollPeriodId");
-            }
-            if (builder.rangeStart != null || builder.rangeEnd != null) {
-                throw new IllegalArgumentException(
-                        "nonExistent cannot be combined with rangeStart/rangeEnd");
+                        "nonExistent required a period or date range");
             }
         } else {
             if (builder.payrollPeriodId != null
@@ -66,11 +65,13 @@ public final class PayrollSummaryCriteria implements Criteria {
         this.rangeStart = builder.rangeStart;
         this.rangeEnd = builder.rangeEnd;
         this.status = builder.status;
+        this.payrollFrequency = builder.payrollFrequency;
         this.nonExistent = builder.nonExistent;
         this.anyCountryIds = builder.anyCountryIds;
         this.anyDepartmentIds = builder.anyDepartmentIds;
         this.anyRoleIds = builder.anyRoleIds;
         this.anyEmploymentTypes = builder.anyEmploymentTypes;
+        this.excludeIds = builder.excludeIds;
         this.sortBy = builder.sortBy;
         this.sortDirection = builder.sortDirection;
         this.page = builder.page;
@@ -106,12 +107,20 @@ public final class PayrollSummaryCriteria implements Criteria {
     }
 
     /**
+     * Payroll frequency filter — matches {@code payrollPeriod.frequency}.
+     * {@code null} means no filter.
+     */
+    public PayrollPeriodFrequency payrollFrequency() {
+        return payrollFrequency;
+    }
+
+    /**
      * When {@code true}, the query returns payroll summaries that <em>should</em> exist for
      * the period but do not, as synthetic summaries with zero amounts and {@code DRAFT}
      * status. Only {@link #payrollPeriodId()} is used to anchor the period; {@code status} is
      * ignored in this mode.
      */
-    public boolean nonExistent() {
+    public Boolean nonExistent() {
         return nonExistent;
     }
 
@@ -130,6 +139,8 @@ public final class PayrollSummaryCriteria implements Criteria {
     public Set<EmploymentType> anyEmploymentTypes() {
         return anyEmploymentTypes;
     }
+
+    public Set<UUID> excludeIds() { return excludeIds; }
 
     @Override
     public String sortBy() {
@@ -175,11 +186,13 @@ public final class PayrollSummaryCriteria implements Criteria {
         private LocalDate rangeStart;
         private LocalDate rangeEnd;
         private PayrollSummaryStatus status;
-        private boolean nonExistent;
+        private PayrollPeriodFrequency payrollFrequency;
+        private Boolean nonExistent;
         private Set<UUID> anyCountryIds;
         private Set<UUID> anyDepartmentIds;
         private Set<UUID> anyRoleIds;
         private Set<EmploymentType> anyEmploymentTypes;
+        private Set<UUID> excludeIds;
         private String sortBy;
         private SortDirection sortDirection;
         private int page;
@@ -215,7 +228,12 @@ public final class PayrollSummaryCriteria implements Criteria {
             return this;
         }
 
-        public Builder nonExistent(boolean nonExistent) {
+        public Builder payrollFrequency(PayrollPeriodFrequency payrollFrequency) {
+            this.payrollFrequency = payrollFrequency;
+            return this;
+        }
+
+        public Builder nonExistent(Boolean nonExistent) {
             this.nonExistent = nonExistent;
             return this;
         }
@@ -237,6 +255,11 @@ public final class PayrollSummaryCriteria implements Criteria {
 
         public Builder anyEmploymentTypes(Set<EmploymentType> anyEmploymentTypes) {
             this.anyEmploymentTypes = anyEmploymentTypes;
+            return this;
+        }
+
+        public Builder excludeIds(Set<UUID> excludeIds) {
+            this.excludeIds = excludeIds;
             return this;
         }
 

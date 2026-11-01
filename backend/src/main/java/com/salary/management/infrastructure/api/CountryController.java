@@ -1,6 +1,7 @@
 package com.salary.management.infrastructure.api;
 
 import com.salary.management.application.dto.CountryResponse;
+import com.salary.management.application.dto.employee.EmployeeWithInEffectAssignmentDto;
 import com.salary.management.application.service.CountryService;
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.common.pagination.SortDirection;
@@ -11,12 +12,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/countries")
 @RequiredArgsConstructor
@@ -56,5 +58,19 @@ public class CountryController {
                 .build();
 
         return ResponseEntity.ok(service.search(criteria));
+    }
+
+
+    // ------------------------------------------------------------------
+    // Read — single
+    // ------------------------------------------------------------------
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get a country and his applicable currency")
+    public ResponseEntity<CountryResponse> findById(@PathVariable UUID id) {
+        log.info("Country lookup requested: id={}", id);
+        return service.findById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

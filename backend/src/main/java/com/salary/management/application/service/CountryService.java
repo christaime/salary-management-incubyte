@@ -2,6 +2,7 @@ package com.salary.management.application.service;
 
 
 import com.salary.management.application.dto.CountryResponse;
+import com.salary.management.application.dto.employee.EmployeeWithInEffectAssignmentDto;
 import com.salary.management.application.mapper.CountryApiMapper;
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.domain.model.Country;
@@ -10,6 +11,9 @@ import com.salary.management.domain.repository.criteria.CountryCriteria;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,5 +26,9 @@ public class CountryService {
     public DataPage<CountryResponse> search(CountryCriteria criteria) {
         DataPage<Country> domainPage = repository.page(criteria);
         return domainPage.map(mapper::toResponse);
+    }
+
+    public Optional<CountryResponse> findById(UUID id) {
+        return repository.findById(id).map(mapper::toResponse);
     }
 }

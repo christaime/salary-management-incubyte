@@ -13,6 +13,7 @@ import {
   AggregateReportResponse,
   groupKeysFor,
   ReportKind,
+  REPORT_KIND_LABELS,
 } from '../../models';
 import {
   AggregateReportFormComponent,
@@ -23,6 +24,7 @@ import { ReportKindToggleComponent } from '../../components/report-kind-toggle/r
 import { BlockerBannerComponent } from '../../components/blocker-banner/blocker-banner.component';
 import { WarningBannerComponent } from '../../components/warning-banner/warning-banner.component';
 import { PageState } from '@core/models';
+import { EMPLOYMENT_TYPE_LABELS } from '@features/employee/models';
 
 @Component({
   selector: 'app-aggregate-report-page',
@@ -56,6 +58,7 @@ export class AggregateReportPageComponent {
   readonly reportError = signal<ReportsError | null>(null);
 
   private lastSubmittedFormValue: AggregateReportFormValue | null = null;
+  readonly currentFormValue = signal<AggregateReportFormValue | null>(null);
 
   readonly isLoading = computed(() => this.state() === 'submitting');
 
@@ -72,8 +75,68 @@ export class AggregateReportPageComponent {
   readonly showResults = computed(
     () => this.state() === 'success' && this.reportResponse() !== null,
   );
+readonly reportDescription = computed(() => {
+    const kind = this.selectedKind();
+    const kindLabel = REPORT_KIND_LABELS[kind] ?? 'Payroll report';
+    const formVal = this.currentFormValue() ?? this.lastSubmittedFormValue;
 
-  onFormChange(): void {
+    if (!formVal || (!formVal.startYear && !formVal.startPeriod)) {
+      return 'Choose a date range.';
+    }
+
+    let timePart = '';
+    const startP = formVal.startPeriod;
+    const endP = formVal.endPeriod;
+
+    if (startP) {
+      if (endP && endP.id && endP.id !== startP.id) {
+        timePart = ` from period '${startP.name}' to '${endP.name}'`;
+      } else {
+        timePart = ` for period '${startP.name}'`;
+      }
+    } else if (formVal.startYear) {
+      timePart = ` for year ${formVal.startYear}`;
+    }
+
+    const filters = formVal.filters;
+    const restrictionParts: string[] = [];
+
+    if (filters.countries && filters.countries.length > 0) {
+      const names = filters.countries.map((c) => c.name);
+      const label = names.length === 1 ? 'country' : 'countries';
+      restrictionParts.push(`${label} ${formatList(names)}`);
+    }
+
+    if (filters.departments && filters.departments.length > 0) {
+      const names = filters.departments.map((d) => d.name);
+      const label = names.length === 1 ? 'department' : 'departments';
+      restrictionParts.push(`${label} ${formatList(names)}`);
+    }
+
+    if (filters.roles && filters.roles.length > 0) {
+      const names = filters.roles.map((r) => r.name);
+      const label = names.length === 1 ? 'role' : 'roles';
+      restrictionParts.push(`${label} ${formatList(names)}`);
+    }
+
+    if (filters.employmentTypes && filters.employmentTypes.length > 0) {
+      const labels = filters.employmentTypes.map(
+        (t) => EMPLOYMENT_TYPE_LABELS[t] ?? t,
+      );
+      const label = labels.length === 1 ? 'employment type' : 'employment types';
+      restrictionParts.push(`${label} ${formatList(labels)}`);
+    }
+
+    let filterPart = '';
+    if (restrictionParts.length > 0) {
+      filterPart = `, restricted to ${restrictionParts.join('; ')}`;
+    }
+
+    return `${kindLabel}${timePart}${filterPart}.`;
+  });
+
+  onFormChange(value: AggregateReportFormValue | null = null): void {
+    this.currentFormValue.set(value);
     this.reportResponse.set(null);
     this.reportError.set(null);
     this.reportCache.set({});
@@ -84,6 +147,7 @@ export class AggregateReportPageComponent {
 
   onFormSubmit(value: AggregateReportFormValue): void {
     this.lastSubmittedFormValue = value;
+    this.currentFormValue.set(value);
     this.reportCache.set({});
     this.fetch(this.selectedKind(), value);
   }
@@ -106,7 +170,7 @@ export class AggregateReportPageComponent {
   }
 
   onFormReset(): void {
-    this.onFormChange();
+    this.onFormChange(null);
   }
 
   dismissBanner(): void {
@@ -160,12 +224,19 @@ export class AggregateReportPageComponent {
         endDate: end?.endDate ?? (year && year < currentYear ? `${year}-12-31` : today),
       },
       groupKeys: groupKeysFor(kind),
-      anyCountryIds: formValue.filters.countryIds,
-      anyDepartmentIds: formValue.filters.departmentIds,
-      anyRoleIds: formValue.filters.roleIds,
+      anyCountryIds: formValue.filters.countries?.map((c) => c.id) ?? null,
+      anyDepartmentIds: formValue.filters.departments?.map((d) => d.id) ?? null,
+      anyRoleIds: formValue.filters.roles?.map((r) => r.id) ?? null,
       anyEmploymentTypes: formValue.filters.employmentTypes,
       includeBreakdown: true,
       includeStatistics: kind === 'TOTAL',
     };
   }
+}
+
+function formatList(items: string[]): string {
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }

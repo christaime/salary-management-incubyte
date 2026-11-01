@@ -28,31 +28,31 @@
       <mat-label>{{ dimensionLabel() }}</mat-label>
 
       @switch (dimensionControlName()) {
-      @case ('countryId') {
-      <mat-select formControlName="countryId" data-testid="dimension-country">
-        @for (opt of dimensionOptions(); track opt.id) {
-        <mat-option [value]="opt.id">{{ opt.label }}</mat-option>
+      @case ('country') {
+      <mat-select formControlName="country" data-testid="dimension-country" [compareWith]="compareRef">
+        @for (c of countries(); track c.code) {
+        <mat-option [value]="c">{{ c.name }}</mat-option>
         }
       </mat-select>
       }
-      @case ('departmentId') {
-      <mat-select formControlName="departmentId" data-testid="dimension-department">
-        @for (opt of dimensionOptions(); track opt.id) {
-        <mat-option [value]="opt.id">{{ opt.label }}</mat-option>
+      @case ('department') {
+      <mat-select formControlName="department" data-testid="dimension-department" [compareWith]="compareRef">
+        @for (d of departments(); track d.code) {
+        <mat-option [value]="d">{{ d.name }}</mat-option>
         }
       </mat-select>
       }
-      @case ('roleId') {
-      <mat-select formControlName="roleId" data-testid="dimension-role">
-        @for (opt of dimensionOptions(); track opt.id) {
-        <mat-option [value]="opt.id">{{ opt.label }}</mat-option>
+      @case ('role') {
+      <mat-select formControlName="role" data-testid="dimension-role" [compareWith]="compareRef">
+        @for (r of roles(); track r.code) {
+        <mat-option [value]="r">{{ r.name }}</mat-option>
         }
       </mat-select>
       }
       @case ('employmentType') {
       <mat-select formControlName="employmentType" data-testid="dimension-employment-type">
-        @for (opt of dimensionOptions(); track opt.id) {
-        <mat-option [value]="opt.id">{{ opt.label }}</mat-option>
+        @for (t of employmentTypes; track t) {
+        <mat-option [value]="t">{{ employmentTypeLabels[t] }}</mat-option>
         }
       </mat-select>
       }

@@ -12,39 +12,44 @@
     </button>
   </div>
 
-  <div class="p-6 flex-1 overflow-y-auto flex flex-col gap-4" [formGroup]="form()">
+  <!-- Bound to localDraft form so parent state isn't touched prematurely -->
+  <div class="p-6 flex-1 overflow-y-auto flex flex-col gap-4" [formGroup]="localForm">
     <p class="text-sm text-gray-500">Restrict the report to certain countries, departments, roles or employment types</p>
 
+    <!-- Countries (Passing full object 'c' to preserve ID) -->
     <mat-form-field appearance="outline" class="w-full">
       <mat-label>Countries</mat-label>
-      <mat-select data-testid="filter-countries" multiple formControlName="countries" [matTooltip]="countryTooltip()" [matTooltipDisabled]="!countryTooltip()">
+      <mat-select data-testid="filter-countries" multiple formControlName="countries" [compareWith]="compareRef" [matTooltip]="countryTooltip()" [matTooltipDisabled]="!countryTooltip()">
         <mat-select-trigger>{{ countryDisplayText() }}</mat-select-trigger>
-        @for (c of countries(); track c.id) {
-        <mat-option [value]="c.id">{{ c.name }}</mat-option>
+        @for (c of countries(); track c.code) {
+        <mat-option [value]="c">{{ c.name }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
 
+    <!-- Departments -->
     <mat-form-field appearance="outline" class="w-full">
       <mat-label>Departments</mat-label>
-      <mat-select data-testid="filter-departments" multiple formControlName="departments" [matTooltip]="departmentTooltip()" [matTooltipDisabled]="!departmentTooltip()">
+      <mat-select data-testid="filter-departments" multiple formControlName="departments" [compareWith]="compareRef" [matTooltip]="departmentTooltip()" [matTooltipDisabled]="!departmentTooltip()">
         <mat-select-trigger>{{ departmentDisplayText() }}</mat-select-trigger>
-        @for (d of departments(); track d.id) {
-        <mat-option [value]="d.id">{{ d.name }}</mat-option>
+        @for (d of departments(); track d.code) {
+        <mat-option [value]="d">{{ d.name }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
 
+    <!-- Roles -->
     <mat-form-field appearance="outline" class="w-full">
       <mat-label>Roles</mat-label>
-      <mat-select data-testid="filter-roles" multiple formControlName="roles" [matTooltip]="roleTooltip()" [matTooltipDisabled]="!roleTooltip()">
+      <mat-select data-testid="filter-roles" multiple formControlName="roles" [compareWith]="compareRef" [matTooltip]="roleTooltip()" [matTooltipDisabled]="!roleTooltip()">
         <mat-select-trigger>{{ roleDisplayText() }}</mat-select-trigger>
-        @for (r of roles(); track r.id) {
-        <mat-option [value]="r.id">{{ r.name }}</mat-option>
+        @for (r of roles(); track r.code) {
+        <mat-option [value]="r">{{ r.name }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
 
+    <!-- Employment Types -->
     <mat-form-field appearance="outline" class="w-full">
       <mat-label>Employment types</mat-label>
       <mat-select data-testid="filter-employment-types" multiple formControlName="employmentTypes">

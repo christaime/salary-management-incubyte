@@ -8,13 +8,14 @@ import com.salary.management.application.dto.ranking.EarningRankingReportRequest
 import com.salary.management.application.dto.ranking.EarningRankingReportResponse;
 import com.salary.management.application.dto.ranking.PositionContextDto;
 import com.salary.management.application.exception.ReportBlockedException;
-import com.salary.management.application.snapshot.SnapshotBuilder;
 import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.*;
 import com.salary.management.domain.model.enums.*;
+import com.salary.management.domain.model.values.PayrollPeriodSnapshotResult;
 import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.repository.*;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,33 +32,20 @@ import java.util.UUID;
 /** Generates the earner ranking report for a single payroll period. */
 @Slf4j
 @Service
-public class RankingReportService extends ReportService {
+@AllArgsConstructor
+public class RankingReportService {
 
     private static final int BASIS_POINTS = 10000;
     private static final int PERCENTILE_STEP = 100;
     private static final int[] PERCENTILE_LABELS = {0, 10, 25, 50, 75, 90, 100};
 
+    protected final PayrollPeriodRepository payrollPeriodRepository;
+    protected final PayrollPeriodEarnerRankingRepository payrollPeriodEarnerRankingRepository;
     private final PayrollPeriodAggregateRepository aggregateRepository;
     private final CurrencyRateRepository currencyRateRepository;
     private final EmployeePeriodicAssignmentRepository periodicAssignmentRepository;
+    private final PayrollPeriodSnapshotRepository payrollPeriodSnapshotRepository;
 
-    public RankingReportService(
-            PayrollPeriodRepository payrollPeriodRepository,
-            PayrollPeriodAggregateRepository payrollPeriodAggregateRepository,
-            PayrollPeriodEarnerRankingRepository payrollPeriodEarnerRankingRepository,
-            SnapshotBuilder snapshotBuilder,
-            PayrollPeriodAggregateRepository aggregateRepository,
-            CurrencyRateRepository currencyRateRepository, EmployeePeriodicAssignmentRepository periodicAssignmentRepository) {
-        super(payrollPeriodRepository,
-                payrollPeriodAggregateRepository,
-                payrollPeriodEarnerRankingRepository,
-                snapshotBuilder);
-        this.aggregateRepository = aggregateRepository;
-        this.currencyRateRepository = currencyRateRepository;
-        this.periodicAssignmentRepository = periodicAssignmentRepository;
-    }
-
-    @Override
     protected String referenceCurrency() {
         return currencyRateRepository.getReferenceCurrencyCode();
     }
@@ -74,6 +62,18 @@ public class RankingReportService extends ReportService {
         log.info("Ranking report requested: periodId={}, groupKey={}, dimension={}",
                 request.periodId(), request.groupKey(), describeDimension(request));
 
+        try {
+            return doGenerate(request);
+        } catch (RuntimeException ex) {
+            // Preserve the diagnostic context — the stack trace alone does not
+            // say which period / dimension failed.
+            log.error("Ranking report failed: periodId={}, groupKey={}, dimension={}",
+                    request.periodId(), request.groupKey(), describeDimension(request), ex);
+            throw ex;
+        }
+    }
+
+    private EarningRankingReportResponse doGenerate(EarningRankingReportRequest request) {
         validate(request);
 
         PayrollPeriod period = payrollPeriodRepository
@@ -82,16 +82,31 @@ public class RankingReportService extends ReportService {
                         new ValidationError("periodId", "NotFound",
                                 "Payroll period not found", Map.of()))));
 
+        log.debug("Resolved payroll period: id={}, name={}, range=[{}, {}], frequency={}, closed={}",
+                period.getId(), period.getName(),
+                period.getStartDate(), period.getEndDate(),
+                period.getFrequency(), period.getClosed());
+
         // Closed periods already hold a snapshot — read-only. Open periods get
         // a rebuild before the report is assembled.
-        List<ReportWarning> warnings;
+        List<ReportWarning> warnings = List.of();
         if (Boolean.TRUE.equals(period.getClosed())) {
             log.debug("Period {} is closed; skipping snapshot rebuild", period.getId());
-            warnings = List.of();
         } else {
-            warnings = buildAndPersistSnapshots(List.of(period));
-            log.info("Snapshot rebuilt for period {}: {} warning(s)",
-                    period.getId(), warnings.size());
+            log.debug("Period {} is open; rebuilding rankings snapshot", period.getId());
+            PayrollPeriodSnapshotResult result = payrollPeriodSnapshotRepository.buildAndSaveRankings(period);
+            warnings = new ArrayList<>(result.warnings());
+            if (result.isBlocked()) {
+                log.warn("Snapshot build for periodId={} returned {} blocker(s); aborting report generation",
+                        period.getId(), result.blockers().size());
+                throw new ReportBlockedException(result.blockers(), warnings);
+            }
+            if (warnings.isEmpty()) {
+                log.debug("Snapshot rebuilt for period {} (no warnings)", period.getId());
+            } else {
+                log.info("Snapshot rebuilt for period {}: {} warning(s): {}",
+                        period.getId(), warnings.size(), warnings);
+            }
         }
 
         // Fetch only the rows that belong to the requested dimension.
@@ -106,19 +121,44 @@ public class RankingReportService extends ReportService {
                         request.countryId(), request.departmentId(),
                         request.roleId(), request.employmentType());
 
-        log.debug("Fetched {} ranking row(s) and {} percentile row(s) for period {} (group={})",
-                inScopeRankings.size(), inScopePercentiles.size(),
+        long tops = inScopeRankings.stream()
+                .filter(r -> r.getDirection() == EarnerRankingDirection.TOP).count();
+        long bottoms = inScopeRankings.stream()
+                .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM).count();
+        log.debug("Fetched {} ranking row(s) [TOP={}, BOTTOM={}] and {} percentile row(s) "
+                        + "for period {} (group={})",
+                inScopeRankings.size(), tops, bottoms, inScopePercentiles.size(),
                 period.getId(), request.groupKey());
+
+        if (inScopeRankings.isEmpty()) {
+            log.warn("No earner ranking rows for period {} (group={}, dimension={}) — "
+                            + "report will be empty; check snapshot persistence or filters",
+                    period.getId(), request.groupKey(), describeDimension(request));
+        }
 
         PositionContextDto positionContext = buildPositionContext(inScopePercentiles);
         int totalEmployees = positionContext == null ? 0 : positionContext.employeeCount();
 
-        List<EarnerRankingDto> tops = inScopeRankings.stream()
+        if (positionContext == null) {
+            log.warn("No percentile distribution for period {} (group={}); "
+                            + "per-employee percentile badges will be null",
+                    period.getId(), request.groupKey());
+        } else {
+            log.debug("Position context for period {} (group={}): employees={}, "
+                            + "min={}, p10={}, p25={}, p50={}, p75={}, p90={}, max={}",
+                    period.getId(), request.groupKey(), totalEmployees,
+                    positionContext.min(), positionContext.p10(),
+                    positionContext.p25(), positionContext.p50(),
+                    positionContext.p75(), positionContext.p90(),
+                    positionContext.max());
+        }
+
+        List<EarnerRankingDto> topsDtos = inScopeRankings.stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.TOP)
                 .sorted(Comparator.comparing(PayrollPeriodEarnerRanking::getRank))
                 .map(r -> toRankingDto(r, positionContext, period, null))
                 .toList();
-        List<EarnerRankingDto> bottoms = inScopeRankings.stream()
+        List<EarnerRankingDto> bottomsDtos = inScopeRankings.stream()
                 .filter(r -> r.getDirection() == EarnerRankingDirection.BOTTOM)
                 .sorted(Comparator.comparing(PayrollPeriodEarnerRanking::getRank))
                 .map(r -> toRankingDto(r, positionContext, period, totalEmployees))
@@ -132,13 +172,29 @@ public class RankingReportService extends ReportService {
                         request.countryId(), request.departmentId(),
                         request.roleId(), request.employmentType());
 
+        log.debug("Totals for period {} (group={}): periodTotal={}, dimensionTotal={}",
+                period.getId(), request.groupKey(),
+                totalReferenceAmount, totalDimensionReferenceAmount);
+
+        // The dimension total is a subset of the period total. If it's larger,
+        // the filter is matching rows the period query does not — a real bug.
+        if (totalDimensionReferenceAmount != null
+                && totalReferenceAmount != null
+                && totalDimensionReferenceAmount.compareTo(totalReferenceAmount) > 0) {
+            log.warn("Period {}: dimension total {} exceeds period total {} — "
+                            + "dimension filter may be wrong (group={}, dimension={})",
+                    period.getId(), totalDimensionReferenceAmount, totalReferenceAmount,
+                    request.groupKey(), describeDimension(request));
+        }
+
         EarningRankingReportResponse response = EarningRankingReportResponse.builder()
                 .kind(ReportKind.RANKING)
                 .period(toPeriodResponse(period))
                 .referenceCurrency(referenceCurrency())
                 .groupKey(request.groupKey())
-                .tops(tops)
-                .bottoms(bottoms)
+                .tops(topsDtos)
+                .bottoms(bottomsDtos)
+                .warnings(warnings)
                 .positionContext(positionContext)
                 .totalReferenceAmount(totalReferenceAmount)
                 .totalDimensionReferenceAmount(totalDimensionReferenceAmount)
@@ -149,12 +205,13 @@ public class RankingReportService extends ReportService {
         log.info("Ranking report generated: periodId={}, groupKey={}, tops={}, bottoms={}, "
                         + "percentilePoints={}, totalReferenceAmount={}, totalDimensionReferenceAmount={}",
                 period.getId(), request.groupKey(),
-                tops.size(), bottoms.size(),
+                topsDtos.size(), bottomsDtos.size(),
                 positionContext == null ? 0 : 7,
                 totalReferenceAmount, totalDimensionReferenceAmount);
 
         return response;
     }
+
     // ------------------------------------------------------------------
     // Validation
     // ------------------------------------------------------------------
@@ -169,6 +226,8 @@ public class RankingReportService extends ReportService {
                 request.countryId(), request.departmentId(),
                 request.roleId(), request.employmentType());
         if (!errors.isEmpty()) {
+            log.warn("Ranking report rejected: {} validation error(s): {}",
+                    errors.size(), errors);
             throw new DomainValidationException(errors);
         }
     }
@@ -236,33 +295,6 @@ public class RankingReportService extends ReportService {
                         + String.join(", ", fields), Map.of());
     }
 
-
-    /**
-     * Tests whether a row's dimension columns belong to the requested group.
-     * A single-dimension row has exactly one populated dimension column;
-     * a Global row has none.
-     */
-    private boolean matchesDimension(UUID country, UUID dept, UUID role,
-                                     EmploymentType type, GroupKey key,
-                                     UUID reqCountry, UUID reqDept, UUID reqRole,
-                                     EmploymentType reqType) {
-        if (key == null) {
-            return country == null && dept == null && role == null && type == null;
-        }
-        return switch (key) {
-            case COUNTRY -> country != null && country.equals(reqCountry)
-                    && dept == null && role == null && type == null;
-            case DEPARTMENT -> dept != null && dept.equals(reqDept)
-                    && country == null && role == null && type == null;
-            case ROLE -> role != null && role.equals(reqRole)
-                    && country == null && dept == null && type == null;
-            case EMPLOYMENT_TYPE -> type != null && type.equals(reqType)
-                    && country == null && dept == null && role == null;
-            case CURRENCY, ORIGIN_COUNTRY ->
-                    throw new IllegalArgumentException("Unsupported: " + key);
-        };
-    }
-
     // ------------------------------------------------------------------
     // Percentile distribution
     // ------------------------------------------------------------------
@@ -279,9 +311,11 @@ public class RankingReportService extends ReportService {
         }
         PayrollPeriodEarnerPercentile p0 = byPoint.get(0);
         if (p0 == null) {
+            log.warn("Percentile distribution has {} point(s) but no 0th percentile; "
+                    + "position context will be null", byPoint.size());
             return null;
         }
-        return new PositionContextDto(
+        PositionContextDto ctx = new PositionContextDto(
                 p0.getEmployeeCount(),
                 amountOf(byPoint.get(0)),
                 amountOf(byPoint.get(10)),
@@ -290,6 +324,18 @@ public class RankingReportService extends ReportService {
                 amountOf(byPoint.get(75)),
                 amountOf(byPoint.get(90)),
                 amountOf(byPoint.get(100)));
+
+        // Silently incomplete distributions are common when the population is
+        // just above the threshold and one point lands on a null amount. Log
+        // the actual number of populated points so ops can distinguish
+        // "missing entirely" from "3 out of 7".
+        long populatedPoints = byPoint.values().stream()
+                .filter(p -> p.getReferenceAmount() != null).count();
+        if (populatedPoints < 7) {
+            log.debug("Percentile distribution is partially populated: {}/7 points have a value",
+                    populatedPoints);
+        }
+        return ctx;
     }
 
     private BigDecimal amountOf(PayrollPeriodEarnerPercentile p) {
@@ -362,10 +408,22 @@ public class RankingReportService extends ReportService {
         Integer displayRank = r.getRank();
         if (totalEmployees != null && totalEmployees > 0) {
             displayRank = totalEmployees - r.getRank() + 1;
+        } else if (totalEmployees != null) {
+            log.warn("toRankingDto: totalEmployees={} for employee={} period={} — "
+                            + "keeping stored rank={}",
+                    totalEmployees, r.getEmployee().getId(), period.getId(), r.getRank());
         }
+
         // Get the assignment of the employee at the period of the ranking
         var assignment = periodicAssignmentRepository.findByEmployeeIdAndDateRange(
                 r.getEmployee().getId(), period.getStartDate(), period.getEndDate());
+
+        if (assignment.isEmpty()) {
+            log.debug("toRankingDto: no assignment for employee={} in period={} [{} .. {}]; "
+                            + "falling back to the ranking row's dimension columns",
+                    r.getEmployee().getId(), period.getId(),
+                    period.getStartDate(), period.getEndDate());
+        }
 
         RefDto role          = assignment.map(a -> refDto(a.getRole())).orElseGet(() -> refDto(r.getRole()));
         RefDto department    = assignment.map(a -> refDto(a.getDepartment())).orElseGet(() -> refDto(r.getDepartment()));
@@ -373,10 +431,23 @@ public class RankingReportService extends ReportService {
         EmploymentType type  = assignment.map(EmployeePeriodicAssignment::getEmploymentType).orElseGet(r::getEmploymentType);
         PayrollPeriodFrequency frequency = assignment.map(EmployeePeriodicAssignment::getPayrollFrequency).orElseGet(period::getFrequency);
 
+        Integer percentile = approximatePercentile(BigDecimal.valueOf(12).multiply(monthlyRate), distribution);// Give annualized payroll amount
+        if (log.isTraceEnabled()) {
+            log.trace("toRankingDto: employee={}, period={}, direction={}, rank={}, "
+                            + "displayRank={}, monthlyRate={}, percentile={}bp, "
+                            + "country={}, department={}, role={}, employmentType={}, frequency={}",
+                    r.getEmployee().getId(), period.getId(),
+                    r.getDirection(), r.getRank(), displayRank,
+                    monthlyRate, percentile,
+                    country == null ? null : country.code(),
+                    department == null ? null : department.code(),
+                    role == null ? null : role.code(),
+                    type, frequency);
+        }
         return EarnerRankingDto.builder()
                 .monthlyReferenceAmount(monthlyRate)
                 .frequency(frequency)
-                .percentile(approximatePercentile(monthlyRate, distribution))
+                .percentile(percentile)
                 .rank(displayRank)
                 .employee(employeeRef(r))
                 .role(role)
@@ -416,9 +487,10 @@ public class RankingReportService extends ReportService {
                 .closed(p.getClosed())
                 .build();
     }
+
     /** Compact description of the requested dimension, for logging. */
     private String describeDimension(EarningRankingReportRequest request) {
-        if(request.groupKey() == null) return "GLOBAL";
+        if (request.groupKey() == null) return "GLOBAL";
         return switch (request.groupKey()) {
             case COUNTRY -> "COUNTRY:" + request.countryId();
             case DEPARTMENT -> "DEPARTMENT:" + request.departmentId();

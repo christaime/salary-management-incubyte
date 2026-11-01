@@ -208,8 +208,17 @@ export class PayrollPeriodPickerComponent implements ControlValueAccessor {
   }
 
   onPeriodInputFocus(): void {
-    this.isPeriodDropdownOpen.set(true);
+    // Focusing the search input only dismisses the year popover. The
+    // period dropdown open/close is driven by the click handler below
+    // so a single click on the input toggles it.
     this.isYearPopoverOpen.set(false);
+  }
+
+  onPeriodInputClick(event: MouseEvent): void {
+    // Keep the click from reaching document:click, which would close the
+    // dropdown we are about to open.
+    event.stopPropagation();
+    this.isPeriodDropdownOpen.update((open) => !open);
   }
 
   onPeriodSearchInput(): void {

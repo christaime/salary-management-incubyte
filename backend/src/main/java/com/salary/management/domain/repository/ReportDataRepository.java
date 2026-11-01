@@ -5,6 +5,7 @@ import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
 import com.salary.management.domain.repository.projection.AggregateRowProjection;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,7 +45,8 @@ public interface ReportDataRepository {
      * {@code minReferenceAmount} and {@code maxReferenceAmount}. Fields not selected as
      * group keys are left {@code null}.</p>
      *
-     * @param periodIds             periods to include; must be non-empty
+     * @param startDate             start date of periods to include; must be non-empty
+     * @param endDate               end date of periods to include; must be non-empty
      * @param groupKeys             group keys to group by
      * @param filters               selection filters, with group-key dimensions already
      *                              removed
@@ -52,7 +54,7 @@ public interface ReportDataRepository {
      * @return one row per distinct key combination with {@code min} and {@code max}
      */
     List<AggregateRowProjection> queryStatistics(
-            List<UUID> periodIds,
+            LocalDate startDate, LocalDate endDate,
             List<GroupKey> groupKeys,
             PayrollPeriodFrequency frequency,
             ReportEffectiveFilters filters,

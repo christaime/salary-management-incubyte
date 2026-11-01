@@ -199,16 +199,16 @@ describe('Aggregate Report Page', () => {
     cy.get('[data-testid="filter-countries"]').click();
     cy.get('mat-option').contains('Cameroon').click();
     cy.get('mat-option').contains('France').click();
-    cy.get('[data-testid="filter-countries"]').type('{esc}');
+    cy.get('.cdk-overlay-backdrop').click({ force: true }); // Safely dismisses the select overlay
+    cy.get('.cdk-overlay-pane').should('not.exist');
 
     // Departments — pick one, then close via ESC
-    cy.get('[data-testid="btn-customize"]').click();
     cy.get('[data-testid="filter-departments"]').should('be.visible');
     cy.get('[data-testid="filter-departments"]').click();
     cy.get('mat-option').contains('Engineering').click();
-    cy.get('[data-testid="filter-departments"]').type('{esc}');
+    cy.get('.cdk-overlay-backdrop').click({ force: true }); // Safely dismisses the select overlay
+    cy.get('.cdk-overlay-pane').should('not.exist');
 
-    cy.get('[data-testid="btn-customize"]').click();
     cy.get('[data-testid="btn-drawer-apply"]').click();
     cy.get('[data-testid="btn-generate"]').click();
 

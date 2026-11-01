@@ -7,10 +7,6 @@ import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.values.RankingAndPercentileSnapshot;
 import com.salary.management.domain.repository.criteria.PayrollPeriodEarnerRankingCriteria;
-import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarnerRankingEntity;
-import com.salary.management.infrastructure.persistence.repository.DynamicRankingBuilder;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -34,9 +30,9 @@ public interface PayrollPeriodEarnerRankingRepository {
      *
      * @param payrollPeriodId payroll period identifier
      */
-    void deleteDraftsByPayrollPeriodId(UUID payrollPeriodId);
+    int deleteDraftsByPayrollPeriodId(UUID payrollPeriodId);
 
-    void deleteDraftsPercentileByPayrollPeriodId(UUID payrollPeriodId);
+    int deleteDraftsPercentileByPayrollPeriodId(UUID payrollPeriodId);
 
     /**
      * Ranks the VALIDATED summaries of a period, partitioned by one dimension (or globally

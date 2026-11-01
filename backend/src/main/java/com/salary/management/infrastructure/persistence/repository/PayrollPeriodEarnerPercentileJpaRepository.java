@@ -34,7 +34,7 @@ public interface PayrollPeriodEarnerPercentileJpaRepository
             WHERE r.payrollPeriodId = :payrollPeriodId
               AND r.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.DRAFT
             """)
-    void deleteDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
+    int deleteDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
 
 
     List<PayrollPeriodEarnerPercentileEntity> findByPayrollPeriodIdAndPercentile(

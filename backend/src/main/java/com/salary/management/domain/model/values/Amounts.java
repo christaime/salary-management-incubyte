@@ -51,11 +51,11 @@ public final class Amounts {
     private final String currency;
 
     private Amounts(Builder builder) {
-        this.base = Builder.nullToZero(builder.base).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
-        this.variable = Builder.nullToZero(builder.variable).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
-        this.allowances = Builder.nullToZero(builder.allowances).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
-        this.employerTaxes = Builder.nullToZero(builder.employerTaxes).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
-        this.total = Builder.nullToZero(builder.total).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+        this.base = builder.base;
+        this.variable = builder.variable;
+        this.allowances = builder.allowances;
+        this.employerTaxes = builder.employerTaxes;
+        this.total = builder.total;
         this.currency = builder.currency;
     }
 
@@ -157,11 +157,15 @@ public final class Amounts {
 
         public Amounts build() {
             List<ValidationError> extraErrors = new ArrayList<>();
-
             boolean anyAmountPresent = base != null
                     || variable != null
                     || allowances != null
                     || employerTaxes != null;
+            // We scale the amount before the validation
+            this.base = Builder.nullToZero(base).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+            this.variable = Builder.nullToZero(variable).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+            this.allowances = Builder.nullToZero(allowances).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
+            this.employerTaxes = Builder.nullToZero(employerTaxes).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
 
             if (anyAmountPresent) {
                 BigDecimal sum = nullToZero(base)
@@ -179,6 +183,7 @@ public final class Amounts {
                             Map.of("expected", sum, "actual", total)
                     ));
                 }
+                this.total = Builder.nullToZero(total).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP);
             }
 
             Amounts amounts = new Amounts(this);

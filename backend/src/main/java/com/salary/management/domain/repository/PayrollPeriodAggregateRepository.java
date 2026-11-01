@@ -27,7 +27,7 @@ public interface PayrollPeriodAggregateRepository {
      *
      * @param payrollPeriodId payroll period identifier
      */
-    void deleteDraftsByPayrollPeriodId(UUID payrollPeriodId);
+    int deleteDraftsByPayrollPeriodId(UUID payrollPeriodId);
     /**
      * Groups VALIDATED payroll summaries of the given period by the five assignment
      * attributes. Amounts are in each group's currency.

@@ -17,14 +17,6 @@ import { RoleData } from '../../../role/models/role.model';
 import { RoleService } from '../../../role/services/role.service';
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, EmploymentType } from '@features/employee/models';
 
-// We type the form as the full parent form, but we only use the filter controls
-export type FilterFormGroup = FormGroup<{
-  countries: FormControl<string[]>;
-  departments: FormControl<string[]>;
-  roles: FormControl<string[]>;
-  employmentTypes: FormControl<EmploymentType[]>;
-}>;
-
 @Component({
   selector: 'app-aggregate-report-filter-drawer',
   standalone: true,
@@ -38,6 +30,7 @@ export type FilterFormGroup = FormGroup<{
     MatTooltipModule,
   ],
   templateUrl: './aggregate-report-filter-drawer.component.html',
+  styleUrl: './aggregate-report-filter-drawer.component.scss',
 })
 export class AggregateReportFilterDrawerComponent {
   private readonly destroyRef = inject(DestroyRef);
@@ -45,12 +38,19 @@ export class AggregateReportFilterDrawerComponent {
   private readonly departmentService = inject(DepartmentService);
   private readonly roleService = inject(RoleService);
 
-  // The parent form is of type FormGroup<any>, so we accept it and cast internally
+  // Parent form reference passed from parent component
   readonly form = input.required<FormGroup>();
 
   readonly applied = output<void>();
-
   readonly isOpen = signal<boolean>(false);
+
+  // Local draft form to stage filter changes before clicking Apply
+  readonly localForm = new FormGroup({
+    countries: new FormControl<any[]>([], { nonNullable: true }),
+    departments: new FormControl<any[]>([], { nonNullable: true }),
+    roles: new FormControl<any[]>([], { nonNullable: true }),
+    employmentTypes: new FormControl<EmploymentType[]>([], { nonNullable: true }),
+  });
 
   // Lookup data
   readonly countries = signal<CountryData[]>([]);
@@ -60,7 +60,7 @@ export class AggregateReportFilterDrawerComponent {
   readonly employmentTypes: ReadonlyArray<EmploymentType> = EMPLOYMENT_TYPES;
   readonly employmentTypeLabels: Readonly<Record<EmploymentType, string>> = EMPLOYMENT_TYPE_LABELS;
 
-  // Display texts
+  // Local Display Texts & Tooltips for UI preview
   readonly countryDisplayText = signal<string>('');
   readonly departmentDisplayText = signal<string>('');
   readonly roleDisplayText = signal<string>('');
@@ -75,6 +75,16 @@ export class AggregateReportFilterDrawerComponent {
   }
 
   open(): void {
+    // Sync local form with parent form values when drawer opens
+    const parentVal = this.form().value;
+    this.localForm.patchValue({
+      countries: parentVal.countries ?? [],
+      departments: parentVal.departments ?? [],
+      roles: parentVal.roles ?? [],
+      employmentTypes: parentVal.employmentTypes ?? [],
+    }, { emitEvent: false });
+
+    this.updateDisplays(this.localForm.value);
     this.isOpen.set(true);
   }
 
@@ -83,12 +93,20 @@ export class AggregateReportFilterDrawerComponent {
   }
 
   apply(): void {
+    // Commit local draft values to the parent form only when Apply is clicked
+    const val = this.localForm.value;
+    this.form().patchValue({
+      countries: val.countries,
+      departments: val.departments,
+      roles: val.roles,
+      employmentTypes: val.employmentTypes,
+    });
     this.applied.emit();
     this.close();
   }
 
   clearAll(): void {
-    this.form().patchValue({
+    this.localForm.patchValue({
       countries: [],
       departments: [],
       roles: [],
@@ -103,84 +121,84 @@ export class AggregateReportFilterDrawerComponent {
     }
   }
 
+  // Custom equality comparison for Material select object matching
+  compareRef(o1: any | null, o2: any | null): boolean {
+    if (!o1 || !o2) return o1 === o2;
+    return o1.id === o2.id || o1.code === o2.code;
+  }
+
   private fetchData(): void {
-    this.countryService.search().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res) => {
-      this.countries.set(res.content);
-      this.updateCountryDisplay(this.form().controls['countries'].value);
-    });
+      this.countryService.search().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res) => {
+        this.countries.set(res.content);
+        this.updateCountryDisplay(this.localForm.getRawValue().countries);
+      });
 
-    this.departmentService.search().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res) => {
-      this.departments.set(res.content);
-      this.updateDepartmentDisplay(this.form().controls['departments'].value);
-    });
+      this.departmentService.search().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res) => {
+        this.departments.set(res.content);
+        this.updateDepartmentDisplay(this.localForm.getRawValue().departments);
+      });
 
-    this.roleService.search().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res) => {
-      this.roles.set(res.content);
-      this.updateRoleDisplay(this.form().controls['roles'].value);
-    });
+      this.roleService.search().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res) => {
+        this.roles.set(res.content);
+        this.updateRoleDisplay(this.localForm.getRawValue().roles);
+      });
 
-    setTimeout(() => {
-      const f = this.form().controls;
-      this.updateCountryDisplay(f['countries'].value);
-      this.updateDepartmentDisplay(f['departments'].value);
-      this.updateRoleDisplay(f['roles'].value);
-      this.updateEmploymentTypeDisplay(f['employmentTypes'].value);
-
-      f['countries'].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateCountryDisplay(v));
-      f['departments'].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateDepartmentDisplay(v));
-      f['roles'].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateRoleDisplay(v));
-      f['employmentTypes'].valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((v) => this.updateEmploymentTypeDisplay(v));
-    });
-  }
-
-  private updateCountryDisplay(ids: string[] | null): void {
-    if (!ids || ids.length === 0) {
-      this.countryDisplayText.set(`All ${this.countries().length} countries`);
-      this.countryTooltip.set('');
-      return;
+      // Listen to local form changes to update UI preview texts inside the drawer instantly
+      this.localForm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((val) => {
+        this.updateDisplays(val);
+      });
     }
-    const names = ids.map((id) => this.countries().find((c) => c.id === id)?.name ?? id);
-    this.countryDisplayText.set(`${names.join(', ')}`);
-    this.countryTooltip.set(this.makeFilterTooltip(ids, this.countries()));
-  }
 
-  private updateDepartmentDisplay(ids: string[] | null): void {
-    if (!ids || ids.length === 0) {
-      this.departmentDisplayText.set(`All ${this.departments().length} departments`);
-      this.departmentTooltip.set('');
-      return;
+    private updateDisplays(val: any): void {
+      this.updateCountryDisplay(val?.countries);
+      this.updateDepartmentDisplay(val?.departments);
+      this.updateRoleDisplay(val?.roles);
+      this.updateEmploymentTypeDisplay(val?.employmentTypes);
     }
-    const names = ids.map((id) => this.departments().find((d) => d.id === id)?.name ?? id);
-    this.departmentDisplayText.set(`${names.join(', ')}`);
-    this.departmentTooltip.set(this.makeFilterTooltip(ids, this.departments()));
-  }
 
-  private updateRoleDisplay(ids: string[] | null): void {
-    if (!ids || ids.length === 0) {
-      this.roleDisplayText.set(`All ${this.roles().length} roles`);
-      this.roleTooltip.set('');
-      return;
+    private updateCountryDisplay(items: any[] | null | undefined): void {
+      if (!items || items.length === 0) {
+        this.countryDisplayText.set(`All ${this.countries().length} countries`);
+        this.countryTooltip.set('');
+        return;
+      }
+      const names = items.map((item) => item.name);
+      this.countryDisplayText.set(names.join(', '));
+      this.countryTooltip.set(items.length > 2 ? names.join(', ') : '');
     }
-    const names = ids.map((id) => this.roles().find((r) => r.id === id)?.name ?? id);
-    this.roleDisplayText.set(`${names.join(', ')}`);
-    this.roleTooltip.set(this.makeFilterTooltip(ids, this.roles()));
-  }
+
+    private updateDepartmentDisplay(items: any[] | null | undefined): void {
+      if (!items || items.length === 0) {
+        this.departmentDisplayText.set(`All ${this.departments().length} departments`);
+        this.departmentTooltip.set('');
+        return;
+      }
+      const names = items.map((item) => item.name);
+      this.departmentDisplayText.set(names.join(', '));
+      this.departmentTooltip.set(items.length > 2 ? names.join(', ') : '');
+    }
+
+    private updateRoleDisplay(items: any[] | null | undefined): void {
+      if (!items || items.length === 0) {
+        this.roleDisplayText.set(`All ${this.roles().length} roles`);
+        this.roleTooltip.set('');
+        return;
+      }
+      const names = items.map((item) => item.name);
+      this.roleDisplayText.set(names.join(', '));
+      this.roleTooltip.set(items.length > 2 ? names.join(', ') : '');
+    }
 
   private updateEmploymentTypeDisplay(values: EmploymentType[] | null): void {
     if (!values || values.length === 0) {
       this.employmentTypeDisplayText.set(`All ${this.employmentTypes.length} employment types`);
       return;
     }
-    const names = values.map((v) => this.employmentTypeLabels[v]);
-    this.employmentTypeDisplayText.set(`${names.join(', ')}`);
-  }
-
-  private makeFilterTooltip(ids: string[] | null | undefined, options: ReadonlyArray<{ id: string; name: string }>): string {
-    if (!ids || ids.length <= 2) return '';
-    return ids.map((id) => options.find((o) => o.id === id)?.name ?? id).join(', ');
+    const names = values.map((v) => this.employmentTypeLabels[v] ?? v);
+    this.employmentTypeDisplayText.set(names.join(', '));
   }
 
   employmentTypeLabel(value: EmploymentType): string {
-    return this.employmentTypeLabels[value];
+    return this.employmentTypeLabels[value] ?? value;
   }
 }

@@ -1,5 +1,7 @@
 package com.salary.management.application.dto;
 
+import lombok.Builder;
+
 import java.math.BigDecimal;
 
 /**
@@ -12,6 +14,7 @@ import java.math.BigDecimal;
  * @param total         total amount
  * @param currency      ISO 4217 currency code
  */
+@Builder
 public record AmountsDto(
         BigDecimal base,
         BigDecimal variable,

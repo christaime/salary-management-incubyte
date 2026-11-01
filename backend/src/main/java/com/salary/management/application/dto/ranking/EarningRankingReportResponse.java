@@ -1,9 +1,9 @@
 package com.salary.management.application.dto.ranking;
 
-import com.salary.management.application.dto.DateRange;
 import com.salary.management.application.dto.PayrollPeriodResponse;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.ReportKind;
+import com.salary.management.domain.model.values.ReportWarning;
 import lombok.Builder;
 
 import java.math.BigDecimal;
@@ -21,5 +21,6 @@ public record EarningRankingReportResponse(
         BigDecimal totalReferenceAmount,            // Global total for the date range
         BigDecimal totalDimensionReferenceAmount,   // Total for the specific dimension (e.g., total in Country X)
         Integer totalMonthlyPeriod,
-        Integer totalBiWeeklyPeriod
+        Integer totalBiWeeklyPeriod,
+        List<ReportWarning> warnings
 ) {}

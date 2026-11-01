@@ -20,7 +20,7 @@
           @switch (blocker.code) {
 
           @case ('MISSING_PAYROLL_SUMMARY') {
-          @if ($any(blocker).countConcerned > 0 || $any(blocker).employees.length > 0) {
+          @if ($any(blocker).countConcerned > 0 || $any(blocker).employees?.length > 0) {
           <div class="mt-2 text-xs text-amber-700 flex flex-col gap-2">
             @if ($any(blocker).countConcerned > 0) {
             <div>
@@ -31,7 +31,7 @@
                       </span> total employee(s) affected:
             </div>
             }
-            @if ($any(blocker).employees.length > 0) {
+            @if ($any(blocker).employees?.length > 0) {
             <div class="flex flex-wrap gap-1.5">
               @for (emp of $any(blocker).employees; track emp.id ?? emp.matricule) {
               <span [attr.data-testid]="'blocker-employee-' + (emp.id ?? emp.matricule)"
@@ -40,7 +40,7 @@
                           {{ emp.matricule }} — {{ emp.name }}
                         </span>
               }
-              @if ($any(blocker).countConcerned > $any(blocker).employees.length) {
+              @if ($any(blocker).countConcerned > $any(blocker).employees?.length) {
               <span [attr.data-testid]="'blocker-more-' + blocker.code"
                     [attr.data-value]="$any(blocker).countConcerned - $any(blocker).employees.length"
                     class="inline-flex items-center px-2 py-0.5 text-amber-700 text-xs italic font-medium">
@@ -54,7 +54,7 @@
           }
 
           @case ('UNVALIDATED_PAYROLL_SUMMARY') {
-          @if ($any(blocker).countConcerned > 0 || $any(blocker).employees.length > 0) {
+          @if ($any(blocker).countConcerned > 0 || $any(blocker).employees?.length > 0) {
           <div class="mt-2 text-xs text-amber-700 flex flex-col gap-2">
             @if ($any(blocker).countConcerned > 0) {
             <div>
@@ -74,7 +74,7 @@
                           {{ emp.matricule }} — {{ emp.name }}
                         </span>
               }
-              @if ($any(blocker).countConcerned > $any(blocker).employees.length) {
+              @if ($any(blocker).countConcerned > $any(blocker).employees?.length) {
               <span [attr.data-testid]="'blocker-more-' + blocker.code"
                     [attr.data-value]="$any(blocker).countConcerned - $any(blocker).employees.length"
                     class="inline-flex items-center px-2 py-0.5 text-amber-700 text-xs italic font-medium">

@@ -1,0 +1,18 @@
+<span
+  [attr.data-testid]="'status-badge-' + testIdSuffix()"
+  [attr.data-status]="status()"
+  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-mono text-xs font-semibold border"
+  [class.bg-amber-50]="status() === 'DRAFT'"
+  [class.text-amber-700]="status() === 'DRAFT'"
+  [class.border-amber-200]="status() === 'DRAFT'"
+  [class.bg-emerald-50]="status() === 'VALIDATED'"
+  [class.text-emerald-700]="status() === 'VALIDATED'"
+  [class.border-emerald-200]="status() === 'VALIDATED'"
+>
+  <span
+    class="w-1.5 h-1.5 rounded-full"
+    [class.bg-amber-500]="status() === 'DRAFT'"
+    [class.bg-emerald-500]="status() === 'VALIDATED'"
+  ></span>
+  {{ label() }}
+</span>
