@@ -7,7 +7,10 @@
 **Submitted by:** Christelle Mamekem Ngueguim
 **Contact:** mnchristelle@gmail.com · [LinkedIn](https://linkedin.com/in/christelle-mamekem-ngueguim) · [GitHub](https://github.com/christaime)
 
-**Status:** Runs locally as a single JAR. Not deployed; no video demo recorded.
+**Status:** Deployed on Render (free tier). Runs locally as a single JAR.
+
+**Live Demo:** [https://salary-management-incubyte-hl51.onrender.com/reports/aggregate](https://salary-management-incubyte-hl51.onrender.com/reports/aggregate)
+*(Note: On the free tier, the SQLite database resets and reseeds on every restart or redeploy. The first load after a restart may take ~4 minutes to apply migrations.)*
 
 ---
 
@@ -524,8 +527,13 @@ These are real limitations, not hedges.
     reference currency would require a full-DB re-conversion of every
     aggregate, ranking, and percentile row.
 13. **No audit trail, backup, or disaster recovery.**
-14. **Not deployed.** The app runs locally as a JAR. A video demo has not
-    been recorded.
+14. **Deployed on Render's free tier (no persistent disk).** The application is
+    live at [https://salary-management-incubyte-hl51.onrender.com/reports/aggregate](https://salary-management-incubyte-hl51.onrender.com/reports/aggregate).
+    Because the free tier uses an ephemeral filesystem, the SQLite database
+    (and any data created through the UI) is reset when the service restarts
+    or redeploys. The app automatically reseeds the 10,000 employees and
+    ~70,000 payroll summaries on boot. Attaching a persistent disk on a paid
+    plan would preserve state across restarts.
 
 ---
 

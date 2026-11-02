@@ -180,7 +180,6 @@ export class EmployeeIdentityComponent implements OnInit {
     const ctrl = this.formGroup().controls.countryOfOrigin;
     if (!this.showError('countryOfOrigin')) return null;
     if (ctrl.hasError('serverError')) return ctrl.getError('serverError');
-    if (ctrl.hasError('required')) return 'Country of origin is required.';
     return null;
   }
 }
@@ -202,8 +201,6 @@ export function createEmployeeIdentityForm(): FormGroup<EmployeeIdentityForm> {
     dateOfBirth: new FormControl<string | null>(null, {
       validators: [Validators.required, pastDateValidator],
     }),
-    countryOfOrigin: new FormControl<string | null>(null, {
-      validators: [Validators.required],
-    }),
+    countryOfOrigin: new FormControl<string | null>(null),
   });
 }
