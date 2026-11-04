@@ -188,10 +188,10 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
 
   /** Status options including the pseudo-status. */
   readonly statusOptions: { value: StatusSelectValue; label: string }[] = [
-    { value: null, label: 'All statuses' },
+    { value: null, label: 'Drafts and Validated' },
     { value: 'DRAFT', label: 'Draft' },
     { value: 'VALIDATED', label: 'Validated' },
-    { value: STATUS_NON_EXISTENT, label: 'Non existent' },
+    { value: STATUS_NON_EXISTENT, label: 'Missing' },
   ];
 
   private readonly formValue = toSignal(this.form.valueChanges, {

@@ -39,24 +39,25 @@
                 [attr.data-value]="$any(warn).countConcerned"
                 class="font-semibold text-yellow-900"
               >{{ $any(warn).countConcerned | number }}</span>
-          total employee(s) affected:
+          {{ $any(warn).countConcerned === 1 ? 'payroll summary' : 'payroll summaries' }} missing for employees:
         </div>
         }
         @if ($any(warn).employees.length > 0) {
-        <div class="flex flex-wrap gap-1.5">
-          @for (emp of $any(warn).employees; track emp.id ?? emp.matricule) {
+        <div class="flex flex-wrap gap-1.5 items-center">
+          @for (emp of $any(warn).employees.slice(0, 5); track emp.id ?? emp.matricule) {
           <span
             [attr.data-testid]="'warn-employee-' + (emp.id ?? emp.matricule)"
             [attr.data-value]="emp.matricule"
             class="inline-flex items-center px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-900 font-mono text-[11px] border border-yellow-200"
           >
-            {{ emp.matricule }}
+            {{ emp.matricule }} — {{ emp.name }}
           </span>
           }
-          @if ($any(warn).countConcerned > $any(warn).employees.length) {
-          <span class="inline-flex items-center px-1.5 py-0.5 text-yellow-700 text-[11px] italic">
-            + {{ $any(warn).countConcerned - $any(warn).employees.length | number }} more
-          </span>
+          @if ($any(warn).employees.length > 5) {
+          <span
+            [attr.data-testid]="'warn-more-' + warn.code"
+            class="inline-flex items-center px-1.5 py-0.5 text-yellow-700 text-[11px] italic"
+          >… and more</span>
           }
         </div>
         }
@@ -73,24 +74,25 @@
                 [attr.data-value]="$any(warn).countConcerned"
                 class="font-semibold text-yellow-900"
               >{{ $any(warn).countConcerned | number }}</span>
-          total employee(s) affected:
+          {{ $any(warn).countConcerned === 1 ? 'payroll summary' : 'payroll summaries' }} still drafts across employees:
         </div>
         }
         @if ($any(warn).employees.length > 0) {
-        <div class="flex flex-wrap gap-1.5">
-          @for (emp of $any(warn).employees; track emp.id ?? emp.matricule) {
+        <div class="flex flex-wrap gap-1.5 items-center">
+          @for (emp of $any(warn).employees.slice(0, 5); track emp.id ?? emp.matricule) {
           <span
             [attr.data-testid]="'warn-employee-' + (emp.id ?? emp.matricule)"
             [attr.data-value]="emp.matricule"
             class="inline-flex items-center px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-900 font-mono text-[11px] border border-yellow-200"
           >
-            {{ emp.matricule }}
+            {{ emp.matricule }} — {{ emp.name }}
           </span>
           }
-          @if ($any(warn).countConcerned > $any(warn).employees.length) {
-          <span class="inline-flex items-center px-1.5 py-0.5 text-yellow-700 text-[11px] italic">
-            + {{ $any(warn).countConcerned - $any(warn).employees.length | number }} more
-          </span>
+          @if ($any(warn).employees.length > 5) {
+          <span
+            [attr.data-testid]="'warn-more-' + warn.code"
+            class="inline-flex items-center px-1.5 py-0.5 text-yellow-700 text-[11px] italic"
+          >… and more</span>
           }
         </div>
         }

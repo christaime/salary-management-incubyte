@@ -97,12 +97,13 @@
                           [attr.data-value]="employeeCount(b)"
                           class="font-semibold text-red-900"
                         >{{ employeeCount(b) | number }}</span>
-              total employee(s) affected:
+              {{ employeeCount(b) === 1 ? 'payroll summary' : 'payroll summaries' }}
+              {{ b.code === 'MISSING_PAYROLL_SUMMARY' ? 'missing for employees:' : 'still drafts across employees:' }}
             </div>
             }
             @if (employees(b).length > 0) {
-            <div class="flex flex-wrap gap-1.5">
-              @for (emp of employees(b); track emp.id ?? emp.matricule) {
+            <div class="flex flex-wrap gap-1.5 items-center">
+              @for (emp of employees(b).slice(0, 5); track emp.id ?? emp.matricule) {
               <span
                 [attr.data-testid]="'blocker-employee-' + $any(emp).id"
                 [attr.data-value]="emp.matricule"
@@ -111,13 +112,12 @@
                             {{ emp.matricule }} — {{ emp.name }}
                           </span>
               }
-              @if (moreCount(b) > 0) {
+              @if (employees(b).length > 5) {
               <span
                 [attr.data-testid]="'blocker-more-' + b.code"
-                [attr.data-value]="moreCount(b)"
                 class="inline-flex items-center px-2 py-0.5 text-red-700 text-[11px] italic"
               >
-                            + {{ moreCount(b) | number }} more not shown
+                            … and more
                           </span>
               }
             </div>
@@ -168,12 +168,13 @@
                             [attr.data-value]="employeeCount(w)"
                             class="font-semibold text-amber-900"
                           >{{ employeeCount(w) | number }}</span>
-              total employee(s) affected:
+              {{ employeeCount(w) === 1 ? 'payroll summary' : 'payroll summaries' }}
+              {{ w.code === 'MISSING_PAYROLL_SUMMARY' ? 'missing for employees:' : 'still drafts across employees:' }}
             </div>
             }
             @if (employees(w).length > 0) {
-            <div class="flex flex-wrap gap-1.5">
-              @for (emp of employees(w); track emp.id ?? emp.matricule) {
+            <div class="flex flex-wrap gap-1.5 items-center">
+              @for (emp of employees(w).slice(0, 5); track emp.id ?? emp.matricule) {
               <span
                 [attr.data-testid]="'warn-employee-' + $any(emp).id"
                 [attr.data-value]="emp.matricule"
@@ -182,9 +183,12 @@
                               {{ emp.matricule }} — {{ emp.name }}
                             </span>
               }
-              @if (moreCount(w) > 0) {
-              <span class="inline-flex items-center px-1.5 py-0.5 text-amber-700 text-[11px] italic">
-                              + {{ moreCount(w) | number }} more
+              @if (employees(w).length > 5) {
+              <span
+                [attr.data-testid]="'warn-more-' + w.code"
+                class="inline-flex items-center px-1.5 py-0.5 text-amber-700 text-[11px] italic"
+              >
+                              … and more
                             </span>
               }
             </div>
@@ -298,23 +302,27 @@
                             [attr.data-value]="employeeCount(w)"
                             class="font-semibold text-amber-900"
                           >{{ employeeCount(w) | number }}</span>
-              total employee(s) affected:
+              {{ employeeCount(w) === 1 ? 'payroll summary' : 'payroll summaries' }}
+              {{ w.code === 'MISSING_PAYROLL_SUMMARY' ? 'missing for employees:' : 'still drafts across employees:' }}
             </div>
             }
             @if (employees(w).length > 0) {
-            <div class="flex flex-wrap gap-1.5">
-              @for (emp of employees(w); track emp.id ?? emp.matricule) {
+            <div class="flex flex-wrap gap-1.5 items-center">
+              @for (emp of employees(w).slice(0, 5); track emp.id ?? emp.matricule) {
               <span
                 [attr.data-testid]="'warn-employee-' + $any(emp).id"
                 [attr.data-value]="emp.matricule"
                 class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-mono text-[11px] border border-amber-200"
               >
-                              {{ emp.matricule }}
+                              {{ emp.matricule }} — {{ emp.name }}
                             </span>
               }
-              @if (moreCount(w) > 0) {
-              <span class="inline-flex items-center px-1.5 py-0.5 text-amber-700 text-[11px] italic">
-                              + {{ moreCount(w) | number }} more
+              @if (employees(w).length > 5) {
+              <span
+                [attr.data-testid]="'warn-more-' + w.code"
+                class="inline-flex items-center px-1.5 py-0.5 text-amber-700 text-[11px] italic"
+              >
+                              … and more
                             </span>
               }
             </div>

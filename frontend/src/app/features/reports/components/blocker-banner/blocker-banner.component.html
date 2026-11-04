@@ -43,24 +43,24 @@
                     [attr.data-value]="$any(blocker).countConcerned"
                     class="font-semibold text-amber-900">
                 {{ $any(blocker).countConcerned | number }}
-              </span> total employee(s) affected:
+              </span>
+          {{ $any(blocker).countConcerned === 1 ? 'payroll summary' : 'payroll summaries' }} missing for employees:
         </div>
         }
         @if ($any(blocker).employees?.length > 0) {
-        <div class="flex flex-wrap gap-1.5">
-          @for (emp of $any(blocker).employees; track emp.id ?? emp.matricule) {
+        <div class="flex flex-wrap gap-1.5 items-center">
+          @for (emp of $any(blocker).employees.slice(0, 5); track emp.id ?? emp.matricule) {
           <span [attr.data-testid]="'blocker-employee-' + (emp.id ?? emp.matricule)"
                 [attr.data-value]="emp.matricule"
                 class="inline-flex items-center px-2 py-0.5 rounded bg-amber-100/90 text-amber-900 font-mono text-xs border border-amber-200 shadow-2xs">
                 {{ emp.matricule }} — {{ emp.name }}
               </span>
           }
-          @if ($any(blocker).countConcerned > $any(blocker).employees?.length) {
+          @if ($any(blocker).employees.length > 5) {
           <span [attr.data-testid]="'blocker-more-' + blocker.code"
-                [attr.data-value]="$any(blocker).countConcerned - $any(blocker).employees.length"
                 class="inline-flex items-center px-2 py-0.5 text-amber-700 text-xs italic font-medium">
-                + {{ $any(blocker).countConcerned - $any(blocker).employees.length | number }} more not shown
-              </span>
+            … and more
+          </span>
           }
         </div>
         }
@@ -77,24 +77,24 @@
                     [attr.data-value]="$any(blocker).countConcerned"
                     class="font-semibold text-amber-900">
                 {{ $any(blocker).countConcerned | number }}
-              </span> total employee(s) affected:
+              </span>
+          {{ $any(blocker).countConcerned === 1 ? 'payroll summary' : 'payroll summaries' }} still drafts across employees:
         </div>
         }
         @if ($any(blocker).employees.length > 0) {
-        <div class="flex flex-wrap gap-1.5">
-          @for (emp of $any(blocker).employees; track emp.id ?? emp.matricule) {
+        <div class="flex flex-wrap gap-1.5 items-center">
+          @for (emp of $any(blocker).employees.slice(0, 5); track emp.id ?? emp.matricule) {
           <span [attr.data-testid]="'blocker-employee-' + (emp.id ?? emp.matricule)"
                 [attr.data-value]="emp.matricule"
                 class="inline-flex items-center px-2 py-0.5 rounded bg-amber-100/90 text-amber-900 font-mono text-xs border border-amber-200 shadow-2xs">
                 {{ emp.matricule }} — {{ emp.name }}
               </span>
           }
-          @if ($any(blocker).countConcerned > $any(blocker).employees?.length) {
+          @if ($any(blocker).employees.length > 5) {
           <span [attr.data-testid]="'blocker-more-' + blocker.code"
-                [attr.data-value]="$any(blocker).countConcerned - $any(blocker).employees.length"
                 class="inline-flex items-center px-2 py-0.5 text-amber-700 text-xs italic font-medium">
-                + {{ $any(blocker).countConcerned - $any(blocker).employees.length | number }} more not shown
-              </span>
+            … and more
+          </span>
           }
         </div>
         }
