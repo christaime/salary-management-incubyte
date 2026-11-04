@@ -1,0 +1,14 @@
+{
+  "periods": [
+    {
+      "id": "m-1",
+      "name": "May 2026",
+      "startDate": "2026-05-01",
+      "endDate": "2026-05-31",
+      "frequency": "MONTHLY",
+      "closed": false,
+      "referenced": false
+    }
+  ],
+  "warnings": []
+}

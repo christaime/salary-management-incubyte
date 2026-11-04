@@ -1,0 +1,6 @@
+{
+  "code": "PERIOD_REFERENCED_NAME_ONLY",
+  "message": "Payroll records exist for this pay schedule; only its name can be changed.",
+  "severity": "ERROR",
+  "errors": []
+}

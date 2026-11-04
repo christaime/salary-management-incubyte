@@ -1,0 +1,29 @@
+{
+  "content": [
+    {
+      "id": "m-1",
+      "name": "May 2026",
+      "startDate": "2026-05-01",
+      "endDate": "2026-05-31",
+      "frequency": "MONTHLY",
+      "closed": false,
+      "referenced": false
+    },
+    {
+      "id": "bw-1",
+      "name": "BW1 May 2026",
+      "startDate": "2026-05-01",
+      "endDate": "2026-05-14",
+      "frequency": "BI_WEEKLY",
+      "closed": false,
+      "referenced": false
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 2,
+  "totalPages": 1,
+  "first": true,
+  "last": true,
+  "empty": false
+}

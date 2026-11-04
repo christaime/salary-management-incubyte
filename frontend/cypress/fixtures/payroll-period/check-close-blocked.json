@@ -1,0 +1,32 @@
+{
+  "code": "CLOSE_BLOCKED",
+  "message": "The pay schedule cannot be settled because of data issues.",
+  "severity": "ERROR",
+  "errors": [
+    {
+      "code": "CLOSE_BLOCKED",
+      "message": "The pay schedule cannot be settled because of data issues.",
+      "severity": "ERROR",
+      "details": {
+        "blockers": [
+          {
+            "code": "UNVALIDATED_PAYROLL_SUMMARY",
+            "severity": "BLOCKER",
+            "message": "Some employees have a non-VALIDATED payroll summary",
+            "details": {
+              "count": 1,
+              "employees": [
+                {
+                  "id": "e-1",
+                  "matricule": "EMP-000001",
+                  "name": "Amadou Diallo Christelle"
+                }
+              ]
+            }
+          }
+        ],
+        "warnings": []
+      }
+    }
+  ]
+}

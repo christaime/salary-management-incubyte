@@ -1,0 +1,9 @@
+{
+  "id": "bw-1",
+  "name": "BW1 May 2026",
+  "startDate": "2026-05-01",
+  "endDate": "2026-05-14",
+  "frequency": "BI_WEEKLY",
+  "closed": false,
+  "referenced": false
+}

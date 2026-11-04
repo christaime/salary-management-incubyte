@@ -1,0 +1,6 @@
+{
+  "code": "NOT_FOUND",
+  "message": "Payroll period not found",
+  "severity": "ERROR",
+  "errors": []
+}
