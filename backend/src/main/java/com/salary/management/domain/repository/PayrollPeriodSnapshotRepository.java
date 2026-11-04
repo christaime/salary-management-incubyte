@@ -7,5 +7,7 @@ public interface PayrollPeriodSnapshotRepository {
 
     public PayrollPeriodSnapshotResult buildAndSaveAggregates(PayrollPeriod period);
     public PayrollPeriodSnapshotResult buildAndSaveRankings(PayrollPeriod period);
+    public PayrollPeriodSnapshotResult buildSaveAggregatesAndRankings(PayrollPeriod period);
 
+    PayrollPeriodSnapshotResult checkCoverage(PayrollPeriod period);
 }

@@ -1,7 +1,7 @@
 package com.salary.management.application.dto.ranking;
 
 import com.salary.management.application.dto.employee.EmployeeRefDto;
-import com.salary.management.application.dto.PayrollPeriodResponse;
+import com.salary.management.application.dto.period.PayrollPeriodResponse;
 import com.salary.management.application.dto.RefDto;
 import com.salary.management.domain.model.enums.EmploymentType;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;

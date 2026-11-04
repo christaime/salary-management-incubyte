@@ -1,4 +1,6 @@
-package com.salary.management.common.validation;
+package com.salary.management.common.exception;
+
+import com.salary.management.common.validation.ValidationError;
 
 import java.util.List;
 

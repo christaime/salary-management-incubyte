@@ -32,6 +32,11 @@ public final class PayrollPeriodSpecification {
                         root.get("startDate"), criteria.startDate()));
             }
 
+            if (criteria.startDateBefore() != null) {
+                predicates.add(cb.lessThan(
+                        root.get("startDate"), criteria.startDateBefore()));
+            }
+
             if (criteria.endDate() != null) {
                 predicates.add(cb.lessThanOrEqualTo(
                         root.get("endDate"), criteria.endDate()));

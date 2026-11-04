@@ -398,6 +398,63 @@ class PayrollPeriodAggregateRepositoryAdapterTest {
         assertEquals(0, total.compareTo(BigDecimal.ZERO));
     }
 
+    // ------------------------------------------------------------------
+    // validateDraftsByPeriodId
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("validateDraftsByPeriodId flips every DRAFT aggregate of the period to VALIDATED")
+    void validateDraftsByPeriodIdFlipsDrafts() {
+        int updated = adapter.validateDraftsByPeriodId(JANUARY);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertEquals(2, updated);
+        List<PayrollPeriodAggregate> after = adapter.findByPayrollPeriodId(JANUARY);
+        assertEquals(2, after.size());
+        assertTrue(after.stream()
+                .allMatch(a -> a.getStatus() == PayrollSummaryStatus.VALIDATED));
+    }
+
+    @Test
+    @DisplayName("validateDraftsByPeriodId is a no-op on a second call")
+    void validateDraftsByPeriodIdSecondCallIsNoOp() {
+        adapter.validateDraftsByPeriodId(JANUARY);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertEquals(0, adapter.validateDraftsByPeriodId(JANUARY));
+    }
+
+    @Test
+    @DisplayName("validateDraftsByPeriodId does not touch another period's DRAFT aggregates")
+    void validateDraftsByPeriodIdIsolatesPeriod() {
+        PayrollPeriodAggregate febAggregate = PayrollPeriodAggregate.builder()
+                .payrollPeriod(payrollPeriod(FEBRUARY, "February 2026",
+                        LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .country(country(FR))
+                .department(department())
+                .role(role())
+                .employmentType(EmploymentType.FULL_TIME)
+                .originalAmounts(amounts("EUR"))
+                .referenceAmounts(amounts("EUR"))
+                .employeeCount(1)
+                .build();
+        adapter.saveAll(List.of(febAggregate));
+        entityManager.flush();
+        entityManager.clear();
+
+        adapter.validateDraftsByPeriodId(JANUARY);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<PayrollPeriodAggregate> febAfter =
+                adapter.findByPayrollPeriodId(FEBRUARY);
+        assertEquals(1, febAfter.size());
+        assertEquals(PayrollSummaryStatus.DRAFT, febAfter.get(0).getStatus());
+    }
+
     private PayrollPeriod payrollPeriod(UUID id, String name,
                                         LocalDate start, LocalDate end) {
         return PayrollPeriod.builder()

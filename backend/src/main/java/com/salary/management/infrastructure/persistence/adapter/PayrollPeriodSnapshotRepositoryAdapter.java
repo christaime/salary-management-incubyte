@@ -109,6 +109,48 @@ public class PayrollPeriodSnapshotRepositoryAdapter implements PayrollPeriodSnap
         return new PayrollPeriodSnapshotResult(warnings,blockers);
     }
 
+    @Override
+    public PayrollPeriodSnapshotResult buildSaveAggregatesAndRankings(PayrollPeriod period) {
+        log.info("Building all snapshot for period {} ({} .. {}, frequency={}, closed={})",
+                period.getId(), period.getStartDate(), period.getEndDate(),
+                period.getFrequency(), period.getClosed());
+
+        List<ReportWarning> warnings = new ArrayList<>();
+        List<ReportWarning> blockers = new ArrayList<>();
+        // We first collect warnings on the main period
+        collectCoverageWarnings(period, warnings, blockers);
+
+        Optional<String> referenceCurrency = currencyRateJpaRepository.findReferenceCurrencyCode();
+        if(referenceCurrency.isEmpty()){
+            log.error("buildSaveAggregatesAndRankings Period {}: no reference currency configured; skipping FX conversion for all remaining groups", period.getId());
+            blockers.add(new ReportWarning(
+                    ReportWarningCode.MISSING_REFERENCE_CURRENCY,
+                    ReportWarning.Severity.BLOCKER,
+                    "No reference currency defined ",
+                    Map.of()));
+            return PayrollPeriodSnapshotResult.empty();
+        }
+
+        // BUild and save agragates
+        log.error("buildAndSaveAggregates Period {}", period.getId());
+        String referenceCurrencyCode = referenceCurrency.get();
+        List<PayrollPeriodAggregateEntity> aggregates = buildAggregates(period, referenceCurrencyCode, blockers);
+        saveAggregates(period.getId(),aggregates);
+
+        // Build and save rankings ans percentiles
+        log.error("buildAndSaveRankings Period {}", period.getId());
+        List<PayrollPeriodEarnerRankingEntity> rankings = new ArrayList<>();
+        List<PayrollPeriodEarnerPercentileEntity> percentiles = new ArrayList<>();
+        appendRankings(period, referenceCurrencyCode, null, rankings, percentiles);
+        appendRankings(period, referenceCurrencyCode, GroupKey.COUNTRY, rankings, percentiles);
+        appendRankings(period, referenceCurrencyCode, GroupKey.DEPARTMENT, rankings, percentiles);
+        appendRankings(period, referenceCurrencyCode, GroupKey.ROLE, rankings, percentiles);
+        appendRankings(period, referenceCurrencyCode, GroupKey.EMPLOYMENT_TYPE, rankings, percentiles);
+        saveEarnerRankings(period.getId(),rankings,percentiles);
+
+        return new PayrollPeriodSnapshotResult(warnings,blockers);
+    }
+
     @Transactional
     private void saveAggregates(UUID periodId, List<PayrollPeriodAggregateEntity> aggregates){
         log.debug("Persisting aggregate snapshot for periodId={} — flush+clear pending persistence context",
@@ -147,6 +189,16 @@ public class PayrollPeriodSnapshotRepositoryAdapter implements PayrollPeriodSnap
 
     }
 
+    @Override
+    public PayrollPeriodSnapshotResult checkCoverage(PayrollPeriod period) {
+        log.debug("Checking coverage for period {} ({} .. {})",
+                period.getId(), period.getStartDate(), period.getEndDate());
+        List<ReportWarning> warnings = new ArrayList<>();
+        List<ReportWarning> blockers = new ArrayList<>();
+        collectCoverageWarnings(period, warnings, blockers);
+        return new PayrollPeriodSnapshotResult(warnings, blockers);
+    }
+
     private void collectCoverageWarnings(PayrollPeriod period, List<ReportWarning> warnings, List<ReportWarning> blockers) {
         log.debug("Checking coverage for period {}", period.getId());
         int[] missingCount = new int[1];
@@ -162,7 +214,7 @@ public class PayrollPeriodSnapshotRepositoryAdapter implements PayrollPeriodSnap
             warnings.add(new ReportWarning(
                     ReportWarningCode.MISSING_PAYROLL_SUMMARY,
                     ReportWarning.Severity.WARNING,
-                    "Some employees with an in-effect assignment have no payroll summary",
+                    "Some employees with an in-effect assignment for '"+period.getName()+"' have no payroll summary",
                     Map.of( "period",period.getName(),
                             "count", missingCount[0],
                             "employees", missing)));
@@ -177,7 +229,7 @@ public class PayrollPeriodSnapshotRepositoryAdapter implements PayrollPeriodSnap
             blockers.add(new ReportWarning(
                     ReportWarningCode.UNVALIDATED_PAYROLL_SUMMARY,
                     ReportWarning.Severity.BLOCKER,
-                    "Some employees have a non-VALIDATED payroll summary",
+                    "Some employees have a non-VALIDATED payroll summary in '"+period.getName()+"' period",
                     Map.of( "period",period.getName(),
                             "count", unvalidatedCount[0],
                             "employees", unvalidated)));

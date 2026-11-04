@@ -2,6 +2,7 @@ package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.domain.model.PayrollPeriod;
+import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.repository.PayrollPeriodRepository;
 import com.salary.management.domain.repository.criteria.PayrollPeriodCriteria;
 import com.salary.management.infrastructure.persistence.adapter.utils.CriteriaUtils;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -70,6 +72,30 @@ public class PayrollPeriodRepositoryAdapter implements PayrollPeriodRepository {
 
         }
         jpaRepository.deleteById(id);
+    }
+
+    @Override
+    public boolean existsOverlapping(
+            PayrollPeriodFrequency frequency,
+            LocalDate startDate,
+            LocalDate endDate,
+            UUID excludingId) {
+        return jpaRepository.existsOverlapping(frequency, startDate, endDate, excludingId);
+    }
+
+    @Override
+    public int closeMonthlyAndSubPeriods(UUID monthlyId, LocalDate startDate, LocalDate endDate) {
+        return jpaRepository.closeMonthlyAndSubPeriods(monthlyId, startDate, endDate);
+    }
+
+    @Override
+    public List<PayrollPeriod> findMonthlyAndSubPeriods(UUID monthlyId, LocalDate startDate, LocalDate endDate) {
+        return jpaRepository.findMonthlyAndSubPeriods(monthlyId, startDate, endDate).stream().map(mapper::toDomain).toList();
+    }
+
+    @Override
+    public boolean isReferenced(UUID payrollPeriodId) {
+        return jpaRepository.isReferenced(payrollPeriodId);
     }
 
     private DataPage<PayrollPeriod> toDataPage(Page<PayrollPeriodEntity> page) {

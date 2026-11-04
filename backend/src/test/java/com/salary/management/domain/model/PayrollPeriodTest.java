@@ -1,6 +1,6 @@
 package com.salary.management.domain.model;
 
-import com.salary.management.common.validation.DomainValidationException;
+import com.salary.management.common.exception.DomainValidationException;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

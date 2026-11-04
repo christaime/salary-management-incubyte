@@ -5,6 +5,7 @@ import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -116,4 +117,81 @@ public interface PayrollPeriodJpaRepository
                 || isReferencedByRanking(payrollPeriodId)
                 || isReferencedByPercentile(payrollPeriodId);
     }
+
+    /**
+     * Returns {@code true} when a payroll period of the given frequency overlaps
+     * {@code [startDate, endDate)} and is not the excluded period.
+     *
+     * <p>Overlap is expressed as {@code existing.startDate < endDate AND startDate <
+     * existing.endDate} — half-open on both sides, so two adjacent periods
+     * (Apr 1–Apr 30, May 1–May 31) do not overlap.</p>
+     */
+    @Query("""
+            SELECT COUNT(p) > 0
+            FROM PayrollPeriodEntity p
+            WHERE p.frequency = :frequency
+              AND p.startDate < :endDate
+              AND :startDate < p.endDate
+              AND (:excludingId IS NULL OR p.id <> :excludingId)
+            """)
+    boolean existsOverlapping(
+            @Param("frequency") PayrollPeriodFrequency frequency,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("excludingId") UUID excludingId);
+
+    /**
+     * Marks the given monthly period and every bi-weekly period whose
+     * {@code startDate} falls inside {@code [startDate, endDate)} as closed.
+     *
+     * <p>Half-open on the right: a bi-weekly starting on the monthly end date is
+     * not a sub-period of this month. Already-closed rows are left untouched so
+     * the returned count reflects only rows this call flipped.</p>
+     *
+     * @param monthlyId          monthly period identifier (always matched)
+     * @param startDate          monthly period start date, inclusive
+     * @param endDate            monthly period end date, exclusive for the bi-weekly match
+     * @return number of rows set to closed
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            UPDATE PayrollPeriodEntity p
+            SET p.closed = true
+            WHERE p.closed = false
+              AND (
+                    p.id = :monthlyId
+                 OR (p.frequency = com.salary.management.domain.model.enums.PayrollPeriodFrequency.BI_WEEKLY
+                     AND p.startDate >= :startDate
+                     AND p.startDate < :endDate)
+              )
+            """)
+    int closeMonthlyAndSubPeriods(
+            @Param("monthlyId") UUID monthlyId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    /**
+     * Returns the monthly period and the bi-weekly periods whose {@code startDate}
+     * is in {@code [startDate, endDate)}.
+     *
+     * <p>Same membership rule as {@link #closeMonthlyAndSubPeriods}; used to
+     * populate the close response after the update.</p>
+     *
+     * @param monthlyId monthly period identifier
+     * @param startDate monthly period start date, inclusive
+     * @param endDate   monthly period end date, exclusive for the bi-weekly match
+     * @return the monthly period followed by its sub-periods, ordered by start date
+     */
+    @Query("""
+            SELECT p FROM PayrollPeriodEntity p
+            WHERE p.id = :monthlyId
+               OR (p.frequency = com.salary.management.domain.model.enums.PayrollPeriodFrequency.BI_WEEKLY
+                   AND p.startDate >= :startDate
+                   AND p.startDate < :endDate)
+            ORDER BY p.startDate ASC
+            """)
+    List<PayrollPeriodEntity> findMonthlyAndSubPeriods(
+            @Param("monthlyId") UUID monthlyId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }

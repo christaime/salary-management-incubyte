@@ -1,5 +1,6 @@
 package com.salary.management.common.validation;
 
+import com.salary.management.common.exception.DomainValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;

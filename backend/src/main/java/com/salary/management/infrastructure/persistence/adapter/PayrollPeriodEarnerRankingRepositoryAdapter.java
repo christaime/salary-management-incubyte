@@ -113,6 +113,20 @@ public class PayrollPeriodEarnerRankingRepositoryAdapter
     }
 
     @Override
+    public int validateDraftsByPeriodId(UUID periodId) {
+        int updated = jpaRepository.validateDraftsByPayrollPeriodId(periodId);
+        log.debug("Period {}: {} ranking(s) promoted to VALIDATED", periodId, updated);
+        return updated;
+    }
+
+    @Override
+    public int validateDraftsPercentileByPeriodId(UUID periodId) {
+        int updated = earnerPercentileJpaRepository.validateDraftsByPayrollPeriodId(periodId);
+        log.debug("Period {}: {} percentile(s) promoted to VALIDATED", periodId, updated);
+        return updated;
+    }
+
+    @Override
     public RankingAndPercentileSnapshot rankAndPercentile(
             UUID payrollPeriodId,
             String referenceCurrencyCode,

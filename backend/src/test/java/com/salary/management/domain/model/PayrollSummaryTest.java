@@ -1,6 +1,6 @@
 package com.salary.management.domain.model;
 
-import com.salary.management.common.validation.DomainValidationException;
+import com.salary.management.common.exception.DomainValidationException;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
 import com.salary.management.domain.model.values.AmountUtils;

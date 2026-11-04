@@ -3,7 +3,7 @@ package com.salary.management.application.service;
 import com.salary.management.application.dto.employee.*;
 import com.salary.management.application.mapper.EmployeeApiMapper;
 import com.salary.management.common.pagination.DataPage;
-import com.salary.management.common.validation.DomainValidationException;
+import com.salary.management.common.exception.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.Country;
 import com.salary.management.domain.model.Department;

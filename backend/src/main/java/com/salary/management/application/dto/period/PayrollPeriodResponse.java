@@ -1,4 +1,4 @@
-package com.salary.management.application.dto;
+package com.salary.management.application.dto.period;
 
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
 import lombok.Builder;
@@ -12,5 +12,6 @@ public record PayrollPeriodResponse(
         LocalDate startDate,
         LocalDate endDate,
         PayrollPeriodFrequency frequency,
-        Boolean closed
+        Boolean closed,
+        Boolean referenced
 ) {}

@@ -1,9 +1,10 @@
 package com.salary.management.infrastructure.api.advice;
 
+import com.salary.management.application.exception.ClosePayrollPeriodException;
 import com.salary.management.application.exception.ReportBlockedException;
 import com.salary.management.common.exception.ConflictException;
 import com.salary.management.common.exception.ResourceNotFoundException;
-import com.salary.management.common.validation.DomainValidationException;
+import com.salary.management.common.exception.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.values.ReportWarning;
 import org.slf4j.Logger;
@@ -220,6 +221,36 @@ public class GlobalExceptionHandler {
                 ex.getCode(), ex.getMessage(), BLOCKER_SEVERITY, details);
         ErrorResponse body = new ErrorResponse(
                 ErrorResponse.DATA_CONFLICT, ex.getMessage(), List.of(error), Instant.now());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
+     * Handles a close blocked by snapshot blockers.
+     *
+     * <p>Returns 409 with the blockers and the warnings as two lists in
+     * {@code details}, so the close dialog can render both without a second
+     * request.</p>
+     *
+     * @param ex the exception
+     * @return 409 with {@code CLOSE_BLOCKED} and both lists
+     */
+    @ExceptionHandler(ClosePayrollPeriodException.class)
+    public ResponseEntity<ErrorResponse> handleClosePayrollPeriod(ClosePayrollPeriodException ex) {
+        List<ApiError> errors = new ArrayList<>();
+        for (ReportWarning w : ex.getBlockers()) {
+            errors.add(toApiError(w, BLOCKER_SEVERITY));
+        }
+        for (ReportWarning w : ex.getWarnings()) {
+            errors.add(toApiError(w, WARNING_SEVERITY));
+        }
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("blockers", ex.getBlockers());
+        details.put("warnings", ex.getWarnings());
+
+        ApiError error = new ApiError(
+                "CLOSE_BLOCKED", ex.getMessage(), BLOCKER_SEVERITY, details);
+        ErrorResponse body = new ErrorResponse(
+                "CLOSE_BLOCKED", ex.getMessage(), List.of(error), Instant.now());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
