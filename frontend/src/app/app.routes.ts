@@ -68,5 +68,31 @@ export const routes: Routes = [
       },
     ],
   },
+  {
+    path: 'payroll-periods',
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./features/payroll-period/pages/payroll-period-list/payroll-period-list.page')
+            .then((m) => m.PayrollPeriodListPage),
+        title: 'Pay Schedules',
+      },
+      {
+        path: 'new',
+        loadComponent: () =>
+          import('./features/payroll-period/pages/payroll-period-editor/payroll-period-editor.page')
+            .then((m) => m.PayrollPeriodEditorPage),
+        title: 'New pay schedule',
+      },
+      {
+        path: ':id/edit',
+        loadComponent: () =>
+          import('./features/payroll-period/pages/payroll-period-editor/payroll-period-editor.page')
+            .then((m) => m.PayrollPeriodEditorPage),
+        title: 'Edit pay schedule',
+      },
+    ],
+  },
   { path: '**', redirectTo: 'reports/aggregate' },
 ];

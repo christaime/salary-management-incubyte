@@ -7,7 +7,7 @@ import { take } from 'rxjs';
 
 import { ToastService } from '../../../../core/ui/toast/toast.service';
 import { ReportsService, mapReportWarning } from '../../services/reports.service';
-import { ReportsError, BaseReportWarning } from '../../services/reports-error';
+import { ReportsError, BaseReportWarning , ReportWarning} from '../../services/reports-error';
 import {
   AggregateReportRequest,
   AggregateReportResponse,
@@ -66,10 +66,10 @@ export class AggregateReportPageComponent {
     () => (this.reportError()?.warnings ?? []) as BaseReportWarning[],
   );
 
-  readonly warnings = computed<BaseReportWarning[]>(() => {
+  readonly warnings = computed<ReportWarning[]>(() => {
     const res = this.reportResponse();
     if (!res?.warnings) return [];
-    return res.warnings.map(mapReportWarning) as BaseReportWarning[];
+    return res.warnings.map(mapReportWarning) as ReportWarning[];
   });
 
   readonly showResults = computed(
@@ -181,7 +181,7 @@ readonly reportDescription = computed(() => {
   private fetch(kind: ReportKind, formValue: AggregateReportFormValue): void {
     this.state.set('submitting');
     this.reportError.set(null);
-
+    this.reportResponse.set(null);
     const request = this.buildRequest(kind, formValue);
 
     this.reports

@@ -8,7 +8,7 @@ import {
 import { take } from 'rxjs';
 
 import { ReportsService } from '../../services/reports.service';
-import { ReportsError, BaseReportWarning } from '../../services/reports-error';
+import { ReportsError, BaseReportWarning, ReportWarning } from '../../services/reports-error';
 import {
   EarningRankingReportRequest,
   EarningRankingReportResponse,
@@ -52,8 +52,8 @@ export class EarningsRankingReportPage {
     () => (this.error()?.warnings ?? []) as BaseReportWarning[],
   );
 
-  readonly warnings = computed<BaseReportWarning[]>(
-    () => (this.report()?.warnings ?? []) as BaseReportWarning[],
+  readonly warnings = computed<ReportWarning[]>(
+    () => (this.report()?.warnings ?? []) as ReportWarning[],
   );
 
   readonly showBlockerBanner = computed(() => this.blockers().length > 0);
@@ -129,6 +129,7 @@ export class EarningsRankingReportPage {
     this.lastSubmittedFormValue = value;
     this.state.set('loading');
     this.error.set(null);
+    this.report.set(null);
 
     const request: EarningRankingReportRequest = {
       periodId: value.period!.id,

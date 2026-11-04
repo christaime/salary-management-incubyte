@@ -14,5 +14,6 @@ export interface PayrollPeriodDto {
   endDate: string;
   frequency: PayrollPeriodFrequency;
   closed: boolean;
+  referenced?: boolean;
 }
 

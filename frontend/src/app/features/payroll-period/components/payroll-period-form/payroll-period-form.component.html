@@ -1,0 +1,230 @@
+<section
+  data-testid="payroll-period-form"
+  class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col gap-5"
+  [formGroup]="form()"
+>
+  <!-- Name + Frequency -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Name -->
+    <div class="flex flex-col gap-1">
+      <label
+        for="pp-name"
+        class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold flex items-center gap-1"
+      >
+        <span>Name</span><span class="text-red-500">*</span>
+      </label>
+      <input
+        id="pp-name"
+        data-testid="form-name"
+        type="text"
+        formControlName="name"
+        placeholder="e.g. May 2026"
+        class="w-full h-9 px-3 bg-slate-50 rounded-md border text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition"
+        [class.border-slate-200]="!showError('name')"
+        [class.border-red-400]="showError('name')"
+      />
+      @if (errorText('name'); as err) {
+      <p data-testid="form-name-error" class="text-[11px] text-red-600 m-0">{{ err }}</p>
+      }
+    </div>
+
+    <!-- Frequency -->
+    <div class="flex flex-col gap-1">
+      <label
+        for="pp-frequency"
+        class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold flex items-center gap-1"
+      >
+        <span>Frequency</span><span class="text-red-500">*</span>
+      </label>
+      <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+        <mat-select
+          id="pp-frequency"
+          data-testid="form-frequency"
+          formControlName="frequency"
+        >
+          @for (f of frequencies; track f) {
+          <mat-option [value]="f">{{ frequencyLabel(f) }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <!-- Start + End -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Start -->
+    <div class="flex flex-col gap-1">
+      <label
+        for="pp-start"
+        class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold flex items-center gap-1"
+      >
+        <span>Start date</span><span class="text-red-500">*</span>
+      </label>
+      <input
+        id="pp-start"
+        data-testid="form-start-date"
+        type="date"
+        formControlName="startDate"
+        class="w-full h-9 px-3 bg-slate-50 rounded-md border text-sm font-mono text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition disabled:opacity-60 disabled:cursor-not-allowed"
+        [class.border-slate-200]="!showError('startDate')"
+        [class.border-red-400]="showError('startDate')"
+      />
+      <p class="text-[11px] text-slate-500 m-0">{{ startDateHint() }}</p>
+      @if (errorText('startDate'); as err) {
+      <p data-testid="form-start-date-error" class="text-[11px] text-red-600 m-0">{{ err }}</p>
+      }
+    </div>
+
+    <!-- End (editable; auto-suggested but the user can widen it) -->
+    <div class="flex flex-col gap-1">
+      <label
+        for="pp-end"
+        class="text-[11px] font-mono uppercase tracking-wider text-slate-700 font-semibold flex items-center gap-1"
+      >
+        <span>End date</span><span class="text-red-500">*</span>
+      </label>
+      <input
+        id="pp-end"
+        data-testid="form-end-date"
+        type="date"
+        formControlName="endDate"
+        class="w-full h-9 px-3 bg-slate-50 rounded-md border text-sm font-mono text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition disabled:opacity-60 disabled:cursor-not-allowed"
+        [class.border-slate-200]="!showError('endDate')"
+        [class.border-red-400]="showError('endDate')"
+      />
+      <p class="text-[11px] text-slate-500 m-0">{{ endDateHint() }}</p>
+      @if (errorText('endDate'); as err) {
+      <p data-testid="form-end-date-error" class="text-[11px] text-red-600 m-0">{{ err }}</p>
+      }
+    </div>
+  </div>
+
+  <!-- Cascade (new + MONTHLY only) -->
+  @if (canCascade()) {
+  <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 flex flex-col gap-3">
+    <div class="flex items-start gap-3">
+      <mat-checkbox
+        data-testid="form-cascade"
+        formControlName="cascadeToBiWeekly"
+        class="mt-0.5"
+      />
+      <div class="flex flex-col">
+        <label class="text-sm font-semibold text-slate-900 cursor-pointer">
+          Also create bi-weekly schedules
+        </label>
+        <span class="text-xs text-slate-600">
+            Sub-schedules inside this month are proposed by the server.
+            Rename them if you want; existing ones cannot be changed here.
+            Editing the name, start date or end date will reset this option.
+          </span>
+      </div>
+    </div>
+
+    @if (form().controls.cascadeToBiWeekly.value) {
+    <div
+      data-testid="form-cascade-preview"
+      class="bg-white rounded-lg border border-slate-200 p-3 flex flex-col gap-2"
+    >
+      <div class="flex items-center justify-between pb-1 border-b border-slate-100">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
+              Derived sub-schedules
+            </span>
+        <span class="text-[10px] font-mono uppercase tracking-wider text-slate-600 font-semibold">
+              @if (previewLoading()) {
+                Loading…
+              } @else {
+                {{ previewRows().length }} item{{ previewRows().length === 1 ? '' : 's' }}
+              }
+            </span>
+      </div>
+
+      @if (previewError()) {
+      <div data-testid="form-cascade-preview-error" class="text-[11px] text-red-600 py-1">
+        {{ previewError() }}
+      </div>
+      }
+
+      @if (!previewError() && !previewLoading() && previewRows().length === 0) {
+      <div data-testid="form-cascade-preview-empty" class="text-[11px] text-slate-500 py-1">
+        No sub-schedules will be created for this range.
+      </div>
+      }
+
+      @if (previewRows().length > 0) {
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead class="text-slate-500 font-mono uppercase tracking-wider text-[10px]">
+          <tr class="border-b border-slate-100">
+            <th class="py-1 px-2 font-semibold">Name</th>
+            <th class="py-1 px-2 font-semibold">Start date</th>
+            <th class="py-1 px-2 font-semibold">End date</th>
+            <th class="py-1 px-2 font-semibold">Status</th>
+          </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+          @for (row of previewRows(); track row.startDate + row.kind; let i = $index) {
+          <tr class="hover:bg-slate-50/70 transition-colors">
+            <td class="py-1.5 px-2">
+              @if (row.kind === 'new') {
+              <input
+                type="text"
+                [value]="nameControl(i).value"
+                (input)="onSubNameInput(i, $event)"
+                [attr.data-testid]="'form-cascade-name-' + i"
+                class="w-full h-8 px-2 bg-slate-50 rounded border border-slate-200 text-sm text-slate-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+              />
+              } @else {
+              <span class="text-sm text-slate-700">{{ row.suggestedName }}</span>
+              }
+            </td>
+            <td class="py-1.5 px-2 font-mono text-[11px] text-slate-700 whitespace-nowrap">
+              {{ row.startDate }}
+            </td>
+            <td class="py-1.5 px-2 font-mono text-[11px] text-slate-700 whitespace-nowrap">
+              {{ row.endDate }}
+            </td>
+            <td class="py-1.5 px-2 whitespace-nowrap">
+              @if (row.kind === 'new') {
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono text-[10px] uppercase tracking-wider font-semibold">
+                            New
+                          </span>
+              } @else {
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px] uppercase tracking-wider font-semibold">
+                            Existing
+                          </span>
+              }
+            </td>
+          </tr>
+          }
+          </tbody>
+        </table>
+      </div>
+      }
+    </div>
+    }
+  </div>
+  }
+
+  <!-- Actions -->
+  <div class="flex items-center justify-end gap-2 pt-1">
+    <button
+      data-testid="form-cancel"
+      type="button"
+      mat-stroked-button
+      [disabled]="saving()"
+      (click)="cancel.emit()"
+    >
+      Cancel
+    </button>
+    <button
+      data-testid="form-submit"
+      type="button"
+      mat-flat-button
+      color="primary"
+      [disabled]="!canSubmit()"
+      (click)="submit.emit()"
+    >
+      {{ mode() === 'edit' ? 'Save changes' : 'Create pay schedule' }}
+    </button>
+  </div>
+</section>

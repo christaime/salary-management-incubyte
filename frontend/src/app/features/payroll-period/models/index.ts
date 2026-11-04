@@ -9,3 +9,7 @@ export type {
   PayrollPeriodCriteria,
   SortDirection,
 } from './payroll-period-criteria.model';
+export * from './close-period.model';
+export * from './payroll-period-batch-creation-result.model';
+export * from './payroll-period-create-request.model';
+export * from '../services/payroll-period-error';

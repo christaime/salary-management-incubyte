@@ -65,6 +65,27 @@
       }
     </a>
 
+    <!-- Pay Schedules (Payroll Periods) -->
+    <a
+      data-testid="nav-payroll-periods"
+      class="nav-item"
+      routerLink="/payroll-periods"
+      routerLinkActive="active"
+      title="Pay Schedules"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M3 10h18" />
+        <path d="M8 2v4" />
+        <path d="M16 2v4" />
+        <circle cx="12" cy="15" r="1.5" fill="currentColor" stroke="none" />
+      </svg>
+      @if (!sidebarService.isCollapsed()) {
+      <span class="nav-label">Pay Schedules</span>
+      }
+    </a>
+
     <!-- Payroll Summary -->
     <a
       data-testid="nav-payroll-summaries"

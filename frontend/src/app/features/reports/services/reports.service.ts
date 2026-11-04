@@ -10,6 +10,7 @@ import {
   EmployeeWarning,
   MissingCurrencyRateWarning,
   MissingReferenceCurrencyWarning,
+  NotMonthlyPeriodWarning,
 } from './reports-error';
 
 const AGGREGATE_REPORT_URL = apiUrl('/api/v1/reports/aggregate');
@@ -54,6 +55,9 @@ export function mapReportWarning(raw: any): ReportWarning {
     case 'MISSING_REFERENCE_CURRENCY':
       return mapToMissingReferenceCurrencyWarning(raw);
 
+    case 'NOT_MONTHLY_PERIOD':
+      return mapToNotMonthlyPeriodWarning(raw);
+
     case 'PERIOD_CLOSED':
     default:
       return {
@@ -96,5 +100,13 @@ export function mapToMissingReferenceCurrencyWarning(raw: any): MissingReference
     message: raw.message,
     severity: raw.severity ?? 'BLOCKER',
     currency: raw.details?.currency,
+  };
+}
+
+export function mapToNotMonthlyPeriodWarning(raw: any): NotMonthlyPeriodWarning {
+  return {
+    code: 'NOT_MONTHLY_PERIOD',
+    message: raw.message,
+    severity: raw.severity ?? 'BLOCKER',
   };
 }
