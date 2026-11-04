@@ -1,4 +1,14 @@
 <div class="flex flex-col gap-6">
+
+  @if (errorFor('__general'); as general) {
+  <div
+    data-testid="editor-error-general"
+    class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+  >
+    {{ general }}
+  </div>
+  }
+
   <!-- ═════════════ Top section: mode-dependent ═════════════ -->
   @if (mode() === 'create' && !isPreloaded()) {
   <!-- Empty create mode: pickers -->
@@ -118,15 +128,6 @@
       class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2"
     >
       Could not resolve the assignment's country currency. The server may reject the request.
-    </div>
-    }
-
-    @if (errorFor('__general'); as general) {
-    <div
-      data-testid="editor-error-general"
-      class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
-    >
-      {{ general }}
     </div>
     }
 
