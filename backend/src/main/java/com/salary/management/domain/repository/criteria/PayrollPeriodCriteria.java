@@ -18,6 +18,7 @@ public final class PayrollPeriodCriteria implements Criteria {
     private final String keyword;
     private final LocalDate startDate;
     private final LocalDate endDate;
+    private final LocalDate startDateBefore;
     private final PayrollPeriodFrequency frequency;
     private final Boolean isClosed;
     private final String sortBy;
@@ -29,6 +30,7 @@ public final class PayrollPeriodCriteria implements Criteria {
         this.keyword = builder.keyword;
         this.startDate = builder.startDate;
         this.endDate = builder.endDate;
+        this.startDateBefore = builder.startDateBefore;
         this.frequency = builder.frequency;
         this.isClosed = builder.isClosed;
         this.sortBy = builder.sortBy;
@@ -57,6 +59,10 @@ public final class PayrollPeriodCriteria implements Criteria {
      */
     public LocalDate startDate() {
         return startDate;
+    }
+
+    public LocalDate startDateBefore() {
+        return startDateBefore;
     }
 
     /**
@@ -127,6 +133,7 @@ public final class PayrollPeriodCriteria implements Criteria {
         private String keyword;
         private LocalDate startDate;
         private LocalDate endDate;
+        private LocalDate startDateBefore;
         private PayrollPeriodFrequency frequency;
         private Boolean isClosed;
         private String sortBy;
@@ -141,6 +148,11 @@ public final class PayrollPeriodCriteria implements Criteria {
 
         public Builder startDate(LocalDate startDate) {
             this.startDate = startDate;
+            return this;
+        }
+
+        public Builder startDateBefore(LocalDate startDateBefore) {
+            this.startDateBefore = startDateBefore;
             return this;
         }
 

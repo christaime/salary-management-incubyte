@@ -188,4 +188,19 @@ public interface PayrollPeriodAggregateJpaRepository
             @Param("departmentId") UUID departmentId,
             @Param("roleId") UUID roleId,
             @Param("employmentType") EmploymentType employmentType);
+
+    /**
+     * Promotes every DRAFT aggregate of the given period to VALIDATED.
+     *
+     * @param payrollPeriodId payroll period identifier
+     * @return number of rows updated
+     */
+    @Modifying
+    @Query("""
+            UPDATE PayrollPeriodAggregateEntity a
+            SET a.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.VALIDATED
+            WHERE a.payrollPeriodId = :payrollPeriodId
+              AND a.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.DRAFT
+            """)
+    int validateDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
 }

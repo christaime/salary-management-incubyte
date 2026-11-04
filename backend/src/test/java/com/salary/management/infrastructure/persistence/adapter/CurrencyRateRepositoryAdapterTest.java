@@ -2,7 +2,6 @@ package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.common.pagination.DataPage;
 import com.salary.management.common.pagination.SortDirection;
-import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.CurrencyRate;
 import com.salary.management.domain.repository.criteria.CurrencyRateCriteria;
 import com.salary.management.infrastructure.persistence.repository.CurrencyRateJpaRepository;

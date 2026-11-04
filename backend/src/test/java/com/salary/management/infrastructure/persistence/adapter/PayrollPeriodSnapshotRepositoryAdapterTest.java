@@ -2,12 +2,14 @@ package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.enums.PayrollSummaryStatus;
+import com.salary.management.domain.model.enums.ReportWarningCode;
 import com.salary.management.domain.model.values.PayrollPeriodSnapshotResult;
 import com.salary.management.domain.repository.PayrollPeriodRepository;
 import com.salary.management.domain.repository.PayrollPeriodSnapshotRepository;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodAggregateEntity;
 import com.salary.management.infrastructure.persistence.entity.PayrollPeriodEarnerRankingEntity;
 import com.salary.management.infrastructure.persistence.repository.*;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +53,8 @@ class PayrollPeriodSnapshotRepositoryAdapterTest {
 
     private static final BigDecimal FR_AGG_REF_TOTAL = new BigDecimal("3300.00");
     private static final BigDecimal DE_AGG_REF_TOTAL = new BigDecimal("1100.00");
+
+    @Autowired private EntityManager entityManager;
 
     @Autowired
     private PayrollPeriodSnapshotRepository adapter;
@@ -250,6 +254,83 @@ class PayrollPeriodSnapshotRepositoryAdapterTest {
     }
 
     // ------------------------------------------------------------------
+    // checkCoverage — read-only
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("checkCoverage: clean when every summary is VALIDATED and none missing")
+    void checkCoverage_clean() {
+        PayrollPeriodSnapshotResult result = adapter.checkCoverage(jan());
+
+        assertThat(result.blockers()).isEmpty();
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("checkCoverage: writes nothing")
+    void checkCoverage_writesNothing() {
+        long aggregatesBefore = aggregateJpaRepository.count();
+        long rankingsBefore = rankingJpaRepository.count();
+        long percentilesBefore = percentileJpaRepository.count();
+
+        adapter.checkCoverage(jan());
+
+        assertThat(aggregateJpaRepository.count()).isEqualTo(aggregatesBefore);
+        assertThat(rankingJpaRepository.count()).isEqualTo(rankingsBefore);
+        assertThat(percentileJpaRepository.count()).isEqualTo(percentilesBefore);
+    }
+
+    @Test
+    @DisplayName("checkCoverage: a DRAFT summary produces UNVALIDATED_PAYROLL_SUMMARY")
+    void checkCoverage_flagsDraftSummary() {
+        entityManager.createNativeQuery("""
+                UPDATE payroll_summaries
+                SET status = 'DRAFT'
+                WHERE id = 'aaaa0001-0000-0000-0000-000000000001'
+                """).executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+
+        PayrollPeriodSnapshotResult result = adapter.checkCoverage(jan());
+
+        assertThat(result.blockers())
+                .anyMatch(w -> w.code() == ReportWarningCode.UNVALIDATED_PAYROLL_SUMMARY);
+    }
+
+    // ------------------------------------------------------------------
+    // buildSaveAggregatesAndRankings — combined build
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("buildSaveAggregatesAndRankings: writes both aggregates and rankings as DRAFT")
+    void buildSave_writesBothAsDraft() {
+        PayrollPeriodSnapshotResult result = adapter.buildSaveAggregatesAndRankings(jan());
+
+        assertThat(result.blockers()).isEmpty();
+        assertThat(aggregateJpaRepository.findByPayrollPeriodId(JAN_2026))
+                .isNotEmpty()
+                .allMatch(a -> a.getStatus() == PayrollSummaryStatus.DRAFT);
+        assertThat(rankingJpaRepository.findByPayrollPeriodId(JAN_2026))
+                .isNotEmpty()
+                .allMatch(r -> r.getStatus() == PayrollSummaryStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("buildSaveAggregatesAndRankings: re-run is idempotent")
+    void buildSave_isIdempotent() {
+        adapter.buildSaveAggregatesAndRankings(jan());
+        long aggFirst = aggregateJpaRepository.findByPayrollPeriodId(JAN_2026).size();
+        long rankFirst = rankingJpaRepository.findByPayrollPeriodId(JAN_2026).size();
+
+        adapter.buildSaveAggregatesAndRankings(jan());
+        long aggSecond = aggregateJpaRepository.findByPayrollPeriodId(JAN_2026).size();
+        long rankSecond = rankingJpaRepository.findByPayrollPeriodId(JAN_2026).size();
+
+        assertThat(aggSecond).isEqualTo(aggFirst);
+        assertThat(rankSecond).isEqualTo(rankFirst);
+    }
+
+    // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 
@@ -257,5 +338,9 @@ class PayrollPeriodSnapshotRepositoryAdapterTest {
         return aggregateJpaRepository.findByPayrollPeriodId(periodId).stream()
                 .map(a -> a.getReferenceAmounts().getTotal())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private PayrollPeriod jan() {
+        return payrollPeriodRepository.findById(JAN_2026).orElseThrow();
     }
 }

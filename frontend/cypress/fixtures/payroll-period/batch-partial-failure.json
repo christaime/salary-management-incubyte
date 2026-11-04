@@ -1,0 +1,30 @@
+{
+  "succeeded": [
+    {
+      "id": "m-1",
+      "name": "May 2026",
+      "startDate": "2026-05-01",
+      "endDate": "2026-05-31",
+      "frequency": "MONTHLY",
+      "closed": false,
+      "referenced": false
+    }
+  ],
+  "failed": [
+    {
+      "period": {
+        "name": "BW2 May 2026",
+        "startDate": "2026-05-15",
+        "endDate": "2026-05-28",
+        "frequency": "BI_WEEKLY"
+      },
+      "errors": [
+        {
+          "code": "PERIOD_RANGE_CONFLICT",
+          "message": "A bi-weekly pay schedule already overlaps 2026-05-15 .. 2026-05-28.",
+          "severity": "ERROR"
+        }
+      ]
+    }
+  ]
+}

@@ -1,14 +1,14 @@
 package com.salary.management.application.service;
 
 import com.salary.management.application.dto.employee.EmployeeRefDto;
-import com.salary.management.application.dto.PayrollPeriodResponse;
+import com.salary.management.application.dto.period.PayrollPeriodResponse;
 import com.salary.management.application.dto.RefDto;
 import com.salary.management.application.dto.ranking.EarnerRankingDto;
 import com.salary.management.application.dto.ranking.EarningRankingReportRequest;
 import com.salary.management.application.dto.ranking.EarningRankingReportResponse;
 import com.salary.management.application.dto.ranking.PositionContextDto;
 import com.salary.management.application.exception.ReportBlockedException;
-import com.salary.management.common.validation.DomainValidationException;
+import com.salary.management.common.exception.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.*;
 import com.salary.management.domain.model.enums.*;

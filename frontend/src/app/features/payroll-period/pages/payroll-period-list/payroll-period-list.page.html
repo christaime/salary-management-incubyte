@@ -1,0 +1,68 @@
+<div
+  class="max-w-[1800px] mx-auto flex flex-col gap-4 p-4 md:px-8"
+  data-testid="payroll-period-list-page"
+>
+  <!-- Header -->
+  <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+    <div class="flex flex-col gap-1">
+      <h1
+        data-testid="payroll-period-list-title"
+        class="text-xl font-semibold text-slate-900 m-0"
+      >
+        Pay Schedules
+      </h1>
+      <p class="text-sm text-slate-500 m-0 max-w-3xl">
+        Manage payroll cycles and settle the monthly anchors that drive
+        bi-weekly disbursements.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2 shrink-0">
+      <button
+        data-testid="payroll-period-new"
+        type="button"
+        (click)="onNew()"
+        class="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors shrink-0"
+      >
+        <mat-icon class="!w-[18px] !h-[18px] !text-[18px]">add</mat-icon>
+        New pay schedule
+      </button>
+    </div>
+  </header>
+
+  <!-- Filters -->
+  <app-payroll-period-filter-bar
+    (filterChange)="onFilterChange($event)"
+    (filterReset)="onFilterReset()"
+  />
+
+  <!-- Error banner (under the filter bar, app pattern) -->
+  @if (state() === 'error' && error()) {
+  <div
+    data-testid="payroll-period-list-error"
+    class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+  >
+    <span class="font-bold">Error:</span> {{ error() }}
+  </div>
+  }
+
+  <!-- Table (renders its own loading row, empty state, and rows) -->
+  <app-payroll-period-table
+    [rows]="rows()"
+    [loading]="isLoading()"
+    (editClick)="onEdit($event)"
+    (deleteClick)="onDelete($event)"
+    (settleClick)="onSettle($event)"
+  />
+
+  <!-- Paginator (only when there is data to page) -->
+  @if (state() === 'success' && totalElements() > 0) {
+  <app-paginator
+    [totalElements]="totalElements()"
+    [page]="page()"
+    [size]="size()"
+    unitLabel="Payroll period"
+    (pageChange)="onPageChange($event)"
+  />
+  }
+</div>

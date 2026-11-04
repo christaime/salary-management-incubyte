@@ -80,6 +80,13 @@ public class PayrollPeriodAggregateRepositoryAdapter
     }
 
     @Override
+    public int validateDraftsByPeriodId(UUID periodId) {
+        int updated = jpaRepository.validateDraftsByPayrollPeriodId(periodId);
+        log.debug("Period {}: {} aggregate(s) promoted to VALIDATED", periodId, updated);
+        return updated;
+    }
+
+    @Override
     public List<GroupedSummary> aggregateByGroup(UUID payrollPeriodId,
                                                  LocalDate startDate,
                                                  LocalDate endDate) {

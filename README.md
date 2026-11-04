@@ -7,7 +7,10 @@
 **Submitted by:** Christelle Mamekem Ngueguim
 **Contact:** mnchristelle@gmail.com · [LinkedIn](https://linkedin.com/in/christelle-mamekem-ngueguim) · [GitHub](https://github.com/christaime)
 
-**Status:** Runs locally as a single JAR. Not deployed; no video demo recorded.
+**Status:** Deployed on Render (free tier). Runs locally as a single JAR.
+
+**Live Demo:** [https://salary-management-incubyte-hl51.onrender.com/reports/aggregate](https://salary-management-incubyte-hl51.onrender.com/reports/aggregate)
+*(Note: On the free tier, the SQLite database resets and reseeds on every restart or redeploy. The first load after a restart may take ~4 minutes to apply migrations.)*
 
 ---
 
@@ -94,7 +97,7 @@ salary-management-incubyte/
 ├── frontend/
 │   ├── src/app/
 │   │   ├── core/                # interceptors, models, shared UI
-│   │   ├── features/            # employee, payroll, reports
+│   │   ├── features/            # employee, payroll, payroll-period, reports
 │   │   └── layout/              # header, sidebar
 │   └── cypress/e2e/             # end-to-end tests
 ├── docs/
@@ -141,6 +144,17 @@ Every claim below can be verified by running the app.
   assignment who have **no** payroll summary for the period — the query
   behind the "missing payroll summary" warning. Bulk validation is
   **not atomic**: successful rows commit, per-row failures are reported.
+- **Payroll period management** — list, filter, create, edit, and delete
+  payroll periods through `/payroll-periods`, plus a monthly-only settle
+  flow. Create can optionally cascade a monthly period into its nested
+  bi-weekly sub-periods, which continue the existing bi-weekly chain rather
+  than restarting at the monthly's start date. A period with payroll
+  summaries can be renamed but not rescheduled. Settling runs a two-step
+  flow: a read-only pre-flight reports the periods that would be closed,
+  plus any blockers (which prevent) and warnings (which the HR Manager
+  accepts), and then the settle call builds the snapshot, promotes it to
+  `VALIDATED`, and closes the monthly period and every nested bi-weekly in
+  one transaction. Settled periods and their payload become immutable.
 - **Seed data** — 10,000 employees with deterministic IDs, 10 countries,
   10 departments, 12 roles, 8 currency rates, and 19 payroll periods (6
   monthly + 13 bi-weekly from 2026-01-01, mixed closed and open). Payroll
@@ -220,13 +234,12 @@ deliberately excluded, and what remains out of scope.
 | M8 | Ranking and comparison reports | 2/4 ⚠️ Ranking done; comparison deliberately excluded |
 | M9 | Employee and assignment CRUD | 5/6 ⚠️ Employee detail page deliberately excluded |
 | M10 | Payroll recording, validation, payroll list | 6/6 ✅ |
-| M11 | Payroll period list, create, close flow | 0/4 ❌ Not built — periods are seeded |
-| M12 | Video demo, ADRs 006–010, documentation updates, deployment | 0/5 ❌ Not built |
+| M11 | Payroll period list, create, edit, settle (close) flow | 4/4 ✅ |
+| M12 | Video demo, ADRs 009–010, documentation updates, deployment | 3/5 ⚠️ Video demo, ADRs 006–008 pending |
 
-The open issues in M8, M9, M11, and M12 are the concrete record of what was
-left out of scope, and why. See **Known Limitations** below for the
-user-facing consequences, and `docs/planning.md` for the reasoning behind
-each exclusion.
+The open issues in M8, M9, and M12 are the concrete record of what was left
+out of scope, and why. See **Known Limitations** below for the user-facing
+consequences, and `docs/planning.md` for the reasoning behind each exclusion.
 
 ---
 
@@ -237,6 +250,22 @@ each exclusion.
 - **Snapshot reporting, driven by the period's `closed` flag.** Open periods
   are rebuilt on every read; closed periods are frozen at close. Reports on
   closed periods reflect what was paid, not what would be recomputed today.
+- **Periods are shaped by span, not by calendar alignment.** A MONTHLY period
+  spans 28–31 days inclusive; it need not be the 1st through the last day of
+  a calendar month. Real HR workflows include mid-month close and 4-4-5
+  cycles, and forbidding them would exclude legitimate periods with no
+  protective benefit. Bi-weekly periods are exactly 14 days.
+- **Bi-weeklies form a chain, not independent windows.** When a monthly
+  period cascades into bi-weeklies, the first sub-period continues the
+  existing chain from the last bi-weekly that precedes the monthly. Restarting
+  the cadence at the monthly start would produce overlap and drift.
+- **Settling is a two-step flow.** A read-only pre-flight reports the
+  periods, blockers, and warnings; the settle call re-checks and commits in
+  one transaction. The pre-flight is the point: the HR Manager sees what will
+  be frozen before it is frozen, and blockers stop the close outright.
+- **Settled periods are immutable.** No new payroll, no edits to payroll, no
+  edits to the period's name, dates, or frequency. Renaming a settled period
+  would change the identity of an already-published record.
 - **Rankings normalize by monthly rate.** Bi-weekly and monthly earners are
   compared on the same scale; raw amount comparison would bias toward
   monthly earners.
@@ -253,7 +282,9 @@ each exclusion.
   `docs/adr/001-use-sqlite.md` for the associated constraints (no historical
   rates, single reference currency).
 
-Reasoning for each of these lives in `docs/adr/`.
+Reasoning for each of these lives in `docs/adr/`, particularly
+`009-payroll-period-shape-and-coexistence.md` and
+`010-payroll-period-closure.md` for the period lifecycle.
 
 ---
 
@@ -272,7 +303,21 @@ Full documentation at `/swagger-ui.html` when running locally. Base path
 | `GET` | `/countries/{id}` | Returns the country and its currency. |
 | `GET` | `/departments` | Filters: `keyword`, `code`. Sort: `name`, `code`. |
 | `GET` | `/roles` | Filters: `keyword`, `code`. Sort: `name`, `code`. |
-| `GET` | `/payroll-periods` | Filters: `keyword`, `startDate`, `endDate`, `frequency`, `isClosed`. Sort: `startDate` (default `DESC`), `endDate`, `name`. **No create / edit / close endpoints** — periods are seeded only. |
+
+### Payroll periods
+
+| Method | Path | Notes |
+| :--- | :--- | :--- |
+| `GET` | `/payroll-periods` | Filters: `keyword`, `startDate`, `endDate`, `frequency`, `isClosed`. Sort: `startDate` (default `DESC`), `endDate`, `name`. |
+| `GET` | `/payroll-periods/{id}` | Returns the period, including a `referenced` flag: `true` when payroll summaries exist for it. |
+| `POST` | `/payroll-periods` | Create one period. MONTHLY spans 28–31 days inclusive; BI_WEEKLY is exactly 14 days. Name and date range are unique per frequency. |
+| `POST` | `/payroll-periods/batch` | Create several periods in one request. **Not atomic** — each item commits independently, per-item outcomes returned. Used by the cascade path. |
+| `GET` | `/payroll-periods/generate-sub` | Read-only preview: the bi-weekly sub-periods a monthly range would cascade into, split into ones that don't yet exist and ones already on the chain. |
+| `PUT` | `/payroll-periods/{id}` | Full edit when no payroll exists; name-only when payroll exists; rejected when the period is settled. |
+| `DELETE` | `/payroll-periods/{id}` | Rejected when the period is settled or referenced. |
+| `DELETE` | `/payroll-periods/batch` | Delete several in one transaction. **All-or-nothing.** |
+| `POST` | `/payroll-periods/{id}/check-close` | Pre-flight of the settle flow. Read-only. Returns the periods that would close, plus warnings and blockers. |
+| `POST` | `/payroll-periods/{id}/close` | Settle the period and every bi-weekly whose start date falls inside it, in one transaction. Returns the settled periods and the accepted warnings. |
 
 ### Employees
 
@@ -337,12 +382,12 @@ Top-level `code` is one of:
 | 400 | `REPORT_BLOCKED` | Snapshot build returned a blocker |
 | 400 | `INVALID_REQUEST` | Bean Validation on the request body, or a malformed body |
 | 404 | `NOT_FOUND` | Resource doesn't exist |
-| 409 | `DATA_CONFLICT` | Unique / foreign-key / check constraint violation, or a service-level state conflict (`PERIOD_CLOSED`, `SUMMARY_NOT_DRAFT`, `ASSIGNMENT_NOT_IN_EFFECT`, `ASSIGNMENT_DOES_NOT_COVER_PERIOD`, `SUMMARY_ALREADY_EXISTS`, `ASSIGNMENT_NOT_FOR_EMPLOYEE`) |
+| 409 | `DATA_CONFLICT` | Unique / foreign-key / check constraint violation, or a service-level state conflict (`PERIOD_CLOSED`, `SUMMARY_NOT_DRAFT`, `ASSIGNMENT_NOT_IN_EFFECT`, `ASSIGNMENT_DOES_NOT_COVER_PERIOD`, `SUMMARY_ALREADY_EXISTS`, `ASSIGNMENT_NOT_FOR_EMPLOYEE`, `PERIOD_NAME_CONFLICT`, `PERIOD_RANGE_CONFLICT`, `PERIOD_REFERENCED`, `PERIOD_REFERENCED_NAME_ONLY`) |
 | 500 | `INTERNAL_ERROR` | Unhandled |
 
-`severity` on each `ApiError` is `ERROR` or `WARNING`. `REPORT_BLOCKED`
-responses use both: blockers are `ERROR`, warnings are `WARNING`, and both
-prevent the report from being produced.
+`severity` on each `ApiError` is `ERROR` or `WARNING`. `REPORT_BLOCKED` and
+`CLOSE_BLOCKED` responses use both: blockers are `ERROR`, warnings are
+`WARNING`.
 
 ---
 
@@ -387,8 +432,10 @@ full record is in `AI_WORKFLOW.md` and `docs/ai/`.
   test case generation from specification, exploration of design
   alternatives before committing.
 - **What was reviewed line-by-line:** every domain invariant, every adapter
-  specification, every migration script. These are the parts that would
-  silently corrupt data, so they are the parts that got human eyes.
+  specification, every migration script, and every rule in the payroll
+  period lifecycle (chain continuation, cascade boundary, close transaction
+  scope). These are the parts that would silently corrupt data, so they are
+  the parts that got human eyes.
 - **What was rejected:** AI-suggested `@ManyToOne` relations between
   entities (kept UUID columns instead, except the one documented case),
   eager fetching (would break the criteria pattern), and any mapping code
@@ -408,7 +455,9 @@ full record is in `AI_WORKFLOW.md` and `docs/ai/`.
   immutability, builders, validation strategy.
 - `docs/use-cases.md` — user flows for employee management, assignment
   management, payroll recording, period management, and reporting.
-- `docs/adr/` — architecture decisions.
+- `docs/adr/` — architecture decisions. Payroll-period decisions are in
+  `009-payroll-period-shape-and-coexistence.md` and
+  `010-payroll-period-closure.md`.
 - `docs/ai/` — prompts and context used during the build, per milestone.
 - **GitHub milestones** — issue-level record of what was tracked and
   shipped: <https://github.com/christaime/salary-management-incubyte/milestones>
@@ -429,16 +478,18 @@ cd frontend && npm run e2e
 ```
 
 Cypress covers the aggregate report, the earnings-ranking report, employee
-management, and payroll summary flows. CI runs all three suites plus the
-production build on every push and pull request
-(`.github/workflows/ci.yml`); Cypress artifacts (screenshots, videos) are
-uploaded on failure.
+management, payroll summary flows, and payroll period management
+(list + editor + settle dialog). CI runs all three suites plus the production
+build on every push and pull request (`.github/workflows/ci.yml`); Cypress
+artifacts (screenshots, videos) are uploaded on failure.
 
 Test coverage is concentrated where it matters most: the adapter layer and
 the domain. Domain tests run in milliseconds with no Spring context. Adapter
 integration tests run against a real SQLite database and exercise the
-specifications, sorting, and mapping logic. See `docs/clean-architecture.md`
-§10 for the strategy.
+specifications, sorting, and mapping logic. The payroll-period feature has
+unit tests on the generator (`BiWeeklySubPeriodGenerator`), the service
+(`previewSubPeriods`, `createBatch`, `close`), and each Angular component.
+See `docs/clean-architecture.md` §10 for the strategy.
 
 ---
 
@@ -486,46 +537,71 @@ role, cadence) as read-only context, ensuring the payment is tied to the
 correct placement. The bottom section captures the amount components (base,
 variable, allowances, employer taxes) and computes the total.
 
+### Pay schedules — list and settle dialog
+
+![Pay schedule list with settle dialog](docs/screenshots/pay-schedules-settle.png)
+
+The pay-schedule list with the settle dialog opened. The dialog shows the
+periods that would be settled (the monthly anchor followed by its nested
+bi-weekly sub-schedules), the warnings the HR Manager is accepting, and the
+irreversibility confirmation checkbox that gates the primary action. The
+pre-flight has already run; the primary action is the only path to the settle
+call.
+
+### Pay schedule editor
+
+![Pay schedule editor](docs/screenshots/pay-schedule-editor.png)
+
+Creating a monthly pay schedule with the bi-weekly cascade. The cascade
+preview shows the sub-periods the server would generate, continuing the
+existing bi-weekly chain. The user can rename each sub-period before the
+operation commits. Editing a period with payroll records pre-locks the date
+and frequency fields and shows an amber notice explaining why.
+
 ---
 
 ## Known Limitations
 
 These are real limitations, not hedges.
 
-1. **Payroll period management is not built.** Periods are seeded only. The
-   HR manager cannot create or close periods through the UI or the API.
-2. **The comparison report is not built.** Only aggregate and ranking
-   reports exist. The `ReportKind.COMPARISON` enum value is a placeholder
-   for the planned report; no code produces it.
-3. **The employee detail page is not built.** The employee list and edit
+1. **The comparison report is not built.** Only aggregate and ranking
+   reports exist. The `ReportKind.COMPARISON` enum value is a placeholder;
+   no code produces it.
+2. **The employee detail page is not built.** The employee list and edit
    form cover the essential flows.
-4. **No authentication or authorization.** The assessment scoped the system
+3. **No authentication or authorization.** The assessment scoped the system
    to a single trusted user.
-5. **`ORIGIN_COUNTRY` group key is unsupported.** `PayrollPeriodAggregate`
+4. **`ORIGIN_COUNTRY` group key is unsupported.** `PayrollPeriodAggregate`
    does not carry the employee's origin country. The endpoint rejects it
    with `VALIDATION_FAILED` / `UNSUPPORTED_GROUP_KEY`.
-6. **Statistics require at most one group key.** Requesting statistics with
+5. **Statistics require at most one group key.** Requesting statistics with
    more than one dimension returns `VALIDATION_FAILED`.
-7. **Groups with fewer than 10 employees have no percentile distribution.**
+6. **Groups with fewer than 10 employees have no percentile distribution.**
    The seed only ranks groups of 10 or more; smaller groups surface as a
    null `positionContext` rather than an error.
-8. **Filters in the aggregate report form use static lists.** The country /
+7. **Filters in the aggregate report form use static lists.** The country /
    department / role list endpoints are paginated, but the report form uses
    the seeded reference lists.
-9. **`NUMERIC(38, 2)` for money in SQLite.** SQLite stores `NUMERIC` as
+8. **`NUMERIC(38, 2)` for money in SQLite.** SQLite stores `NUMERIC` as
    `REAL` (IEEE-754) with about 15 significant digits. This is safe for
    payroll amounts; a system requiring exact arithmetic at extreme
    magnitudes would use `TEXT` storage.
-10. **Excel import is out of scope.** The seed replaces it.
-11. **Payroll execution is out of scope.** No tax computation, gross-to-net,
+9. **Excel import is out of scope.** The seed replaces it.
+10. **Payroll execution is out of scope.** No tax computation, gross-to-net,
     or payslips.
-12. **No historical currency rates.** Conversion uses the current
+11. **No historical currency rates.** Conversion uses the current
     `currency_rates` row, not the rate at payroll time. Changing the
     reference currency would require a full-DB re-conversion of every
     aggregate, ranking, and percentile row.
-13. **No audit trail, backup, or disaster recovery.**
-14. **Not deployed.** The app runs locally as a JAR. A video demo has not
-    been recorded.
+12. **No audit trail, backup, or disaster recovery.**
+13. **Deployed on Render's free tier (no persistent disk).** The application
+    is live at
+    [https://salary-management-incubyte-hl51.onrender.com/reports/aggregate](https://salary-management-incubyte-hl51.onrender.com/reports/aggregate).
+    Because the free tier uses an ephemeral filesystem, the SQLite database
+    (and any data created through the UI) is reset when the service restarts
+    or redeploys. The app automatically reseeds the 10,000 employees and
+    ~70,000 payroll summaries on boot. Attaching a persistent disk on a paid
+    plan would preserve state across restarts.
 
 ---
 

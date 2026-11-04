@@ -128,7 +128,6 @@ export class PayrollPeriodPickerComponent implements ControlValueAccessor {
   readonly filteredPeriods = toSignal(
     combineLatest([this.year$, this.query$, this.initialFilter$]).pipe(
       switchMap(([year, query, filter]) => {
-        console.log({year, query, filter});
         const startDateFilter = year ? `${year}-01-01` : filter.startDate;
         const endDateFilter = year ? `${year}-12-31` : filter.endDate;
         return this.periodService.search({

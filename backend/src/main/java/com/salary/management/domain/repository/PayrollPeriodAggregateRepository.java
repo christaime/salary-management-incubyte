@@ -28,6 +28,14 @@ public interface PayrollPeriodAggregateRepository {
      * @param payrollPeriodId payroll period identifier
      */
     int deleteDraftsByPayrollPeriodId(UUID payrollPeriodId);
+
+    /**
+     * Promotes the DRAFT aggregates of the given period to VALIDATED.
+     *
+     * @param periodId payroll period identifier
+     * @return number of rows updated
+     */
+    int validateDraftsByPeriodId(UUID periodId);
     /**
      * Groups VALIDATED payroll summaries of the given period by the five assignment
      * attributes. Amounts are in each group's currency.

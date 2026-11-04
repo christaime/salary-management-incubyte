@@ -1,6 +1,6 @@
 package com.salary.management.application.dto.ranking;
 
-import com.salary.management.application.dto.PayrollPeriodResponse;
+import com.salary.management.application.dto.period.PayrollPeriodResponse;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.ReportKind;
 import com.salary.management.domain.model.values.ReportWarning;

@@ -9,11 +9,6 @@ A principle that runs through the whole system: when an action cannot proceed,
 the system explains why and offers a way to resolve it. The HR Manager is never
 left with a silent failure.
 
-**Note on what is built.** Section 4 (Payroll Period Management) describes a
-flow that is designed but not built. The milestones list records `M11` as
-0/4 — periods are seeded, not managed. The section is kept here as design
-documentation for the intended behavior.
-
 ---
 
 ## 1. Employee Management
@@ -83,7 +78,7 @@ documentation for the intended behavior.
 
 > **Note:** the system does not have a separate read-only employee detail page.
 > The employee list row opens the edit form directly. The form is both the
-> view and the edit surface. See M9 in the milestone table.
+> view and the edit surface.
 
 **Preconditions**
 - The employee exists
@@ -426,103 +421,235 @@ it stops, explains, and offers the fix.
 
 ## 4. Payroll Period Management
 
-> **Not built.** Milestone `M11` is 0/4. Periods are seeded. The use cases
-> below describe the intended design, kept for reference.
-
-### UC-4.1 — Create a payroll period
-
-**Preconditions**
-- The previous period of the same frequency is closed (if one exists)
-
-**Flow**
-1. HR opens period management and selects "New period".
-2. HR selects a frequency and enters start and end dates.
-3. The system generates a name from the dates and frequency.
-4. The system checks for overlap with a period of the same frequency.
-5. If overlap exists, the system rejects the creation and explains.
-6. If no overlap, the system checks whether the previous period of the same
-   frequency is closed.
-7. If it is not, the system offers to close it first.
-8. If the HR declines, the process stops.
-9. If the HR accepts, the system opens the previous period's close flow
-   (UC-4.4). After it completes, creation resumes.
-10. The period is created with `closed = false`.
-
-**Rules**
-- Frequency is `MONTHLY` or `BI_WEEKLY`.
-- Start date must be before end date.
-- Monthly periods span 28–31 days; bi-weekly periods span exactly 14 days.
-- Name is generated.
-- Periods of the same frequency must not overlap.
-- The previous period of the same frequency must be closed.
-
-**Outcome**
-- A new payroll period exists, ready for payroll recording.
-
----
-
-### UC-4.2 — List payroll periods
+### UC-4.1 — List payroll periods
 
 **Preconditions**
 - None
 
 **Flow**
-1. HR opens period management.
-2. The list shows every period, ordered by start date descending, with status.
+1. HR opens the pay-schedule list at `/payroll-periods`.
+2. The list loads automatically (no initial filter required).
+3. HR optionally sets filters and clicks Search.
+4. The list updates.
+
+**Filters**
+- Keyword (name, contains, case-insensitive)
+- Frequency (`All` / `Monthly` / `Bi-Weekly`)
+- Status (`All` / `Open` / `Closed`)
+- Date range (`From` / `To`)
 
 **Columns**
 - Name
 - Frequency
 - Start date
 - End date
-- Closed (boolean)
+- Settled (Open / Settled)
+- Actions (Edit, Delete, Settle — Settle is only shown for MONTHLY and not-settled rows)
+
+**Rules**
+- The list is server-paginated (default size 20).
+- Sort is fixed on `startDate DESC` — no sorting controls on the columns.
+- Filters and Search are manual: filters are applied only when Search is
+  clicked, or cleared with Reset.
 
 **Outcome**
-- The HR sees every period and its state.
+- A filtered, paginated list of every payroll period.
 
 ---
 
-### UC-4.3 — Edit or delete a payroll period
+### UC-4.2 — Create a payroll period
 
 **Preconditions**
-- The period exists and has no payroll
+- None
 
 **Flow**
-1. HR opens a period and selects "Edit" or "Delete".
-2. If the period has no payroll, the operation proceeds.
-3. If it has payroll, the operation is rejected with an explanation.
+1. HR opens the pay-schedule list and selects "New pay schedule".
+2. A form opens with: name, frequency, start date, end date, and (for MONTHLY
+   only) an "Also create bi-weekly schedules" checkbox.
+3. HR fills in the name, frequency, and start date. The end date is
+   auto-suggested by the form based on the frequency and start date, and can
+   be adjusted by the HR Manager.
+4. If the frequency is MONTHLY and the HR Manager opts in to the cascade:
+    - The system asks the server for the bi-weekly periods that would fall
+      inside the monthly range (a read-only preview, no rows created).
+    - The preview is split into two buckets: sub-periods that would be
+      created, and sub-periods that already exist on the chain.
+    - The HR Manager can rename any sub-period in the "would create" bucket
+      before submitting.
+5. HR submits.
+6. The system validates:
+    - Name is required, 2–100 characters.
+    - Start date is before end date.
+    - MONTHLY spans 28–31 days inclusive; BI_WEEKLY spans exactly 14 days.
+    - Name is unique per frequency.
+    - Date range does not overlap another period of the same frequency.
+7. If valid:
+    - Without cascade: a single `POST /payroll-periods` creates the period.
+    - With cascade: a single `POST /payroll-periods/batch` creates the monthly
+      period and every bi-weekly sub-period the HR Manager accepted, in one
+      call. The batch is **not atomic** — each item commits independently. If
+      some items fail (typically a race against a concurrent create), the
+      editor stays open and shows the failed items, so the HR Manager can
+      retry them.
+8. On full success, the HR Manager is returned to the list.
 
 **Rules**
-- Editing and deleting are allowed only when the period has no payroll.
-- Editing changes name, dates, or frequency, subject to the creation rules.
+- Name is entered by the HR Manager (not generated from the dates).
+- MONTHLY must span 28–31 days inclusive; it is not required to align with a
+  calendar month. (A monthly cycle can close on the 25th, be a 4-4-5 cycle,
+  etc.)
+- BI_WEEKLY must span exactly 14 days.
+- Frequency is `MONTHLY` or `BI_WEEKLY`.
+- Name and date range are unique per frequency; monthly and bi-weekly may
+  overlap each other.
+- The cascade is optional and explicit: the HR Manager opts in, sees the
+  preview, renames sub-periods if they want, and confirms.
+- The cascade's sub-periods continue the existing bi-weekly chain — they do
+  not restart at the monthly's start date. If no bi-weekly precedes the
+  monthly, the chain starts at the monthly's start. Each sub-period spans
+  exactly 14 days; the last one may extend past the monthly's end date.
+- Sub-period names restart at `BW1` per monthly period and use the
+  **monthly's** month and year, not the sub-period's own.
 
 **Outcome**
-- The period is edited or deleted, or the action is rejected.
+- A new payroll period exists. If the cascade was requested, the corresponding
+  bi-weekly periods exist as well. All are open.
 
 ---
 
-### UC-4.4 — Close a payroll period
+### UC-4.3 — Edit a payroll period
 
 **Preconditions**
-- Every payroll summary in the period is `VALIDATED`
+- The period exists
 
 **Flow**
-1. HR opens the period and selects "Close".
-2. The system verifies all summaries are `VALIDATED`. If any are drafts, the
-   close is rejected, the drafts are listed, and the reason is explained.
-3. The system builds the snapshot: aggregates, rankings, percentiles.
-4. The system stores the snapshot with `status = VALIDATED` (replacing any
-   existing DRAFT rows for the period).
-5. The period is marked `closed = true`.
+1. HR selects "Edit" on a row from the list, or navigates to
+   `/payroll-periods/:id/edit`.
+2. The system loads the period.
+3. The form preloads with the period's current name, frequency, start date,
+   end date, and a `referenced` flag indicating whether payroll summaries
+   exist for it.
+4. If the period is **referenced** (has payroll summaries), the form:
+    - shows an amber notice explaining that only the name can be changed,
+    - locks the frequency, start date, and end date fields,
+    - leaves the name field editable.
+5. HR edits the allowed fields.
+6. HR submits.
+7. The system validates and saves. If the period is settled, or the request
+   touches a field it may not, the save is rejected.
 
 **Rules**
-- Close requires all summaries to be validated.
-- Validating the snapshot is the act of closing the period.
-- A closed period accepts no further payroll summaries and no edits.
+- A **settled** period is immutable: name, dates, frequency. No save is
+  allowed.
+- A **referenced** period (payroll summaries exist) may only have its
+  **name** changed. Dates and frequency are frozen. The rule exists because
+  payroll summaries are keyed on the period, and reports assume the period's
+  date range matches the summaries' range — a reschedule would silently move
+  recorded payroll to a different reporting window.
+- An **unreferenced** open period can be fully edited: name, dates,
+  frequency. The same calendar validity and uniqueness rules as UC-4.2
+  apply.
+- A race (someone references the period between the load and the save) is
+  handled by the same rule the frontend uses to pre-lock: the backend
+  re-checks on save and returns the name-only constraint, which the editor
+  surfaces.
 
 **Outcome**
-- The period is closed. Its snapshot is stored with `status = VALIDATED` and
-  is immutable.
+- The period is updated within the allowed constraints.
+
+---
+
+### UC-4.4 — Delete a payroll period
+
+**Preconditions**
+- The period exists
+
+**Flow**
+1. HR selects "Delete" on a row from the list.
+2. A confirmation dialog opens.
+3. HR confirms.
+4. The system validates: the period must be neither settled nor referenced.
+5. If valid, the period is deleted.
+6. If not, the deletion is rejected with an explanation:
+    - `PERIOD_CLOSED` → settled periods cannot be deleted.
+    - `PERIOD_REFERENCED` → periods with payroll summaries cannot be deleted.
+
+**Rules**
+- Deletion is rejected if the period is settled.
+- Deletion is rejected if the period has any payroll summary, in any status.
+- The batch endpoint (`DELETE /payroll-periods/batch`) exists but is not
+  exposed from the list UI — the HR Manager deletes periods one by one. A
+  "delete a monthly together with its sub-periods" action is a candidate
+  follow-up, not shipped.
+
+**Outcome**
+- The period no longer exists. Its row and any state attached to it are gone.
+
+---
+
+### UC-4.5 — Settle a payroll period
+
+Settling is a two-step flow: a read-only pre-flight, then the settle call.
+
+**Preconditions**
+- The period exists, is MONTHLY, and is not already settled
+
+**Flow**
+1. HR selects "Settle" on a monthly row from the list (or a settle action
+   from the editor).
+2. A dialog opens and immediately runs the **pre-flight** (`check-close`).
+3. If the pre-flight returns **blockers**, the dialog switches to a
+   "Settlement blocked" state:
+    - blockers are listed (typically un-validated payroll summaries),
+    - the primary action becomes a plain **Close** button (no retry inside the
+      dialog),
+    - HR must resolve the blockers (via the payroll list) and re-run the flow.
+4. If the pre-flight succeeds (no blockers), the dialog shows:
+    - the **schedules that would be settled** — the monthly anchor first,
+      visually emphasised, followed by its nested bi-weekly sub-periods,
+    - any **warnings** the HR Manager would be accepting (typically missing
+      payroll summaries for employees who should have had one), in a scrollable
+      panel,
+    - an irreversibility checkbox the HR Manager must tick before the primary
+      action is enabled.
+5. If there are no warnings, the primary action is labelled **"Settle
+   payroll"**. If there are warnings, it is labelled **"Accept and settle"**
+   — the label change is the HR Manager's consent to the warnings.
+6. HR clicks the primary action.
+7. The system runs the **settle** (`close`) call:
+    - re-runs the coverage checks,
+    - builds the aggregate, ranking, and percentile snapshots for the monthly
+      period,
+    - promotes them from `DRAFT` to `VALIDATED`,
+    - flips the `closed` flag on the monthly period and on every bi-weekly
+      whose start date falls inside the monthly range.
+8. If the settle succeeds, the dialog switches to a "Done" state showing the
+   settled schedules, and the primary action becomes a plain **Close** button
+   (the confirm is permanently disabled).
+9. If the settle fails with a race condition (a blocker appeared between
+   pre-flight and settle), the dialog returns to the **blocked** state with
+   the new blockers. The HR Manager dismisses and re-runs the flow from step 1.
+10. If the settle fails for any other reason (network, server), the dialog
+    shows an error and offers a Retry that re-runs the pre-flight.
+
+**Rules**
+- Settling is atomic. Nothing is written unless every check passes and the
+  transaction commits.
+- Settling closes the monthly period **and** every bi-weekly period whose
+  start date falls inside the monthly range, in one transaction.
+- The irreversibility checkbox gates the primary action. Without it, the
+  primary action is disabled.
+- Warnings do not block the close — the HR Manager accepts them by proceeding
+  through the "Accept and settle" label.
+- Blockers block the close — the HR Manager cannot proceed until they are
+  resolved.
+- The settle call is the **only** writer of `VALIDATED` snapshot rows. No
+  other code path promotes a snapshot.
+- A settled period cannot be settled again.
+
+**Outcome**
+- The period and its nested bi-weeklies are settled. Their snapshots are
+  `VALIDATED` and immutable. The period appears as "Settled" in the list.
 
 ---
 
@@ -613,7 +740,7 @@ it stops, explains, and offers the fix.
 ### UC-5.3 — Generate a comparison report
 
 > **Not built.** The `ReportKind.COMPARISON` enum value exists as a
-> placeholder, but no code produces it. `docs/planning.md` records the reason.
+> placeholder, but no code produces it.
 
 ---
 
@@ -633,7 +760,8 @@ it stops, explains, and offers the fix.
 - Blockers prevent the report. Warnings do not.
 - Each blocker or warning states the issue and how the system handled it.
 - The conditions currently classified as blocker vs warning are listed in
-  `docs/adr/004-enforce-entry-warn-reporting.md`.
+  `docs/adr/004-enforce-entry-warn-reporting.md`. The settle flow reuses the
+  same vocabulary — what blocks a report blocks a close.
 
 **Outcome**
 - The HR knows whether the report is reliable, and what to fix if it is not.
@@ -666,5 +794,5 @@ Corrections are out of scope.
 ### Snapshot lifecycle
 
 Reports over open periods rebuild the snapshot before reading; reports over
-closed periods read the frozen snapshot. See `docs/architecture.md` for the
-full design.
+closed periods read the frozen snapshot. The settle flow is the only writer
+of `VALIDATED` snapshot rows. See `docs/architecture.md` for the full design.

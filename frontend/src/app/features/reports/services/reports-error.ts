@@ -1,10 +1,10 @@
-
 export type ReportWarningCode =
   | 'PERIOD_CLOSED'
   | 'MISSING_PAYROLL_SUMMARY'
   | 'UNVALIDATED_PAYROLL_SUMMARY'
   | 'MISSING_FX_RATE'
-  | 'MISSING_REFERENCE_CURRENCY';
+  | 'MISSING_REFERENCE_CURRENCY'
+  | 'NOT_MONTHLY_PERIOD';
 
 export interface ConcernedEmployee {
   id: string;
@@ -40,12 +40,17 @@ export interface PeriodClosedWarning extends BaseReportWarning {
   code: 'PERIOD_CLOSED';
 }
 
+export interface NotMonthlyPeriodWarning extends BaseReportWarning {
+  code: 'NOT_MONTHLY_PERIOD';
+}
+
 // --- The Union ---
 export type ReportWarning =
   | EmployeeWarning
   | MissingCurrencyRateWarning
   | MissingReferenceCurrencyWarning
-  | PeriodClosedWarning;
+  | PeriodClosedWarning
+  | NotMonthlyPeriodWarning;
 
 export interface ReportsError {
   code: string;

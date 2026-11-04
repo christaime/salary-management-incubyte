@@ -9,7 +9,7 @@ import com.salary.management.application.dto.DateRange;
 import com.salary.management.application.dto.aggregate.StatisticsDto;
 import com.salary.management.application.dto.aggregate.StatisticsPerFrequency;
 import com.salary.management.application.exception.ReportBlockedException;
-import com.salary.management.common.validation.DomainValidationException;
+import com.salary.management.common.exception.DomainValidationException;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.enums.GroupKey;

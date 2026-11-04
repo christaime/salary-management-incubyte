@@ -1,0 +1,161 @@
+<div
+  class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+  data-testid="payroll-period-table"
+>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse">
+      <thead>
+      <tr class="bg-slate-50 h-10 text-slate-500 font-mono uppercase tracking-wider text-xs">
+        <th class="px-3 py-2.5">Name</th>
+        <th class="px-3 py-2.5">Frequency</th>
+        <th class="px-3 py-2.5">Start</th>
+        <th class="px-3 py-2.5">End</th>
+        <th class="px-3 py-2.5">Settled</th>
+        <th class="px-3 py-2.5 text-right">Actions</th>
+      </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 text-sm">
+      @if (loading()) {
+      <tr data-testid="table-loading">
+        <td colspan="6" class="px-4 py-12 text-center text-slate-400 text-sm">
+          Loading pay schedules…
+        </td>
+      </tr>
+      }
+
+      @if (!loading() && rows().length === 0) {
+      <tr data-testid="table-empty">
+        <td colspan="6" class="px-4 py-12 text-center text-slate-400 text-sm">
+          No pay schedules match the current filters.
+        </td>
+      </tr>
+      }
+
+      @if (!loading()) {
+      @for (row of rows(); track row.id) {
+      <tr
+        [attr.data-testid]="'payroll-period-row-' + row.id"
+        [attr.data-key]="row.id"
+        [attr.data-closed]="row.closed"
+        class="hover:bg-slate-50/70 transition-colors"
+      >
+        <!-- Name -->
+        <td class="px-3 py-3">
+                <span
+                  [attr.data-testid]="'row-name-' + row.id"
+                  class="text-sm font-semibold text-slate-900"
+                >
+                  {{ row.name }}
+                </span>
+        </td>
+
+        <!-- Frequency -->
+        <td class="px-3 py-3 whitespace-nowrap">
+                <span
+                  [attr.data-testid]="'row-frequency-' + row.id"
+                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-mono text-[10px] uppercase tracking-wider font-semibold"
+                  [ngClass]="{
+                    'bg-slate-900 text-white': row.frequency === 'MONTHLY',
+                    'bg-slate-100 text-slate-700': row.frequency === 'BI_WEEKLY'
+                  }"
+                >
+                  {{ frequencyLabel(row.frequency) }}
+                </span>
+        </td>
+
+        <!-- Start -->
+        <td class="px-3 py-3 whitespace-nowrap">
+                <span
+                  [attr.data-testid]="'row-start-' + row.id"
+                  class="font-mono text-xs text-slate-700"
+                >
+                  {{ row.startDate }}
+                </span>
+        </td>
+
+        <!-- End -->
+        <td class="px-3 py-3 whitespace-nowrap">
+                <span
+                  [attr.data-testid]="'row-end-' + row.id"
+                  class="font-mono text-xs text-slate-700"
+                >
+                  {{ row.endDate }}
+                </span>
+        </td>
+
+        <!-- Settled -->
+        <td class="px-3 py-3 whitespace-nowrap">
+          @if (row.closed) {
+          <span
+            [attr.data-testid]="'row-settled-' + row.id"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10px] uppercase tracking-wider font-semibold bg-emerald-50 text-emerald-700"
+          >
+                    <mat-icon class="!w-3 !h-3 !text-[12px]">check</mat-icon>
+                    Settled
+                  </span>
+          } @else {
+          <span
+            [attr.data-testid]="'row-open-' + row.id"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10px] uppercase tracking-wider font-semibold bg-blue-50 text-blue-700"
+          >
+                    Open
+                  </span>
+          }
+        </td>
+
+        <!-- Actions -->
+        <td class="px-3 py-3 text-right whitespace-nowrap">
+          <div class="flex items-center justify-end gap-1">
+            <!-- Edit -->
+            <button
+              [attr.data-testid]="'row-edit-' + row.id"
+              type="button"
+              class="p-2 rounded text-slate-500 transition-colors"
+              [ngClass]="{
+                      'hover:bg-slate-100 hover:text-slate-900': !row.closed,
+                      'opacity-40 cursor-not-allowed': row.closed
+                    }"
+              [disabled]="row.closed"
+              [matTooltip]="row.closed ? 'Settled pay schedules cannot be edited' : 'Edit pay schedule'"
+              (click)="editClick.emit(row)"
+            >
+              <mat-icon class="!w-4 !h-4 !text-[16px]">edit</mat-icon>
+            </button>
+
+            <!-- Delete -->
+            <button
+              [attr.data-testid]="'row-delete-' + row.id"
+              type="button"
+              class="p-2 rounded transition-colors"
+              [ngClass]="{
+                      'text-red-500 hover:bg-red-50 hover:text-red-700': !row.closed,
+                      'text-slate-400 opacity-40 cursor-not-allowed': row.closed
+                    }"
+              [disabled]="row.closed"
+              [matTooltip]="row.closed ? 'Settled pay schedules cannot be deleted' : 'Delete pay schedule'"
+              (click)="deleteClick.emit(row)"
+            >
+              <mat-icon class="!w-4 !h-4 !text-[16px]">delete</mat-icon>
+            </button>
+
+            <!-- Settle — monthly and not settled only -->
+            @if (row.frequency === 'MONTHLY' && !row.closed) {
+            <button
+              [attr.data-testid]="'row-settle-' + row.id"
+              type="button"
+              class="p-2 rounded text-emerald-600 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+              matTooltip="Settle payroll"
+              (click)="settleClick.emit(row)"
+            >
+              <mat-icon class="!w-4 !h-4 !text-[16px]">lock_open</mat-icon>
+            </button>
+            }
+          </div>
+        </td>
+      </tr>
+      }
+      }
+      </tbody>
+    </table>
+  </div>
+</div>

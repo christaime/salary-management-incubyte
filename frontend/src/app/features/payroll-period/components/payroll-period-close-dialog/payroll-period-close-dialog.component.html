@@ -1,0 +1,480 @@
+<div
+  data-testid="payroll-period-close-dialog"
+  class="p-6 flex flex-col gap-5 w-full max-w-[1100px]"
+>
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-3">
+    <div class="flex items-start gap-3 min-w-0">
+      <div class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-slate-900 text-white">
+        <mat-icon class="!w-5 !h-5 !text-[20px]">
+          {{ phase() === 'done' ? 'done_all' : 'lock_open' }}
+        </mat-icon>
+      </div>
+      <div class="flex flex-col gap-1 min-w-0">
+        <h2
+          data-testid="close-dialog-title"
+          class="text-base font-semibold text-slate-900 m-0"
+        >
+          @if (phase() === 'done') {
+          Payroll settled — {{ data.name }}
+          } @else {
+          Settle payroll — {{ data.name }}
+          }
+        </h2>
+        @if (phase() !== 'done') {
+        <p class="text-sm text-slate-600 m-0">
+          Settling closes this monthly pay schedule and its bi-weekly
+          sub-schedules. This cannot be undone.
+        </p>
+        } @else {
+        <p class="text-sm text-slate-600 m-0">
+          The pay schedule and its sub-schedules are now settled.
+        </p>
+        }
+      </div>
+    </div>
+    <button
+      type="button"
+      data-testid="close-dialog-x"
+      class="p-2 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
+      [disabled]="phase() === 'settling'"
+      (click)="onCancel()"
+    >
+      <mat-icon class="!w-4 !h-4 !text-[16px]">close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Body -->
+  @switch (phase()) {
+  @case ('loading') {
+  <div
+    data-testid="close-dialog-loading"
+    class="flex items-center gap-3 text-sm text-slate-600 py-6"
+    role="status"
+  >
+    <mat-spinner diameter="20" />
+    <span>Running settlement checks…</span>
+  </div>
+  }
+
+  @case ('blocked') {
+  <div class="flex flex-col gap-4">
+    <!-- Callout -->
+    <div
+      data-testid="close-dialog-blocked"
+      class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+    >
+      <div class="font-semibold mb-1">Settlement blocked</div>
+      <div>Resolve the issues below before this period can be settled.</div>
+    </div>
+
+    <!-- Blockers -->
+    <div class="flex flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <span class="w-1.5 h-3.5 rounded bg-red-500"></span>
+        <h3 class="text-sm font-semibold text-slate-900 m-0">Blockers</h3>
+      </div>
+      <div
+        data-testid="close-dialog-blocker-list"
+        class="rounded-xl border border-red-200 bg-red-50/50 p-3 flex flex-col gap-2 max-h-72 overflow-y-auto"
+      >
+        @for (b of blockers(); track b.code + b.message) {
+        <div
+          [attr.data-testid]="'blocker-message-' + b.code"
+          class="rounded-lg bg-white border border-red-100 p-2 flex flex-col gap-1 text-sm text-slate-900"
+        >
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
+            <span class="font-semibold">{{ b.message }}</span>
+          </div>
+
+          @if (isEmployeeWarning(b)) {
+          <div class="mt-1 text-xs text-red-700 flex flex-col gap-1.5 pl-3.5">
+            @if (employeeCount(b) > 0) {
+            <div>
+                        <span
+                          [attr.data-testid]="'blocker-count-' + b.code"
+                          [attr.data-value]="employeeCount(b)"
+                          class="font-semibold text-red-900"
+                        >{{ employeeCount(b) | number }}</span>
+              total employee(s) affected:
+            </div>
+            }
+            @if (employees(b).length > 0) {
+            <div class="flex flex-wrap gap-1.5">
+              @for (emp of employees(b); track emp.id ?? emp.matricule) {
+              <span
+                [attr.data-testid]="'blocker-employee-' + $any(emp).id"
+                [attr.data-value]="emp.matricule"
+                class="inline-flex items-center px-2 py-0.5 rounded bg-red-100/80 text-red-900 font-mono text-[11px] border border-red-200"
+              >
+                            {{ emp.matricule }} — {{ emp.name }}
+                          </span>
+              }
+              @if (moreCount(b) > 0) {
+              <span
+                [attr.data-testid]="'blocker-more-' + b.code"
+                [attr.data-value]="moreCount(b)"
+                class="inline-flex items-center px-2 py-0.5 text-red-700 text-[11px] italic"
+              >
+                            + {{ moreCount(b) | number }} more not shown
+                          </span>
+              }
+            </div>
+            }
+          </div>
+          }
+
+          @if (currency(b); as c) {
+          <div class="mt-1 text-xs text-red-700 pl-3.5">
+            Currency:
+            <span class="font-mono font-bold bg-red-100 px-1.5 py-0.5 rounded border border-red-200">{{ c }}</span>
+          </div>
+          }
+        </div>
+        }
+      </div>
+    </div>
+
+    <!-- Also-detected warnings (informational) -->
+    @if (warnings().length > 0) {
+    <div class="flex flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <span class="w-1.5 h-3.5 rounded bg-amber-500"></span>
+        <h3 class="text-sm font-semibold text-slate-900 m-0">
+          Also detected (informational)
+        </h3>
+      </div>
+      <div
+        data-testid="close-dialog-blocked-warnings"
+        class="rounded-xl border border-amber-200 bg-amber-50/50 p-3 flex flex-col gap-2 max-h-56 overflow-y-auto"
+      >
+        @for (w of warnings(); track w.code + w.message) {
+        <div
+          [attr.data-testid]="'warn-message-' + w.code"
+          class="rounded-lg bg-white border border-amber-100 p-2 flex flex-col gap-1 text-sm text-slate-900"
+        >
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+            <span class="font-semibold">{{ w.message }}</span>
+          </div>
+
+          @if (isEmployeeWarning(w)) {
+          <div class="mt-1 text-xs text-amber-700 flex flex-col gap-1.5 pl-3.5">
+            @if (employeeCount(w) > 0) {
+            <div>
+                          <span
+                            [attr.data-testid]="'warn-count-' + w.code"
+                            [attr.data-value]="employeeCount(w)"
+                            class="font-semibold text-amber-900"
+                          >{{ employeeCount(w) | number }}</span>
+              total employee(s) affected:
+            </div>
+            }
+            @if (employees(w).length > 0) {
+            <div class="flex flex-wrap gap-1.5">
+              @for (emp of employees(w); track emp.id ?? emp.matricule) {
+              <span
+                [attr.data-testid]="'warn-employee-' + $any(emp).id"
+                [attr.data-value]="emp.matricule"
+                class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-mono text-[11px] border border-amber-200"
+              >
+                              {{ emp.matricule }} — {{ emp.name }}
+                            </span>
+              }
+              @if (moreCount(w) > 0) {
+              <span class="inline-flex items-center px-1.5 py-0.5 text-amber-700 text-[11px] italic">
+                              + {{ moreCount(w) | number }} more
+                            </span>
+              }
+            </div>
+            }
+          </div>
+          }
+
+          @if (currency(w); as c) {
+          <div class="mt-1 text-xs text-amber-700 pl-3.5">
+            Currency:
+            <span class="font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{{ c }}</span>
+          </div>
+          }
+        </div>
+        }
+      </div>
+    </div>
+    }
+  </div>
+  }
+
+  @case ('confirm') {
+  <div class="flex flex-col gap-4">
+    <!-- Schedules to settle -->
+    <div class="flex flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <span class="w-1.5 h-3.5 rounded bg-slate-900"></span>
+        <h3 class="text-sm font-semibold text-slate-900 m-0">
+          Pay schedules that will be settled
+        </h3>
+      </div>
+      <div
+        data-testid="close-dialog-periods"
+        class="rounded-xl border border-slate-200 bg-slate-50/60 p-2 flex flex-col gap-1"
+      >
+        @if (monthly(); as m) {
+        <div
+          [attr.data-testid]="'close-period-' + m.id"
+          class="flex items-center gap-3 p-2 bg-white rounded-lg shadow-sm"
+        >
+          <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
+            <mat-icon class="!w-4 !h-4 !text-[16px]">calendar_month</mat-icon>
+          </div>
+          <div class="flex flex-col min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-900">{{ m.name }}</span>
+              <span class="px-1.5 py-0.5 rounded bg-slate-900 text-white font-mono text-[10px] uppercase tracking-wider">
+                      Monthly
+                    </span>
+            </div>
+            <span class="font-mono text-[11px] text-slate-500">
+                    {{ m.startDate }} → {{ m.endDate }}
+                  </span>
+          </div>
+        </div>
+        }
+        @for (c of biWeeklies(); track c.id) {
+        <div
+          [attr.data-testid]="'close-period-' + c.id"
+          class="flex items-center gap-3 p-2 pl-10 bg-white/80 rounded-lg"
+        >
+          <div class="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-slate-500">
+            <mat-icon class="!w-3 !h-3 !text-[12px]">subdirectory_arrow_right</mat-icon>
+          </div>
+          <div class="flex flex-col min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-slate-800">{{ c.name }}</span>
+              <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px] uppercase tracking-wider">
+                      {{ frequencyLabel(c.frequency) }}
+                    </span>
+            </div>
+            <span class="font-mono text-[11px] text-slate-500">
+                    {{ c.startDate }} → {{ c.endDate }}
+                  </span>
+          </div>
+        </div>
+        }
+        @if (!monthly() && biWeeklies().length === 0) {
+        <div class="text-sm text-slate-500 p-2">No schedules will be affected.</div>
+        }
+      </div>
+    </div>
+
+    <!-- Warnings to accept -->
+    @if (hasWarnings()) {
+    <div class="flex flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <span class="w-1.5 h-3.5 rounded bg-amber-500"></span>
+        <h3 class="text-sm font-semibold text-slate-900 m-0">Warnings to accept</h3>
+      </div>
+      <div
+        data-testid="close-dialog-warnings"
+        class="rounded-xl border border-amber-200 bg-amber-50/60 p-3 flex flex-col gap-2 max-h-56 overflow-y-auto"
+      >
+        @for (w of warnings(); track w.code + w.message) {
+        <div
+          [attr.data-testid]="'warn-message-' + w.code"
+          class="rounded-lg bg-white border border-amber-100 p-2 flex flex-col gap-1 text-sm text-slate-900"
+        >
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+            <span class="font-semibold">{{ w.message }}</span>
+          </div>
+
+          @if (isEmployeeWarning(w)) {
+          <div class="mt-1 text-xs text-amber-700 flex flex-col gap-1.5 pl-3.5">
+            @if (employeeCount(w) > 0) {
+            <div>
+                          <span
+                            [attr.data-testid]="'warn-count-' + w.code"
+                            [attr.data-value]="employeeCount(w)"
+                            class="font-semibold text-amber-900"
+                          >{{ employeeCount(w) | number }}</span>
+              total employee(s) affected:
+            </div>
+            }
+            @if (employees(w).length > 0) {
+            <div class="flex flex-wrap gap-1.5">
+              @for (emp of employees(w); track emp.id ?? emp.matricule) {
+              <span
+                [attr.data-testid]="'warn-employee-' + $any(emp).id"
+                [attr.data-value]="emp.matricule"
+                class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-mono text-[11px] border border-amber-200"
+              >
+                              {{ emp.matricule }}
+                            </span>
+              }
+              @if (moreCount(w) > 0) {
+              <span class="inline-flex items-center px-1.5 py-0.5 text-amber-700 text-[11px] italic">
+                              + {{ moreCount(w) | number }} more
+                            </span>
+              }
+            </div>
+            }
+          </div>
+          }
+
+          @if (currency(w); as c) {
+          <div class="mt-1 text-xs text-amber-700 pl-3.5">
+            Currency:
+            <span class="font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">{{ c }}</span>
+          </div>
+          }
+        </div>
+        }
+      </div>
+    </div>
+    }
+
+    <!-- Irreversibility checkbox -->
+    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <mat-checkbox
+        data-testid="close-dialog-accept"
+        [checked]="acceptClose()"
+        (change)="onAcceptChange($event.checked)"
+      >
+        I understand this action permanently settles
+        <strong class="text-slate-900">{{ data.name }}</strong>
+        and its bi-weekly sub-schedules. Settled schedules cannot be
+        edited or deleted.
+      </mat-checkbox>
+    </div>
+  </div>
+  }
+
+  @case ('settling') {
+  <div
+    data-testid="close-dialog-settling"
+    class="flex items-center gap-3 text-sm text-slate-600 py-6"
+    role="status"
+  >
+    <mat-spinner diameter="20" />
+    <span>Settling payroll…</span>
+  </div>
+  }
+
+  @case ('done') {
+  <div
+    data-testid="close-dialog-done"
+    class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 flex items-start gap-2"
+  >
+    <mat-icon class="!w-4 !h-4 !text-[16px] shrink-0 text-emerald-600">check_circle</mat-icon>
+    <span>Payroll has been settled. The schedules below are now closed.</span>
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <div class="flex items-center gap-2">
+      <span class="w-1.5 h-3.5 rounded bg-emerald-600"></span>
+      <h3 class="text-sm font-semibold text-slate-900 m-0">Settled schedules</h3>
+    </div>
+    <div
+      data-testid="close-dialog-settled-periods"
+      class="rounded-xl border border-slate-200 bg-slate-50/60 p-2 flex flex-col gap-1"
+    >
+      @if (monthly(); as m) {
+      <div
+        [attr.data-testid]="'settled-period-' + m.id"
+        [attr.data-closed]="m.closed"
+        class="flex items-center gap-3 p-2 bg-white rounded-lg shadow-sm"
+      >
+        <div class="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-700">
+          <mat-icon class="!w-4 !h-4 !text-[16px]">check</mat-icon>
+        </div>
+        <div class="flex flex-col min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-slate-900">{{ m.name }}</span>
+            <span class="px-1.5 py-0.5 rounded bg-slate-900 text-white font-mono text-[10px] uppercase tracking-wider">
+                    Monthly
+                  </span>
+            <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono text-[10px] uppercase tracking-wider">
+                    Settled
+                  </span>
+          </div>
+          <span class="font-mono text-[11px] text-slate-500">
+                  {{ m.startDate }} → {{ m.endDate }}
+                </span>
+        </div>
+      </div>
+      }
+      @for (c of biWeeklies(); track c.id) {
+      <div
+        [attr.data-testid]="'settled-period-' + c.id"
+        [attr.data-closed]="c.closed"
+        class="flex items-center gap-3 p-2 pl-10 bg-white/80 rounded-lg"
+      >
+        <div class="w-6 h-6 rounded bg-emerald-50 flex items-center justify-center text-emerald-700">
+          <mat-icon class="!w-3 !h-3 !text-[12px]">check</mat-icon>
+        </div>
+        <div class="flex flex-col min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-slate-800">{{ c.name }}</span>
+            <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px] uppercase tracking-wider">
+                    {{ frequencyLabel(c.frequency) }}
+                  </span>
+            <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono text-[10px] uppercase tracking-wider">
+                    Settled
+                  </span>
+          </div>
+          <span class="font-mono text-[11px] text-slate-500">
+                  {{ c.startDate }} → {{ c.endDate }}
+                </span>
+        </div>
+      </div>
+      }
+    </div>
+  </div>
+  }
+
+  @case ('error') {
+  <div
+    data-testid="close-dialog-error"
+    class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+  >
+    <div class="font-semibold mb-1">Settlement error</div>
+    <div>{{ errorMessage() }}</div>
+  </div>
+  }
+  }
+
+  <!-- Footer -->
+  <div class="flex items-center justify-end gap-2 pt-1">
+    @if (phase() === 'blocked' || phase() === 'error' || phase() === 'done') {
+    <button data-testid="close-dialog-close" type="button" mat-stroked-button (click)="onCancel()">
+      Close
+    </button>
+    }
+    @if (phase() === 'error') {
+    <button data-testid="close-dialog-retry-preflight" type="button" mat-flat-button color="primary" (click)="onRetryPreflight()">
+      Retry
+    </button>
+    }
+    @if (phase() === 'loading' || phase() === 'settling') {
+    <button data-testid="close-dialog-cancel" type="button" mat-stroked-button [disabled]="true">
+      Cancel
+    </button>
+    }
+    @if (phase() === 'confirm') {
+    <button data-testid="close-dialog-cancel" type="button" mat-stroked-button (click)="onCancel()">
+      Cancel
+    </button>
+    <button
+      data-testid="close-dialog-settle"
+      type="button"
+      mat-flat-button
+      color="primary"
+      [disabled]="!canSettle()"
+      (click)="onSettle()"
+    >
+      {{ primaryLabel() }}
+    </button>
+    }
+  </div>
+</div>

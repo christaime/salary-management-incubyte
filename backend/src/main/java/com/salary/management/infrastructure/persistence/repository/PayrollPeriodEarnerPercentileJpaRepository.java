@@ -121,4 +121,19 @@ public interface PayrollPeriodEarnerPercentileJpaRepository
             @Param("departmentId") UUID departmentId,
             @Param("roleId") UUID roleId,
             @Param("employmentType") String employmentType);
+
+    /**
+     * Promotes every DRAFT percentile of the given period to VALIDATED.
+     *
+     * @param payrollPeriodId payroll period identifier
+     * @return number of rows updated
+     */
+    @Modifying
+    @Query("""
+            UPDATE PayrollPeriodEarnerPercentileEntity p
+            SET p.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.VALIDATED
+            WHERE p.payrollPeriodId = :payrollPeriodId
+              AND p.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.DRAFT
+            """)
+    int validateDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
 }

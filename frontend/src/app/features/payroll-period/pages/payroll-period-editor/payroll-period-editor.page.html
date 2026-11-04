@@ -1,0 +1,126 @@
+<div
+  class="max-w-[1200px] mx-auto flex flex-col gap-4 p-4 md:px-8"
+  data-testid="payroll-period-editor-page"
+>
+  <!-- Header -->
+  <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
+    <div class="flex flex-col gap-1">
+      <h1
+        data-testid="payroll-period-editor-title"
+        class="text-xl font-semibold text-slate-900 m-0"
+      >
+        {{ mode() === 'edit' ? 'Edit pay schedule' : 'New pay schedule' }}
+      </h1>
+      <p class="text-sm text-slate-500 m-0 max-w-3xl">
+        Configure the period boundaries and, for a monthly schedule, optionally
+        generate its bi-weekly sub-schedules in one batch.
+      </p>
+    </div>
+  </header>
+
+  <!-- Name-only notice (amber, dismissible) — a business rule, not an error -->
+  @if (nameOnlyNotice() && !nameOnlyNoticeDismissed()) {
+  <div
+    data-testid="payroll-period-editor-name-only-notice"
+    class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 flex items-start gap-2"
+    role="status"
+  >
+    <mat-icon class="!w-4 !h-4 !text-[16px] shrink-0 text-amber-600">info</mat-icon>
+    <span class="flex-1">{{ nameOnlyNotice() }}</span>
+    <button
+      type="button"
+      data-testid="payroll-period-editor-name-only-notice-dismiss"
+      class="p-1 rounded hover:bg-amber-100 text-amber-700 hover:text-amber-900 transition-colors"
+      aria-label="Dismiss notice"
+      (click)="onDismissNameOnlyNotice()"
+    >
+      <mat-icon class="!w-4 !h-4 !text-[16px]">close</mat-icon>
+    </button>
+  </div>
+  }
+
+  <!-- Form-level error banner (red) — actual errors during save / load -->
+  @if (formError()) {
+  <div
+    data-testid="payroll-period-editor-error"
+    class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+  >
+    {{ formError() }}
+  </div>
+  }
+
+  <!-- Partial batch result banner -->
+  @if (failedSummaries().length > 0) {
+  <div
+    data-testid="payroll-period-editor-partial"
+    class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 flex flex-col gap-2"
+  >
+    <div class="font-semibold">
+      {{ createdCount() }} created, {{ failedSummaries().length }} failed
+    </div>
+    <ul class="list-disc list-inside space-y-0.5">
+      @for (f of failedSummaries(); track f.label + f.startDate) {
+      <li>
+            <span class="font-mono text-[11px] text-amber-800">
+              {{ f.label }} · {{ f.startDate }} → {{ f.endDate }}
+            </span>
+        — {{ f.message }}
+      </li>
+      }
+    </ul>
+  </div>
+  }
+
+  <!-- Loading state -->
+  @if (state() === 'loading') {
+  <div
+    data-testid="payroll-period-editor-loading"
+    class="flex items-center gap-3 text-sm text-slate-600 py-16 justify-center border border-dashed border-slate-200 rounded-xl"
+    role="status"
+  >
+    <mat-icon class="animate-spin !w-5 !h-5 !text-[20px] text-slate-400">progress_activity</mat-icon>
+    <span>Loading pay schedule…</span>
+  </div>
+  }
+
+  <!-- Not found (period doesn't exist) -->
+  @if (state() === 'not-found') {
+  <div
+    data-testid="payroll-period-editor-not-found"
+    class="text-center py-16 text-slate-500 text-sm border border-dashed border-slate-200 rounded-xl flex flex-col items-center gap-3"
+  >
+    <span>This pay schedule does not exist or was removed.</span>
+    <button type="button" mat-flat-button color="primary" (click)="onCancel()">
+      Back to list
+    </button>
+  </div>
+  }
+
+  <!-- Load error (network / server / other) -->
+  @if (state() === 'error') {
+  <div
+    data-testid="payroll-period-editor-load-error"
+    class="text-center py-16 text-slate-500 text-sm border border-dashed border-slate-200 rounded-xl flex flex-col items-center gap-3"
+  >
+    <span>The pay schedule could not be loaded. Please try again.</span>
+    <button type="button" mat-flat-button color="primary" (click)="onCancel()">
+      Back to list
+    </button>
+  </div>
+  }
+
+  <!-- Form (ready or saving) -->
+  @if (state() === 'ready' || state() === 'saving') {
+  <app-payroll-period-form
+    [form]="form"
+    [mode]="mode()"
+    [saving]="state() === 'saving'"
+    [previewRows]="previewRows()"
+    [previewLoading]="previewLoading()"
+    [previewError]="previewError()"
+    [nameOnly]="nameOnly()"
+    (submit)="onSubmit()"
+    (cancel)="onCancel()"
+  />
+  }
+</div>

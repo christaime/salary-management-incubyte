@@ -1,7 +1,6 @@
 package com.salary.management.infrastructure.persistence.adapter;
 
 import com.salary.management.common.pagination.DataPage;
-import com.salary.management.common.validation.DomainValidationException;
 import com.salary.management.domain.model.CurrencyRate;
 import com.salary.management.domain.repository.CurrencyRateRepository;
 import com.salary.management.domain.repository.criteria.CurrencyRateCriteria;
@@ -12,7 +11,6 @@ import com.salary.management.infrastructure.persistence.mapper.CurrencyRatePersi
 import com.salary.management.infrastructure.persistence.repository.CurrencyRateJpaRepository;
 import com.salary.management.infrastructure.persistence.specification.CurrencyRateSpecification;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;

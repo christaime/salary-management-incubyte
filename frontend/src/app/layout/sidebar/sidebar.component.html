@@ -65,6 +65,27 @@
       }
     </a>
 
+    <!-- Pay Schedules (Payroll Periods) -->
+    <a
+      data-testid="nav-payroll-periods"
+      class="nav-item"
+      routerLink="/payroll-periods"
+      routerLinkActive="active"
+      title="Pay Schedules"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M3 10h18" />
+        <path d="M8 2v4" />
+        <path d="M16 2v4" />
+        <circle cx="12" cy="15" r="1.5" fill="currentColor" stroke="none" />
+      </svg>
+      @if (!sidebarService.isCollapsed()) {
+      <span class="nav-label">Pay Schedules</span>
+      }
+    </a>
+
     <!-- Payroll Summary -->
     <a
       data-testid="nav-payroll-summaries"
@@ -78,7 +99,7 @@
         <path d="M7 8h10M7 12h10M7 16h6"/>
       </svg>
       @if (!sidebarService.isCollapsed()) {
-      <span class="nav-label">Payroll Summaries</span>
+      <span class="nav-label">Payroll Registers</span>
       }
     </a>
     <!-- Payroll Cost Aggregate Report -->
@@ -94,7 +115,7 @@
         <path d="M7 14l3-3 4 4 5-6"/>
       </svg>
       @if (!sidebarService.isCollapsed()) {
-      <span class="nav-label">Payroll Aggregate</span>
+      <span class="nav-label">Payroll Cost Analytics</span>
       }
     </a>
 
@@ -115,7 +136,7 @@
         <path d="M18 2H6v7a6 6 0 0012 0V2z"/>
       </svg>
       @if (!sidebarService.isCollapsed()) {
-      <span class="nav-label">Earnings Ranking</span>
+      <span class="nav-label">Earnings Landscape</span>
       }
     </a>
 

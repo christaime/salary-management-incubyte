@@ -744,6 +744,99 @@ class PayrollPeriodEarnerRankingRepositoryAdapterTest {
     }
 
     // ------------------------------------------------------------------
+    // validateDraftsByPeriodId (rankings)
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("validateDraftsByPeriodId flips DRAFT rankings of the period to VALIDATED")
+    void validateDraftsByPeriodIdFlipsDrafts() {
+        int updated = adapter.validateDraftsByPeriodId(JANUARY);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertEquals(SEEDED_RANKINGS, updated);
+        List<PayrollPeriodEarnerRanking> after =
+                adapter.findByPayrollPeriodId(JANUARY);
+        assertEquals(SEEDED_RANKINGS, after.size());
+        assertTrue(after.stream()
+                .allMatch(r -> r.getStatus() == PayrollSummaryStatus.VALIDATED));
+    }
+
+    @Test
+    @DisplayName("validateDraftsByPeriodId is a no-op on a second call")
+    void validateDraftsByPeriodIdSecondCallIsNoOp() {
+        adapter.validateDraftsByPeriodId(JANUARY);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertEquals(0, adapter.validateDraftsByPeriodId(JANUARY));
+    }
+
+    @Test
+    @DisplayName("validateDraftsByPeriodId does not touch another period's DRAFT rankings")
+    void validateDraftsByPeriodIdIsolatesPeriod() {
+        // February has no seeded rankings; add two DRAFT rows for it.
+        // Re-uses the helpers at the bottom of the class; the IDs are new
+        // so the JPA insert does not clash with the January rows.
+        PayrollPeriodEarnerRanking febRanking = PayrollPeriodEarnerRanking.builder()
+                .payrollPeriod(payrollPeriod(FEBRUARY, "February 2026",
+                        LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28)))
+                .status(PayrollSummaryStatus.DRAFT)
+                .country(country(FR))
+                .department(department())
+                .role(role())
+                .employmentType(EmploymentType.FULL_TIME)
+                .direction(EarnerRankingDirection.TOP)
+                .rank(1)
+                .employee(employee(ADA))
+                .originalAmount(amount("5000.00", "EUR"))
+                .referenceAmount(amount("5376.34", "USD"))
+                .daysCovered(31)
+                .monthlyRateAmount(amount("5376.34", "USD"))
+                .build();
+        adapter.saveAll(List.of(febRanking));
+        entityManager.flush();
+        entityManager.clear();
+
+        adapter.validateDraftsByPeriodId(JANUARY);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<PayrollPeriodEarnerRanking> febAfter =
+                adapter.findByPayrollPeriodId(FEBRUARY);
+        assertEquals(1, febAfter.size());
+        assertEquals(PayrollSummaryStatus.DRAFT, febAfter.get(0).getStatus());
+    }
+
+    // ------------------------------------------------------------------
+    // validateDraftsPercentileByPeriodId
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("validateDraftsPercentileByPeriodId flips DRAFT percentiles to VALIDATED")
+    void validateDraftsPercentileByPeriodIdFlipsDrafts() {
+        int updated = adapter.validateDraftsPercentileByPeriodId(JANUARY);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertEquals(SEEDED_PERCENTILES, updated);
+        List<PayrollPeriodEarnerPercentile> after =
+                adapter.findPercentileByPayrollPeriodId(JANUARY);
+        assertEquals(SEEDED_PERCENTILES, after.size());
+        assertTrue(after.stream()
+                .allMatch(p -> p.getStatus() == PayrollSummaryStatus.VALIDATED));
+    }
+
+    @Test
+    @DisplayName("validateDraftsPercentileByPeriodId is a no-op on a second call")
+    void validateDraftsPercentileByPeriodIdSecondCallIsNoOp() {
+        adapter.validateDraftsPercentileByPeriodId(JANUARY);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertEquals(0, adapter.validateDraftsPercentileByPeriodId(JANUARY));
+    }
+    // ------------------------------------------------------------------
     // Fixtures
     // ------------------------------------------------------------------
 

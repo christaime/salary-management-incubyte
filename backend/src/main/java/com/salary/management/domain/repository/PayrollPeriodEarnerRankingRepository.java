@@ -35,6 +35,21 @@ public interface PayrollPeriodEarnerRankingRepository {
     int deleteDraftsPercentileByPayrollPeriodId(UUID payrollPeriodId);
 
     /**
+     * Promotes the DRAFT earner rankings of the given period to VALIDATED.
+     *
+     * @param periodId payroll period identifier
+     * @return number of rows updated
+     */
+    int validateDraftsByPeriodId(UUID periodId);
+
+    /**
+     * Promotes the DRAFT earner percentiles of the given period to VALIDATED.
+     *
+     * @param periodId payroll period identifier
+     * @return number of rows updated
+     */
+    int validateDraftsPercentileByPeriodId(UUID periodId);
+    /**
      * Ranks the VALIDATED summaries of a period, partitioned by one dimension (or globally
      * when {@code key} is {@code null}), and returns the top or bottom {@code limit}
      * employees of each partition.

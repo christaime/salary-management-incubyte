@@ -1,0 +1,6 @@
+{
+  "code": "NETWORK_OR_SERVER_ERROR",
+  "message": "Server unreachable",
+  "severity": "ERROR",
+  "errors": []
+}

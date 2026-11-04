@@ -71,24 +71,24 @@
         </div>
 
         <div class="relative pt-6 pb-2">
-          <span data-testid="cadence-monthly-min" [attr.data-value]="monthlyStats.min.amount" class="absolute left-0 top-0 text-[11px] font-mono font-semibold text-slate-700">{{ monthlyStats.min.amount | currency:monthlyStats.min.currency:'symbol':'1.2-2' }}</span>
-          <span data-testid="cadence-monthly-max" [attr.data-value]="monthlyStats.max.amount" class="absolute right-0 top-0 text-[11px] font-mono font-semibold text-slate-700">{{ monthlyStats.max.amount | currency:monthlyStats.max.currency:'symbol':'1.2-2' }}</span>
-
-          <div class="absolute top-0 transform -translate-x-1/2 flex flex-col items-center pointer-events-none" [style.left.%]="monthlyAvgPosition()">
+          <!-- Floating Average Badge positioned cleanly at top -->
+          <div class="absolute top-0 transform -translate-x-1/2 flex flex-col items-center pointer-events-none z-10" [style.left.%]="monthlyAvgPosition()">
               <span data-testid="cadence-monthly-avg" [attr.data-value]="monthlyStats.average.amount" class="bg-slate-900 text-white text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded shadow-xs whitespace-nowrap">
                 Avg {{ monthlyStats.average.amount | currency:monthlyStats.average.currency:'symbol':'1.2-2' }}
               </span>
             <div class="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5"></div>
           </div>
 
+          <!-- Progress Bar Line -->
           <div class="relative h-2.5 w-full bg-slate-200/70 rounded-full overflow-hidden">
             <div class="absolute h-full rounded-full bg-linear-to-r from-slate-700 via-slate-800 to-slate-900 w-full"></div>
           </div>
 
-          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-2">
-            <span>Min earning</span>
-            <span>Median earning</span>
-            <span>Max earning</span>
+          <!-- Min / Max values relocated to footer row -->
+          <div class="flex items-center justify-between text-[11px] text-slate-500 mt-2 font-mono">
+            <span data-testid="cadence-monthly-min" [attr.data-value]="monthlyStats.min.amount">Min: <strong class="text-slate-700">{{ monthlyStats.min.amount | currency:monthlyStats.min.currency:'symbol':'1.2-2' }}</strong></span>
+            <span class="text-slate-400 text-[10px] font-sans">Median earning</span>
+            <span data-testid="cadence-monthly-max" [attr.data-value]="monthlyStats.max.amount">Max: <strong class="text-slate-700">{{ monthlyStats.max.amount | currency:monthlyStats.max.currency:'symbol':'1.2-2' }}</strong></span>
           </div>
         </div>
       </div>
@@ -131,24 +131,24 @@
         </div>
 
         <div class="relative pt-6 pb-2">
-          <span data-testid="cadence-biweekly-min" [attr.data-value]="biWeeklyStats.min.amount" class="absolute left-0 top-0 text-[11px] font-mono font-semibold text-slate-700">{{ biWeeklyStats.min.amount | currency:biWeeklyStats.min.currency:'symbol':'1.2-2' }}</span>
-          <span data-testid="cadence-biweekly-max" [attr.data-value]="biWeeklyStats.max.amount" class="absolute right-0 top-0 text-[11px] font-mono font-semibold text-slate-700">{{ biWeeklyStats.max.amount | currency:biWeeklyStats.max.currency:'symbol':'1.2-2' }}</span>
-
-          <div class="absolute top-0 transform -translate-x-1/2 flex flex-col items-center pointer-events-none" [style.left.%]="biWeeklyAvgPosition()">
+          <!-- Floating Average Badge positioned cleanly at top -->
+          <div class="absolute top-0 transform -translate-x-1/2 flex flex-col items-center pointer-events-none z-10" [style.left.%]="biWeeklyAvgPosition()">
               <span data-testid="cadence-biweekly-avg" [attr.data-value]="biWeeklyStats.average.amount" class="bg-blue-600 text-white text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded shadow-xs whitespace-nowrap">
                 Avg {{ biWeeklyStats.average.amount | currency:biWeeklyStats.average.currency:'symbol':'1.2-2' }}
               </span>
             <div class="w-1.5 h-1.5 bg-blue-600 rotate-45 -mt-0.5"></div>
           </div>
 
+          <!-- Progress Bar Line -->
           <div class="relative h-2.5 w-full bg-blue-100 rounded-full overflow-hidden">
             <div class="absolute h-full rounded-full bg-linear-to-r from-blue-400 via-blue-500 to-blue-600 w-full"></div>
           </div>
 
-          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-2">
-            <span>Min earning</span>
-            <span>Median earning</span>
-            <span>Max earning</span>
+          <!-- Min / Max values relocated to footer row -->
+          <div class="flex items-center justify-between text-[11px] text-slate-500 mt-2 font-mono">
+            <span data-testid="cadence-biweekly-min" [attr.data-value]="biWeeklyStats.min.amount">Min: <strong class="text-slate-700">{{ biWeeklyStats.min.amount | currency:biWeeklyStats.min.currency:'symbol':'1.2-2' }}</strong></span>
+            <span class="text-slate-400 text-[10px] font-sans">Median earning</span>
+            <span data-testid="cadence-biweekly-max" [attr.data-value]="biWeeklyStats.max.amount">Max: <strong class="text-slate-700">{{ biWeeklyStats.max.amount | currency:biWeeklyStats.max.currency:'symbol':'1.2-2' }}</strong></span>
           </div>
         </div>
       </div>

@@ -1,0 +1,17 @@
+{
+  "exist": [],
+  "newPeriods": [
+    {
+      "name": "BW1 May 2026",
+      "startDate": "2026-05-01",
+      "endDate": "2026-05-14",
+      "frequency": "BI_WEEKLY"
+    },
+    {
+      "name": "BW2 May 2026",
+      "startDate": "2026-05-15",
+      "endDate": "2026-05-28",
+      "frequency": "BI_WEEKLY"
+    }
+  ]
+}

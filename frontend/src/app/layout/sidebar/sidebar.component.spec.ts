@@ -49,7 +49,7 @@ describe('SidebarComponent', () => {
     service.isOpen.set(true);
     rerender();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelectorAll('.nav-item').length).toBe(6);
+    expect(el.querySelectorAll('.nav-item').length).toBe(7);
   });
 
   it('exposes the employee, aggregate, and earnings ranking nav items', () => {
@@ -71,7 +71,7 @@ describe('SidebarComponent', () => {
     rerender();
     const el = fixture.nativeElement as HTMLElement;
 
-    expect(el.querySelectorAll('.nav-label').length).toBe(6);
+    expect(el.querySelectorAll('.nav-label').length).toBe(7);
     expect(el.querySelector('[data-testid="sidebar-title"]')?.textContent)
       .toContain('Navigation');
   });

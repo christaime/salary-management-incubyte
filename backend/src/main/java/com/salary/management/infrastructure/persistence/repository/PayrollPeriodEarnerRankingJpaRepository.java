@@ -288,4 +288,19 @@ public interface PayrollPeriodEarnerRankingJpaRepository
             @Param("departmentId") UUID departmentId,
             @Param("roleId") UUID roleId,
             @Param("employmentType") EmploymentType employmentType);
+
+    /**
+     * Promotes every DRAFT ranking of the given period to VALIDATED.
+     *
+     * @param payrollPeriodId payroll period identifier
+     * @return number of rows updated
+     */
+    @Modifying
+    @Query("""
+            UPDATE PayrollPeriodEarnerRankingEntity r
+            SET r.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.VALIDATED
+            WHERE r.payrollPeriodId = :payrollPeriodId
+              AND r.status = com.salary.management.domain.model.enums.PayrollSummaryStatus.DRAFT
+            """)
+    int validateDraftsByPayrollPeriodId(@Param("payrollPeriodId") UUID payrollPeriodId);
 }

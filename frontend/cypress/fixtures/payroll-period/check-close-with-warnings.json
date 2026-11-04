@@ -1,0 +1,36 @@
+{
+  "periods": [
+    {
+      "id": "m-1",
+      "name": "May 2026",
+      "startDate": "2026-05-01",
+      "endDate": "2026-05-31",
+      "frequency": "MONTHLY",
+      "closed": false,
+      "referenced": false
+    },
+    {
+      "id": "bw-1",
+      "name": "BW1 May 2026",
+      "startDate": "2026-05-01",
+      "endDate": "2026-05-14",
+      "frequency": "BI_WEEKLY",
+      "closed": false,
+      "referenced": false
+    }
+  ],
+  "warnings": [
+    {
+      "code": "MISSING_PAYROLL_SUMMARY",
+      "severity": "WARNING",
+      "message": "Some employees with an in-effect assignment have no payroll summary",
+      "details": {
+        "count": 3,
+        "employees": [
+          { "id": "e-1", "matricule": "EMP-000001", "name": "Amadou Diallo" },
+          { "id": "e-2", "matricule": "EMP-000002", "name": "Sophia Montgomery" }
+        ]
+      }
+    }
+  ]
+}
