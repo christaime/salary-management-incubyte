@@ -57,7 +57,18 @@
       <mat-label>Status</mat-label>
       <mat-select data-testid="filter-status" formControlName="status">
         @for (o of statusOptions; track o.label) {
-        <mat-option [value]="o.value">{{ o.label }}</mat-option>
+        @if(o.value===statusNonExistentValue){
+          <mat-divider></mat-divider>
+        }
+        <mat-option [value]="o.value">
+          @if(o.value===statusNonExistentValue){
+            <mat-icon matTooltip="Shown for employee/period that have no payroll summary." aria-hidden="true">help_outline</mat-icon>
+          }
+          <span>{{ o.label }}</span>
+        </mat-option>
+          @if(!o.value){
+            <mat-divider></mat-divider>
+          }
         }
       </mat-select>
     </mat-form-field>

@@ -231,6 +231,7 @@ describe('Payroll summary list page', () => {
     cy.get('[data-testid="filter-apply"]').click();
 
     cy.wait('@searchPayrollSummaries').then(({ request }) => {
+      console.log({request});
       expect(request.query['status']).to.eq('DRAFT');
       expect(request.query['payrollFrequency']).to.eq('MONTHLY');
       expect(request.query['employeeId']).to.eq('emp-1');

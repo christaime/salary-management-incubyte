@@ -180,7 +180,7 @@ describe('Aggregate Report Page', () => {
     cy.get('[data-testid="blocker-banner"]').should('be.visible');
     cy.get('[data-testid="warning-banner"]').should('not.exist');
     cy.get('[data-testid="blocker-employee-emp-1"]').should('be.visible').and('contain', 'EMP001');
-    cy.get('[data-testid="blocker-more-UNVALIDATED_PAYROLL_SUMMARY"]').should('be.visible').and('contain', 'more not shown');
+    cy.get('[data-testid="blocker-more-UNVALIDATED_PAYROLL_SUMMARY"]').should('be.visible').and('contain', 'and more');
   });
 
   /**
