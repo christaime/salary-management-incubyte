@@ -102,19 +102,24 @@ public class DynamicRankingBuilder {
         String selectDimensions = selectDimensions(key);
         String selectRawDims    = selectRawDimensions(key);
 
+        // * 1.0 forces real arithmetic in the currency-conversion branch so a rate
+        // that happens to be a whole number cannot trigger INTEGER / INTEGER.
         String referenceTotalExpr = """
                 SUM(CASE
                       WHEN s.amounts.currency = :refCurrency THEN s.amounts.total
-                      ELSE s.amounts.total * cr.referenceAmount / cr.rate
+                      ELSE s.amounts.total * cr.referenceAmount * 1.0 / cr.rate
                     END)
                 """.trim();
 
+        // * 1.0 on the SUM forces real division; without it 2400 / 28 truncates
+        // to 85 because SQLite does INTEGER / INTEGER when both sides are integer-
+        // valued. The monthlyRate would come out as 2550 instead of 2571.43.
         String daysCoveredExpr = """
-                SUM(CASE
+                (SUM(CASE
                       WHEN p.frequency = 'MONTHLY'   THEN :daysInMonth
                       WHEN p.frequency = 'BI_WEEKLY' THEN :daysInBiweekly
                       ELSE 0
-                    END)
+                    END) * 1.0)
                 """.trim();
 
         String monthlyRateExpr = """
@@ -188,7 +193,7 @@ public class DynamicRankingBuilder {
                     .setParameter("limit", limit)
                     .getResultList()
                     .stream()
-                    .map(t -> toRankingEntity(t,period.getId(), direction, key))
+                    .map(t -> toRankingEntity(t, period.getId(), direction, key))
                     .toList();
         } catch (RuntimeException ex) {
             log.error("rank query failed: period={} direction={} group={} limit={} "
@@ -277,23 +282,26 @@ public class DynamicRankingBuilder {
             }
         }
 
+        // * 1.0 on both numerator and denominator forces real division. Without
+        // it 600 / 31 truncates to 19, and annualized comes out as 7068 instead
+        // of 7200.
         String annualizedExpr = """
             CASE
-              WHEN SUM(CASE
+              WHEN (SUM(CASE
                          WHEN p.frequency = 'MONTHLY'   THEN :daysInMonth
                          WHEN p.frequency = 'BI_WEEKLY' THEN :daysInBiweekly
                          ELSE 0
-                       END) = 0
+                       END) * 1.0) = 0
               THEN NULL
               ELSE ((SUM(CASE
                            WHEN s.currency = :refCurrency THEN s.total
-                           ELSE s.total * cr.reference_amount / cr.rate
+                           ELSE s.total * cr.reference_amount * 1.0 / cr.rate
                          END)
-                     / SUM(CASE
+                     / (SUM(CASE
                              WHEN p.frequency = 'MONTHLY'   THEN :daysInMonth
                              WHEN p.frequency = 'BI_WEEKLY' THEN :daysInBiweekly
                              ELSE 0
-                           END))
+                           END) * 1.0))
                     * :daysInMonth) * 12
             END
             """.trim();
@@ -432,10 +440,23 @@ public class DynamicRankingBuilder {
         return out;
     }
 
+    /**
+     * Coerces any SQL number to {@link BigDecimal}. Hibernate infers the Java
+     * type of a SQL {@code REAL} expression as {@code Float}, and
+     * {@code Tuple.get(name, BigDecimal.class)} refuses to convert it. Reading
+     * the raw {@code Object} and coercing here preserves the value regardless of
+     * the underlying JDBC type.
+     */
     private BigDecimal toBigDecimal(Object value) {
-        if (value == null) return null;
-        if (value instanceof BigDecimal bd) return bd;
-        if (value instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal bd) {
+            return bd;
+        }
+        if (value instanceof Number n) {
+            return BigDecimal.valueOf(n.doubleValue());
+        }
         return new BigDecimal(value.toString());
     }
 
@@ -571,16 +592,17 @@ public class DynamicRankingBuilder {
 
         e.setDaysCovered(((Number) t.get("daysCovered")).intValue());
 
+        // Hibernate infers the SQL REAL type as Float, so read as Object and coerce.
         e.setMonthlyRateAmount(AmountEmbeddable.builder()
-                .amount(toScaled(t.get("monthlyRate", BigDecimal.class)))
+                .amount(toScaled(toBigDecimal(t.get("monthlyRate"))))
                 .currency(t.get("referenceCurrency", String.class))
                 .build());
 
         e.setOriginalAmount(toAmount(
-                t.get("originalTotal", BigDecimal.class),
+                toBigDecimal(t.get("originalTotal")),
                 t.get("originalCurrency", String.class)));
         e.setReferenceAmount(toAmount(
-                t.get("referenceTotal", BigDecimal.class),
+                toBigDecimal(t.get("referenceTotal")),
                 t.get("referenceCurrency", String.class)));
         return e;
     }

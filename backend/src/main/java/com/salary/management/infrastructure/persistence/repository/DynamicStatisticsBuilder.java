@@ -34,36 +34,6 @@ public class DynamicStatisticsBuilder {
     private final DepartmentJpaRepository departmentJpaRepository;
     private final RoleJpaRepository roleJpaRepository;
 
-    /**
-     * Returns, per partition, the minimum and maximum reference amount among the VALIDATED
-     * payroll summaries of the given frequency, converting each summary's total to
-     * {@code referenceCurrencyCode} against the current rates.
-     *
-     * <p>The query reads from {@code payroll_summaries} directly (not from the ranking
-     * snapshot). It computes {@code MIN} / {@code MAX} over the individual summary totals,
-     * partitioned by the requested dimension — it does <em>not</em> aggregate per employee
-     * first. That is, the result is the smallest / largest <em>paycheck</em> in the
-     * partition, not the employee with the smallest / largest total.</p>
-     *
-     * <p>Rows whose currency has no rate against the requested reference currency are
-     * excluded from the aggregate; the {@code MIN} and {@code MAX} therefore only compare
-     * convertible amounts. Rows whose currency already <em>is</em> the reference currency
-     * are included without conversion.</p>
-     *
-     * <p>Each row of the result corresponds to one partition instance, not to one
-     * (partition, currency) combination.</p>
-     *
-     * @param startDate             periods startRange to include
-     * @param endDate               periods endRange to include
-     * @param key                   partition dimension, or {@code null} for global
-     * @param frequency             period frequency to consider
-     * @param referenceCurrencyCode currency to convert to
-     * @param countryIds            country filter, or {@code null}
-     * @param departmentIds         department filter, or {@code null}
-     * @param roleIds               role filter, or {@code null}
-     * @param employmentTypes       employment type filter, or {@code null}
-     * @return one row per partition, with the min and max reference amounts
-     */
     public List<AggregateRowProjection> minMax(
             LocalDate startDate, LocalDate endDate,
             GroupKey key,
@@ -87,31 +57,34 @@ public class DynamicStatisticsBuilder {
         String filter            = filterForSummary(
                 key, countryIds, departmentIds, roleIds, employmentTypes);
 
+        // * 1.0 forces real division. Without it, SQLite does INTEGER / INTEGER
+        // when cr.referenceAmount and cr.rate are both whole numbers (NUMERIC
+        // affinity stores whole values as INTEGER).
         String jpql = """
                 SELECT %s
                        MIN(
                          CASE
                            WHEN s.amounts.currency = :referenceCurrencyCode
                              THEN s.amounts.total
-                           ELSE s.amounts.total * cr.referenceAmount / cr.rate
+                           ELSE s.amounts.total * cr.referenceAmount * 1.0 / cr.rate
                          END
                        )                                 AS minReferenceAmount,
                        MAX(
                          CASE
                            WHEN s.amounts.currency = :referenceCurrencyCode
                              THEN s.amounts.total
-                           ELSE s.amounts.total * cr.referenceAmount / cr.rate
+                           ELSE s.amounts.total * cr.referenceAmount * 1.0 / cr.rate
                          END
                        )                                 AS maxReferenceAmount,
                        SUM(
                          CASE
                            WHEN s.amounts.currency = :referenceCurrencyCode
                              THEN s.amounts.total
-                           ELSE ROUND(s.amounts.total * cr.referenceAmount / cr.rate, 2)
+                           ELSE ROUND(s.amounts.total * cr.referenceAmount * 1.0 / cr.rate, 2)
                          END
                        )                                 AS totalReferenceAmount,
-                       COUNT(DISTINCT per.id)           AS periodCount,
-                       COUNT(DISTINCT s.employee.id)           AS employeeCount
+                       COUNT(DISTINCT per.id)            AS periodCount,
+                       COUNT(DISTINCT s.employee.id)     AS employeeCount
                 FROM PayrollSummaryEntity s
                 INNER JOIN PayrollPeriodEntity per ON per.id = s.payrollPeriod.id
                 LEFT JOIN CurrencyRateEntity cr
@@ -160,7 +133,7 @@ public class DynamicStatisticsBuilder {
 
         int rawCount = tuples.size();
         List<AggregateRowProjection> projections = tuples.stream()
-                .map(t -> toProjection(t, key,frequency))
+                .map(t -> toProjection(t, key, frequency))
                 .filter(Objects::nonNull)
                 .toList();
 
@@ -188,10 +161,6 @@ public class DynamicStatisticsBuilder {
         };
     }
 
-    /**
-     * Returns the complete {@code GROUP BY} clause, including the keyword, or the empty
-     * string for the global partition where no grouping is required.
-     */
     private String groupByClause(GroupKey key) {
         if (key == null) {
             return "";
@@ -206,12 +175,6 @@ public class DynamicStatisticsBuilder {
         };
     }
 
-    /**
-     * Returns the user-supplied dimension filters as JPQL fragments, or the empty string
-     * when none of the filters applies to the requested {@code key}. These narrow the
-     * population the aggregate runs over; they are distinct from the (removed) partition
-     * filter that the previous ranking-based query required.
-     */
     private String filterForSummary(GroupKey key,
                                     Collection<UUID> countryIds,
                                     Collection<UUID> departmentIds,
@@ -233,7 +196,8 @@ public class DynamicStatisticsBuilder {
         return sb.toString();
     }
 
-    private AggregateRowProjection toProjection(Tuple t, GroupKey key, PayrollPeriodFrequency frequency) {
+    private AggregateRowProjection toProjection(Tuple t, GroupKey key,
+                                                PayrollPeriodFrequency frequency) {
         AggregateRowProjection p = new AggregateRowProjection();
         if (key == GroupKey.COUNTRY) {
             UUID countryId = t.get("countryId", UUID.class);
@@ -278,11 +242,11 @@ public class DynamicStatisticsBuilder {
         Long employeeCount = t.get("employeeCount", Long.class);
         Long periodCount = t.get("periodCount", Long.class);
         BigDecimal totalReferenceAmount = t.get("totalReferenceAmount", BigDecimal.class);
-        if(frequency.equals(PayrollPeriodFrequency.MONTHLY)){
+        if (frequency.equals(PayrollPeriodFrequency.MONTHLY)) {
             p.monthlyTotal = totalReferenceAmount;
             p.monthlyPeriodCount = periodCount;
             p.monthlyEmployeeCount = employeeCount;
-        }else{
+        } else {
             p.biWeeklyTotal = totalReferenceAmount;
             p.biWeeklyPeriodCount = periodCount;
             p.biWeeklyEmployeeCount = employeeCount;
