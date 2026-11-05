@@ -16,6 +16,7 @@ import {
   FormGroup,
   ReactiveFormsModule,
 } from '@angular/forms';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -44,7 +45,7 @@ import {
 } from '@features/payroll-period/models';
 import { PayrollSummaryStatus } from '../../models/payroll-summary.model';
 import { EmployeePickerComponent } from '../employee-picker/employee-picker.component';
-
+import { MatDividerModule } from '@angular/material/divider';
 /** UI-only sentinel for the "Non existent" pseudo-status. Never sent to the backend. */
 export const STATUS_NON_EXISTENT = '__NON_EXISTENT__' as const;
 export type StatusSelectValue = PayrollSummaryStatus | typeof STATUS_NON_EXISTENT | null;
@@ -76,6 +77,8 @@ export interface PayrollFilterValue {
     MatIconModule,
     PayrollPeriodPickerComponent,
     EmployeePickerComponent,
+    MatDividerModule,
+    MatTooltipModule
   ],
   templateUrl: './payroll-summary-filter-bar.component.html',
   styleUrl: './payroll-summary-filter-bar.component.scss',
@@ -188,11 +191,12 @@ export class PayrollSummaryFilterBarComponent implements OnInit {
 
   /** Status options including the pseudo-status. */
   readonly statusOptions: { value: StatusSelectValue; label: string }[] = [
-    { value: null, label: 'All statuses' },
+    { value: null, label: 'Any status' },
     { value: 'DRAFT', label: 'Draft' },
     { value: 'VALIDATED', label: 'Validated' },
-    { value: STATUS_NON_EXISTENT, label: 'Non existent' },
+    { value: STATUS_NON_EXISTENT, label: 'Missing' },
   ];
+  readonly statusNonExistentValue = STATUS_NON_EXISTENT;
 
   private readonly formValue = toSignal(this.form.valueChanges, {
     initialValue: this.form.getRawValue(),

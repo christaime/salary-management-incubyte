@@ -109,27 +109,27 @@ public interface PayrollPeriodAggregateJpaRepository
            SUM(CASE
                  WHEN s.amounts.currency = :refCurrency THEN s.amounts.base
                  WHEN cr.rate IS NULL                   THEN 0
-                 ELSE ROUND(s.amounts.base * cr.referenceAmount / cr.rate, 2)
+                 ELSE ROUND(s.amounts.base * cr.referenceAmount * 1.0 / cr.rate, 2)
                END)                       AS referenceBase,
            SUM(CASE
                  WHEN s.amounts.currency = :refCurrency THEN s.amounts.variable
                  WHEN cr.rate IS NULL                   THEN 0
-                 ELSE ROUND(s.amounts.variable * cr.referenceAmount / cr.rate, 2)
+                 ELSE ROUND(s.amounts.variable * cr.referenceAmount * 1.0 / cr.rate, 2)
                END)                       AS referenceVariable,
            SUM(CASE
                  WHEN s.amounts.currency = :refCurrency THEN s.amounts.allowances
                  WHEN cr.rate IS NULL                   THEN 0
-                 ELSE ROUND(s.amounts.allowances * cr.referenceAmount / cr.rate, 2)
+                 ELSE ROUND(s.amounts.allowances * cr.referenceAmount * 1.0 / cr.rate, 2)
                END)                       AS referenceAllowances,
            SUM(CASE
                  WHEN s.amounts.currency = :refCurrency THEN s.amounts.employerTaxes
                  WHEN cr.rate IS NULL                   THEN 0
-                 ELSE ROUND(s.amounts.employerTaxes * cr.referenceAmount / cr.rate, 2)
+                 ELSE ROUND(s.amounts.employerTaxes * cr.referenceAmount * 1.0 / cr.rate, 2)
                END)                       AS referenceEmployerTaxes,
            SUM(CASE
                  WHEN s.amounts.currency = :refCurrency THEN s.amounts.total
                  WHEN cr.rate IS NULL                   THEN 0
-                 ELSE ROUND(s.amounts.total * cr.referenceAmount / cr.rate, 2)
+                 ELSE ROUND(s.amounts.total * cr.referenceAmount * 1.0 / cr.rate, 2)
                END)                       AS referenceTotal,
            :refCurrency                   AS referenceCurrency
     FROM PayrollSummaryEntity s

@@ -88,8 +88,8 @@ public interface EmployeePeriodicAssignmentJpaRepository
          AND a.startDate <= p.endDate
          AND (a.endDate IS NULL OR a.endDate >= p.startDate)
         WHERE a.inEffect = true
-          AND p.startDate <= :periodEnd
-          AND p.endDate >= :periodStart
+          AND p.startDate >= :periodStart
+          AND p.startDate < :periodEnd
           AND (:frequency IS NULL OR a.payrollFrequency = :frequency)
           AND NOT EXISTS (
               SELECT 1 FROM PayrollSummaryEntity s

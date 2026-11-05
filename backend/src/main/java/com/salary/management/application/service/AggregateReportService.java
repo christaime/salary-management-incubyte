@@ -10,6 +10,7 @@ import com.salary.management.application.dto.aggregate.StatisticsDto;
 import com.salary.management.application.dto.aggregate.StatisticsPerFrequency;
 import com.salary.management.application.exception.ReportBlockedException;
 import com.salary.management.common.exception.DomainValidationException;
+import com.salary.management.common.pagination.SortDirection;
 import com.salary.management.common.validation.ValidationError;
 import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.enums.GroupKey;
@@ -81,17 +82,15 @@ public class AggregateReportService {
         log.debug("Rebuilding snapshots for {} open period(s) of {} total",
                 toGenerate.size(), periods.size());
 
-        List<ReportWarning> collectedWarnings = new ArrayList<>();
+        PayrollPeriodSnapshotResult snapshotResult = PayrollPeriodSnapshotResult.empty();
         for (PayrollPeriod period : toGenerate) {
             log.debug("Building snapshot for periodId={}", period.getId());
-            PayrollPeriodSnapshotResult result = payrollPeriodSnapshotRepository.buildAndSaveAggregates(period);
-            collectedWarnings.addAll(result.warnings());
-            if (result.isBlocked()) {
-                log.warn("Snapshot build for periodId={} returned {} blocker(s); "
-                                + "aborting report generation",
-                        period.getId(), result.blockers().size());
-                throw new ReportBlockedException(result.blockers(), collectedWarnings);
-            }
+            snapshotResult = snapshotResult.merge(payrollPeriodSnapshotRepository.buildAndSaveAggregates(period));
+            log.debug("Snapshot status after warnings collected for periodId={}, warnings count={}, blockers count={}", period.getId(),snapshotResult.warnings().size(),snapshotResult.blockers().size());
+        }
+        if (snapshotResult.hasBlockers()) {
+            log.warn("Snapshot build returned {} blocker(s); aborting report generation",snapshotResult.blockers().size());
+            throw new ReportBlockedException(snapshotResult.blockers(), snapshotResult.warnings());
         }
 
         List<UUID> periodIds = periods.stream().map(PayrollPeriod::getId).toList();
@@ -121,7 +120,7 @@ public class AggregateReportService {
 
         log.info("Aggregate report generated: {} line(s), refCurrency={}, "
                         + "{} warning(s), {} period(s) in range",
-                lines.size(), referenceCurrency, collectedWarnings.size(), periods.size());
+                lines.size(), referenceCurrency, snapshotResult.warnings().size(), periods.size());
 
         return new AggregateReportResponse(
                 ReportKind.AGGREGATE,
@@ -129,7 +128,7 @@ public class AggregateReportService {
                 request.groupKeys(),
                 referenceCurrency,
                 lines,
-                collectedWarnings);
+                snapshotResult.warnings());
     }
 
     private ReportEffectiveFilters validate(AggregateReportRequest request) {
@@ -184,6 +183,8 @@ public class AggregateReportService {
                 .endDate(range.endDate())
                 .frequency(PayrollPeriodFrequency.MONTHLY)
                 .size(Integer.MAX_VALUE)
+                .sortBy("startDate")
+                .sortDirection(SortDirection.ASC)
                 .build();
         return payrollPeriodRepository.list(criteria);
     }

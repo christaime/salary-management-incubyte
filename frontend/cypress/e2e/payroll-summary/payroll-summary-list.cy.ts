@@ -231,6 +231,7 @@ describe('Payroll summary list page', () => {
     cy.get('[data-testid="filter-apply"]').click();
 
     cy.wait('@searchPayrollSummaries').then(({ request }) => {
+      console.log({request});
       expect(request.query['status']).to.eq('DRAFT');
       expect(request.query['payrollFrequency']).to.eq('MONTHLY');
       expect(request.query['employeeId']).to.eq('emp-1');
@@ -625,7 +626,7 @@ describe('Payroll summary list page', () => {
   describe('non-existent payroll summaries', () => {
     function selectNonExistentStatus(): void {
       cy.get('[data-testid="filter-status"]').click();
-      cy.get('mat-option').contains('Non existent').click();
+      cy.get('mat-option').contains('Missing').click();
     }
 
     it('sends nonExistent=true and no status param', () => {
@@ -661,7 +662,7 @@ describe('Payroll summary list page', () => {
       cy.get('[data-testid="status-badge-draft"]').should('not.exist');
       cy.get('[data-testid="status-badge-validated"]').should('not.exist');
       cy.get('[data-testid^="payroll-row-"]').each(($row) => {
-        expect($row.text()).to.contain('Non existent');
+        expect($row.text()).to.contain('Missing');
       });
     });
 

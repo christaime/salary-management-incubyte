@@ -32,7 +32,7 @@ import java.util.*;
 public class PayrollPeriodSnapshotRepositoryAdapter implements PayrollPeriodSnapshotRepository {
 
     private static final int RANKING_LIMIT = 5;
-    private static final int MAX_EMPLOYEES_IN_DETAILS = 5;
+    private static final int MAX_EMPLOYEES_IN_DETAILS = 6;
     private final PayrollSummaryJpaRepository payrollSummaryJpaRepository;
     private final EmployeePeriodicAssignmentJpaRepository employeePeriodicAssignmentJpaRepository;
     private final PayrollPeriodAggregateJpaRepository payrollPeriodAggregateJpaRepository;
@@ -245,11 +245,16 @@ public class PayrollPeriodSnapshotRepositoryAdapter implements PayrollPeriodSnap
                 null, null,
                 null, null,
                 null, null,
-                PageRequest.of(0, MAX_EMPLOYEES_IN_DETAILS ));
+                PageRequest.of(0, 2 * MAX_EMPLOYEES_IN_DETAILS ));
         countOut[0] = (int) page.getTotalElements();
         List<EmployeeRefDto> details = new ArrayList<>();
+        Set<UUID> employeeIds = new HashSet<>();
         for (PayrollSummaryEntity summary : page.getContent()) {
-            details.add(new EmployeeRefDto(summary.getEmployee().getId(), summary.getEmployee().getMatricule(), summary.getEmployee().getName()));
+            if(details.size() == MAX_EMPLOYEES_IN_DETAILS){ break;}
+            if( !employeeIds.contains(summary.getEmployee().getId()) ) {
+                employeeIds.add(summary.getEmployee().getId());
+                details.add(new EmployeeRefDto(summary.getEmployee().getId(), summary.getEmployee().getMatricule(), summary.getEmployee().getName()));
+            }
         }
         return details;
     }
@@ -262,11 +267,16 @@ public class PayrollPeriodSnapshotRepositoryAdapter implements PayrollPeriodSnap
                         .rangeEnd(period.getEndDate())
                         .status(PayrollSummaryStatus.DRAFT)
                         .build()),
-                PageRequest.of(0, MAX_EMPLOYEES_IN_DETAILS ));
+                PageRequest.of(0, 2 * MAX_EMPLOYEES_IN_DETAILS ));
         countOut[0] = (int) page.getTotalElements();
         List<EmployeeRefDto> details = new ArrayList<>();
+        Set<UUID> employeeIds = new HashSet<>();
         for (PayrollSummaryEntity summary : page.getContent()) {
-            details.add(new EmployeeRefDto(summary.getEmployee().getId(), summary.getEmployee().getMatricule(), summary.getEmployee().getName()));
+            if(details.size() == MAX_EMPLOYEES_IN_DETAILS){ break;}
+            if( !employeeIds.contains(summary.getEmployee().getId()) ) {
+                employeeIds.add(summary.getEmployee().getId());
+                details.add(new EmployeeRefDto(summary.getEmployee().getId(), summary.getEmployee().getMatricule(), summary.getEmployee().getName()));
+            }
         }
         return details;
     }

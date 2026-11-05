@@ -96,7 +96,7 @@ public class RankingReportService {
             log.debug("Period {} is open; rebuilding rankings snapshot", period.getId());
             PayrollPeriodSnapshotResult result = payrollPeriodSnapshotRepository.buildAndSaveRankings(period);
             warnings = new ArrayList<>(result.warnings());
-            if (result.isBlocked()) {
+            if (result.hasBlockers()) {
                 log.warn("Snapshot build for periodId={} returned {} blocker(s); aborting report generation",
                         period.getId(), result.blockers().size());
                 throw new ReportBlockedException(result.blockers(), warnings);

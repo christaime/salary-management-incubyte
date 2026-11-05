@@ -5,10 +5,14 @@ import com.salary.management.application.dto.aggregate.AggregateReportRequest;
 import com.salary.management.application.dto.aggregate.AggregateReportResponse;
 import com.salary.management.application.dto.DateRange;
 import com.salary.management.application.dto.RefDto;
+import com.salary.management.application.exception.ReportBlockedException;
 import com.salary.management.common.exception.DomainValidationException;
 import com.salary.management.domain.model.PayrollPeriod;
 import com.salary.management.domain.model.enums.GroupKey;
 import com.salary.management.domain.model.enums.PayrollPeriodFrequency;
+import com.salary.management.domain.model.enums.ReportWarningCode;
+import com.salary.management.domain.model.values.PayrollPeriodSnapshotResult;
+import com.salary.management.domain.model.values.ReportWarning;
 import com.salary.management.domain.repository.*;
 import com.salary.management.domain.repository.criteria.PayrollPeriodCriteria;
 import com.salary.management.domain.repository.criteria.ReportEffectiveFilters;
@@ -25,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -36,8 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 /** Unit tests for {@link AggregateReportService}. */
 @ExtendWith(MockitoExtension.class)
@@ -243,6 +247,156 @@ class AggregateReportServiceTest {
     }
 
     // ------------------------------------------------------------------
+// Snapshot warning collection — all warnings are collected before
+// the ReportBlockedException is thrown. The loop over open periods
+// completes regardless of blockers; only after it does the exception
+// carry the merged result.
+// ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("all warnings across open periods are collected before the exception")
+    void collectsEveryWarningEvenAfterABlocker() {
+        when(currencyRateRepository.getReferenceCurrencyCode()).thenReturn(REFERENCE_CURRENCY);
+
+        PayrollPeriod jan = period(false, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        PayrollPeriod feb = period(false, "February 2026",
+                LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28));
+        PayrollPeriod mar = period(false, "March 2026",
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31));
+
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(jan, feb, mar));
+
+        // Period 1 → one warning, no blocker.
+        when(payrollPeriodSnapshotRepository.buildAndSaveAggregates(jan))
+                .thenReturn(new PayrollPeriodSnapshotResult(
+                        List.of(warning(ReportWarningCode.MISSING_PAYROLL_SUMMARY)),
+                        List.of()));
+
+        // Period 2 → one blocker (the one that ends up aborting the report).
+        when(payrollPeriodSnapshotRepository.buildAndSaveAggregates(feb))
+                .thenReturn(new PayrollPeriodSnapshotResult(
+                        List.of(),
+                        List.of(blocker(ReportWarningCode.MISSING_FX_RATE))));
+
+        // Period 3 → one warning that must survive the abort. This is the
+        // crux: the loop must continue past the blocker on period 2 so
+        // period 3's warning is collected.
+        when(payrollPeriodSnapshotRepository.buildAndSaveAggregates(mar))
+                .thenReturn(new PayrollPeriodSnapshotResult(
+                        List.of(warning(ReportWarningCode.UNVALIDATED_PAYROLL_SUMMARY)),
+                        List.of()));
+
+        AggregateReportRequest request = request(
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 3, 31),
+                List.of(), false, false);
+
+        ReportBlockedException ex = assertThrows(
+                ReportBlockedException.class, () -> service.generate(request));
+
+        assertEquals(2, ex.getWarnings().size());
+        assertTrue(ex.getWarnings().stream()
+                .anyMatch(w -> w.code() == ReportWarningCode.MISSING_PAYROLL_SUMMARY));
+        assertTrue(ex.getWarnings().stream()
+                .anyMatch(w -> w.code() == ReportWarningCode.UNVALIDATED_PAYROLL_SUMMARY));
+        assertEquals(1, ex.getBlockers().size());
+        assertEquals(ReportWarningCode.MISSING_FX_RATE, ex.getBlockers().get(0).code());
+
+        // Every period must have been queried — the loop completed.
+        verify(payrollPeriodSnapshotRepository, times(1)).buildAndSaveAggregates(jan);
+        verify(payrollPeriodSnapshotRepository, times(1)).buildAndSaveAggregates(feb);
+        verify(payrollPeriodSnapshotRepository, times(1)).buildAndSaveAggregates(mar);
+
+        // The report body is never assembled: the exception is thrown before
+        // queryAggregates runs.
+        verifyNoInteractions(reportDataRepository);
+    }
+
+    @Test
+    @DisplayName("warnings alone do not abort — the report is produced with them")
+    void warningsAloneDoNotAbort() {
+        when(currencyRateRepository.getReferenceCurrencyCode()).thenReturn(REFERENCE_CURRENCY);
+
+        PayrollPeriod jan = period(false, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        PayrollPeriod feb = period(false, "February 2026",
+                LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28));
+
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(jan, feb));
+        when(payrollPeriodSnapshotRepository.buildAndSaveAggregates(jan))
+                .thenReturn(new PayrollPeriodSnapshotResult(
+                        List.of(warning(ReportWarningCode.MISSING_PAYROLL_SUMMARY)),
+                        List.of()));
+        when(payrollPeriodSnapshotRepository.buildAndSaveAggregates(feb))
+                .thenReturn(new PayrollPeriodSnapshotResult(
+                        List.of(warning(ReportWarningCode.MISSING_PAYROLL_SUMMARY)),
+                        List.of()));
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(aggregateRow()));
+
+        AggregateReportResponse response = service.generate(
+                request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 28),
+                        List.of(GroupKey.COUNTRY), false, false));
+
+        // Both warnings survive to the response.
+        assertEquals(2, response.warnings().size());
+        assertTrue(response.warnings().stream()
+                .allMatch(w -> w.code() == ReportWarningCode.MISSING_PAYROLL_SUMMARY));
+
+        verify(payrollPeriodSnapshotRepository).buildAndSaveAggregates(jan);
+        verify(payrollPeriodSnapshotRepository).buildAndSaveAggregates(feb);
+    }
+
+    @Test
+    @DisplayName("warnings and a blocker from the same period both land in the exception")
+    void warningsAndBlockerFromSamePeriodAreBothReported() {
+        when(currencyRateRepository.getReferenceCurrencyCode()).thenReturn(REFERENCE_CURRENCY);
+
+        PayrollPeriod jan = period(false, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(jan));
+        when(payrollPeriodSnapshotRepository.buildAndSaveAggregates(jan))
+                .thenReturn(new PayrollPeriodSnapshotResult(
+                        List.of(warning(ReportWarningCode.MISSING_PAYROLL_SUMMARY)),
+                        List.of(blocker(ReportWarningCode.MISSING_REFERENCE_CURRENCY))));
+
+        ReportBlockedException ex = assertThrows(
+                ReportBlockedException.class,
+                () -> service.generate(request(LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 1, 31), List.of(), false, false)));
+
+        assertEquals(1, ex.getWarnings().size());
+        assertEquals(ReportWarningCode.MISSING_PAYROLL_SUMMARY, ex.getWarnings().get(0).code());
+        assertEquals(1, ex.getBlockers().size());
+        assertEquals(ReportWarningCode.MISSING_REFERENCE_CURRENCY,
+                ex.getBlockers().get(0).code());
+
+        verifyNoInteractions(reportDataRepository);
+    }
+
+    @Test
+    @DisplayName("only open periods are asked for a snapshot — closed periods are skipped")
+    void onlyOpenPeriodsAreSnapshotted() {
+        when(currencyRateRepository.getReferenceCurrencyCode()).thenReturn(REFERENCE_CURRENCY);
+
+        PayrollPeriod janClosed = period(true, "January 2026",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+        PayrollPeriod febOpen = period(false, "February 2026",
+                LocalDate.of(2026, 2, 1), LocalDate.of(2026, 2, 28));
+
+        when(payrollPeriodRepository.list(any())).thenReturn(List.of(janClosed, febOpen));
+        when(payrollPeriodSnapshotRepository.buildAndSaveAggregates(febOpen))
+                .thenReturn(new PayrollPeriodSnapshotResult(List.of(), List.of()));
+        when(reportDataRepository.queryAggregates(anyList(), anyList(), any()))
+                .thenReturn(List.of(aggregateRow()));
+
+        service.generate(request(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 28),
+                List.of(GroupKey.COUNTRY), false, false));
+
+        verify(payrollPeriodSnapshotRepository, never()).buildAndSaveAggregates(janClosed);
+        verify(payrollPeriodSnapshotRepository, times(1)).buildAndSaveAggregates(febOpen);
+    }
+    // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 
@@ -317,5 +471,13 @@ class AggregateReportServiceTest {
         p.minReferenceAmount = new BigDecimal(min);
         p.maxReferenceAmount = new BigDecimal(max);
         return p;
+    }
+
+    private ReportWarning warning(ReportWarningCode code) {
+        return new ReportWarning(code, ReportWarning.Severity.WARNING, "warning " + code, Map.of());
+    }
+
+    private ReportWarning blocker(ReportWarningCode code) {
+        return new ReportWarning(code, ReportWarning.Severity.BLOCKER, "blocker " + code, Map.of());
     }
 }
