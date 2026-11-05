@@ -68,7 +68,6 @@ describe('PayrollPeriodCloseDialogComponent', () => {
     currency: 'EUR',
   };
 
-  /** Convenience for generic-error throws that need the full envelope shape. */
   function err(
     partial: Partial<PayrollPeriodError> & { code: string; message: string },
   ): PayrollPeriodError {
@@ -368,9 +367,21 @@ describe('PayrollPeriodCloseDialogComponent', () => {
       return fixture.nativeElement.querySelector(`[data-testid="${id}"]`);
     }
 
-    it('blocked phase renders blockers with employee chips and more-count', () => {
-      // 5 total reported, 2 rendered → "+ 3 more not shown"
-      const blockerWide: EmployeeWarning = { ...WARN_EMPLOYEES, countConcerned: 5 };
+    it('blocked phase renders blockers with employee chips and truncation hint', () => {
+      // 8 summaries reported, 6 employees in the fixture. The chip list is
+      // capped at 5, and the truncation hint "… and more" is shown.
+      const blockerWide: EmployeeWarning = {
+        ...WARN_EMPLOYEES,
+        countConcerned: 8,
+        employees: [
+          { id: 'e1', matricule: 'EMP-1', name: 'A' },
+          { id: 'e2', matricule: 'EMP-2', name: 'B' },
+          { id: 'e3', matricule: 'EMP-3', name: 'C' },
+          { id: 'e4', matricule: 'EMP-4', name: 'D' },
+          { id: 'e5', matricule: 'EMP-5', name: 'E' },
+          { id: 'e6', matricule: 'EMP-6', name: 'F' },
+        ],
+      };
       preflightBlocked([blockerWide], []);
       mountAndDetect();
 
@@ -378,10 +389,16 @@ describe('PayrollPeriodCloseDialogComponent', () => {
       expect(byId('blocker-message-MISSING_PAYROLL_SUMMARY')!.textContent).toContain(
         'Some employees with an in-effect assignment have no payroll summary',
       );
-      expect(byId('blocker-count-MISSING_PAYROLL_SUMMARY')!.textContent).toContain('5');
+      expect(byId('blocker-count-MISSING_PAYROLL_SUMMARY')!.textContent).toContain('8');
+
+      // First 5 chips render; 6th is sliced off
       expect(byId('blocker-employee-e1')).toBeTruthy();
-      expect(byId('blocker-employee-e2')).toBeTruthy();
-      expect(byId('blocker-more-MISSING_PAYROLL_SUMMARY')!.textContent).toContain('3');
+      expect(byId('blocker-employee-e5')).toBeTruthy();
+      expect(byId('blocker-employee-e6')).toBeNull();
+
+      // Truncation hint
+      expect(byId('blocker-more-MISSING_PAYROLL_SUMMARY')!.textContent)
+        .toContain('… and more');
     });
 
     it('confirm phase with warnings renders the checkbox and "Accept and settle" button', () => {
@@ -394,7 +411,7 @@ describe('PayrollPeriodCloseDialogComponent', () => {
 
       const btn = byId('close-dialog-settle') as HTMLButtonElement;
       expect(btn.textContent).toContain('Accept and settle');
-      expect(btn.disabled).toBeTrue(); // checkbox not yet checked
+      expect(btn.disabled).toBeTrue();
     });
 
     it('confirm phase without warnings hides the warnings section and labels "Settle payroll"', () => {

@@ -91,33 +91,47 @@ describe('BlockerBannerComponent', () => {
     ).toContain('EMP-002 — Jane Roe');
   });
 
-  it('shows the "+ N more" hint when countConcerned > employees.length', () => {
+  it('shows the "… and more" hint when employees.length > 5', () => {
     createWith([
       {
         code: 'MISSING_PAYROLL_SUMMARY',
         message: 'Missing summaries',
         severity: 'BLOCKER',
-        countConcerned: 5,
-        employees: [{ id: '1', matricule: 'EMP-001', name: 'John Doe' }],
+        countConcerned: 8,
+        employees: [
+          { id: '1', matricule: 'EMP-001', name: 'A' },
+          { id: '2', matricule: 'EMP-002', name: 'B' },
+          { id: '3', matricule: 'EMP-003', name: 'C' },
+          { id: '4', matricule: 'EMP-004', name: 'D' },
+          { id: '5', matricule: 'EMP-005', name: 'E' },
+          { id: '6', matricule: 'EMP-006', name: 'F' },
+        ],
       } as BaseReportWarning,
     ]);
     const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('[data-testid="blocker-employee-5"]')).not.toBeNull();
+    expect(el.querySelector('[data-testid="blocker-employee-6"]')).toBeNull();
 
     const more = el.querySelector(
       '[data-testid="blocker-more-MISSING_PAYROLL_SUMMARY"]',
     ) as HTMLElement;
     expect(more).not.toBeNull();
-    expect(more.textContent).toContain('+ 4 more not shown');
+    expect(more.textContent).toContain('… and more');
   });
 
-  it('does not show the "+ N more" hint when all concerned employees are listed', () => {
+  it('does not show the "… and more" hint when employees.length <= 5', () => {
     createWith([
       {
         code: 'MISSING_PAYROLL_SUMMARY',
         message: 'Missing summaries',
         severity: 'BLOCKER',
-        countConcerned: 1,
-        employees: [{ id: '1', matricule: 'EMP-001', name: 'John Doe' }],
+        countConcerned: 3,
+        employees: [
+          { id: '1', matricule: 'EMP-001', name: 'A' },
+          { id: '2', matricule: 'EMP-002', name: 'B' },
+          { id: '3', matricule: 'EMP-003', name: 'C' },
+        ],
       } as BaseReportWarning,
     ]);
     const el = fixture.nativeElement as HTMLElement;
@@ -216,9 +230,7 @@ describe('BlockerBannerComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
 
     expect(el.textContent).toContain('Period is closed');
-    // No employee chips
     expect(el.querySelector('[data-testid^="blocker-employee-"]')).toBeNull();
-    // No count badge
     expect(el.querySelector('[data-testid^="blocker-count-"]')).toBeNull();
   });
 

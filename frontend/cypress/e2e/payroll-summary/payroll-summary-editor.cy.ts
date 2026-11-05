@@ -241,7 +241,7 @@ describe('Payroll summary editor page (create mode)', () => {
       cy.get('[data-testid="period-picker-year-2026"]').click();
       cy.wait('@getPeriods');
       cy.get('[data-testid="filter-status"]').click();
-      cy.get('mat-option').contains('Non existent').click();
+      cy.get('mat-option').contains('Missing').click();
       cy.get('[data-testid="filter-apply"]').click();
       cy.wait('@searchNonExistent');
 
@@ -269,7 +269,7 @@ describe('Payroll summary editor page (create mode)', () => {
       cy.get('[data-testid="period-picker-year-2026"]').click();
       cy.wait('@getPeriods');
       cy.get('[data-testid="filter-status"]').click();
-      cy.get('mat-option').contains('Non existent').click();
+      cy.get('mat-option').contains('Missing').click();
       cy.get('[data-testid="filter-apply"]').click();
       cy.wait('@searchNonExistent');
 
